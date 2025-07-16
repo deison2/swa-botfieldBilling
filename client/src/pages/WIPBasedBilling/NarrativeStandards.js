@@ -84,32 +84,42 @@ export default function NarrativeStandards() {
   const columns = [
     { name: 'Narrative', selector: row => row.Narrative, sortable: false, wrap: true },
     {
-    name: 'Job Name(s)',
-    sortable: true,
-    // This string is what the table will sort on:
-    selector: row =>
-      row.Idx
-        .map(i =>
-          i === 0
-            ? `${row.Serv} - Service Level Standard`
-            : (jobLookup[i] || `#${i}`)
-        )
-        .join(', '),
-    // This is what it will actually render, with newlines:
-    cell: row => {
-      const lines = row.Idx.map(i =>
-        i === 0
-          ? `${row.Serv} - Service Level Standard`
-          : (jobLookup[i] || `#${i}`)
-      );
+  name: 'Job Name(s)',
+  sortable: true,
+  // Value used for sorting
+  selector: row => {
+    if (row.Level === 'ALL') {
+      return '';
+    }
+    if (row.Level === 'SERV') {
+      return `${row.Serv} - Service Level Standard`;
+    }
+    // Default: map jobs by lookup
+    return row.Idx
+      .map(i => jobLookup[i] || `#${i}`)
+      .join(', ');
+  },
+  // Rendered cell (with line breaks)
+  cell: row => {
+    if (row.Level === 'ALL') {
+      return <div />;
+    }
+    if (row.Level === 'SERV') {
       return (
         <div style={{ whiteSpace: 'pre-wrap' }}>
-          {lines.join('\n')}
+          {`${row.Serv} - Service Level Standard`}
         </div>
       );
-    },
-    // ensure the cell can grow vertically
-    allowoverflow: true
+    }
+    const lines = row.Idx.map(i => jobLookup[i] || `#${i}`);
+    return (
+      <div style={{ whiteSpace: 'pre-wrap' }}>
+        {lines.join('\n')}
+      </div>
+    );
+  },
+  // allow the cell to grow vertically
+  allowoverflow: true
     },
     { name: 'Level', selector: row => row.Level, sortable: true },
     { name: 'Type', selector: row => row.Type, sortable: true },
