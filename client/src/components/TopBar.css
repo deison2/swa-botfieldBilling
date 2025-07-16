@@ -1,0 +1,56 @@
+/* components/TopBar.css */
+.topbar {
+  grid-column: 2 / 3;
+  grid-row: 1 / 2;
+  background: white;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 20px;
+  font-weight: 600;
+  font-size: 18px;
+  color: #333;
+  position: relative;
+}
+
+.topbar-left {
+  flex: 1;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.topbar-icons {
+  display: flex;
+  gap: 20px;
+}
+
+.icon-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 20px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+}
+
+.icon-button:hover {
+  color: #007bff;
+}
+
+.user-circle {
+  background-color: #007bff;
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 14px;
+  user-select: none;
+}

@@ -1,0 +1,974 @@
+[
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "WIP",
+    "Serv": "ATTEST",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO ATTEST SERVICES",
+    "uuid": "315cf739-5343-45d8-b408-47c359e7ca0e",
+    "isDefault": true
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      417
+    ],
+    "Type": "TIME",
+    "Serv": "ATTEST",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO ACCOUNTING STANDARDS IMPLEMENTATION",
+    "uuid": "89af30aa-177c-47ce-89e9-86d14b017a3b",
+    "isDefault": false
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "TIME",
+    "Serv": "ESTATE",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO ESTATE TAX SERVICES",
+    "uuid": "7d3a7ba8-b570-4dd2-9b4b-5684bb42aec5",
+    "isDefault": true
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "TIME",
+    "Serv": "INDTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO INDIVIDUAL TAX SERVICES",
+    "uuid": "bacc6266-39d8-40e7-bc10-6df06629f042",
+    "isDefault": true
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      34
+    ],
+    "Type": "TIME",
+    "Serv": "BUSTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO OTHER TAX SERVICES",
+    "uuid": "14508de7-8108-4a33-a9f1-4e1c02a2d2f8",
+    "isDefault": false
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "TIME",
+    "Serv": "TASTAX",
+    "Narrative": "PROJECT [PLACEHOLDER]",
+    "uuid": "03c18b44-51ef-4aea-84fb-68b9434d9299",
+    "isDefault": true
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      53
+    ],
+    "Type": "TIME",
+    "Serv": "ESTATE",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO PREPARATION OF FIDUCIARY INCOME TAX RETURNS",
+    "uuid": "2678a0f6-9592-4898-8f7f-2d98a613a7f7",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      29
+    ],
+    "Type": "TIME",
+    "Serv": "TAS",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO PREPARATION OF BUSINESS INCOME TAX RETURN",
+    "uuid": "0a528241-a661-4b1c-80e6-50e9741e9ceb",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      33
+    ],
+    "Type": "TIME",
+    "Serv": "INDTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED INCLUDING REVIEW OF NOTICE AND RELATED FEDERAL TAX CORRESPONDENCE",
+    "uuid": "34f62d7d-a435-4704-ad12-8ddbfc5cb635",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      193
+    ],
+    "Type": "TIME",
+    "Serv": "BUSTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO PREPARATION OF FEDERAL FORM 8027",
+    "uuid": "088a29ef-5936-4e8b-8923-c9618e9937d3",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      40
+    ],
+    "Type": "TIME",
+    "Serv": "AUDIT",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO EMPLOYEE BENEFIT AUDIT PLAN",
+    "uuid": "7c71a8f4-0abb-46c2-bc78-e4b4424d003b",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      408
+    ],
+    "Type": "TIME",
+    "Serv": "INDTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO 1031 EXCHANGE CONSULTING",
+    "uuid": "b30606cc-36d4-4431-86aa-7faf77dc2842",
+    "isDefault": false
+  },
+  {
+    "Level": "ALL",
+    "Idx": [
+      0
+    ],
+    "Type": "DISB",
+    "Serv": "ALL",
+    "Narrative": "OUT OF POCKET EXPENSES",
+    "uuid": "47bd08ec-8a7d-49c7-8d0c-ecd7da944cff",
+    "isDefault": true
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      59
+    ],
+    "Type": "TIME",
+    "Serv": "ESTATE",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO ESTATE PLANNING",
+    "uuid": "4063c532-22dd-48b0-bbd0-7828e776f6b7",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      261
+    ],
+    "Type": "TIME",
+    "Serv": "VAL",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO LITIGATION SUPPORT",
+    "uuid": "54bff445-34e3-4306-9dbe-a77a3c1eaec6",
+    "isDefault": false
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "TIME",
+    "Serv": "SALT",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO STATE AND LOCAL TAX",
+    "uuid": "9098a94b-bf54-4ae1-889c-c1c89e988bcd",
+    "isDefault": true
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      0
+    ],
+    "Type": "WIP",
+    "Serv": "VAL",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO BUSINESS VALUATION",
+    "uuid": "99d4e2f7-56f9-4407-bd49-53e31c24e1b3",
+    "isDefault": true
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      55
+    ],
+    "Type": "TIME",
+    "Serv": "ESTATE",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO PREPARATION OF FEDERAL FORM 706 ESTATE TAX RETURN",
+    "uuid": "e894f0c2-1587-459d-9ae3-77eeecce08e1",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      117
+    ],
+    "Type": "TIME",
+    "Serv": "INDTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO PREPARATION OF TAX ESTIMATES",
+    "uuid": "827fe68a-7e80-4b20-ac40-0eddd473b7b4",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      101
+    ],
+    "Type": "TIME",
+    "Serv": "INDTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO TAX PLANNING",
+    "uuid": "187b6930-f009-4784-8c8e-8c17c2289ab8",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      39
+    ],
+    "Type": "TIME",
+    "Serv": "AUDIT",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO AUDITED FINANCIAL STATEMENT",
+    "uuid": "9ef91698-a6dd-4af7-b829-923fc6fc18ac",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      44,
+      45
+    ],
+    "Type": "TIME",
+    "Serv": "ATTEST",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO SOC EXAMINATION",
+    "uuid": "ce7b64f2-9a14-416c-8e6b-217f3e35a774",
+    "isDefault": false
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "DISB",
+    "Serv": "ATTEST",
+    "Narrative": "OUT OF POCKET EXPENSES",
+    "uuid": "f89b181f-63c7-46fb-b17a-a276d68e77bd",
+    "isDefault": true
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      24,
+      25,
+      26,
+      186
+    ],
+    "Type": "TIME",
+    "Serv": "BUSTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO PREPARATION OF BUSINESS INCOME TAX RETURN",
+    "uuid": "3d1482fd-e0b3-41eb-b6cd-be090744b8d4",
+    "isDefault": false
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "TIME",
+    "Serv": "EOS",
+    "Narrative": "EOS IMPLEMENTATION",
+    "uuid": "26183d72-a63a-4cc7-ad46-e462199e51a1",
+    "isDefault": true
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "TIME",
+    "Serv": "GCC",
+    "Narrative": "PROFESSIONAL SERVICES INCLUDING MONTHLY ACCOUNTING SERVICES",
+    "uuid": "f06f9f4d-c748-482b-8774-67caf044bf95",
+    "isDefault": true
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      120
+    ],
+    "Type": "TIME",
+    "Serv": "BUSTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO R&D CONSULTING",
+    "uuid": "ce8d64a0-3299-47eb-8a41-d2db8aa0a0b0",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      166
+    ],
+    "Type": "TIME",
+    "Serv": "NFP",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO ASSISTANCE WITH FEDERAL FROM 1024 NOT FOR PROFIT APPLICATION",
+    "uuid": "7e329516-951e-40b7-bb06-e1244cdb427c",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      27
+    ],
+    "Type": "TIME",
+    "Serv": "NFP",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO PREPARATION OF NON-PROFIT INCOME TAX RETURNS",
+    "uuid": "a6a61a09-a3ff-4f00-9de4-b202f0728b82",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      37
+    ],
+    "Type": "TIME",
+    "Serv": "INDTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO FEDERAL TAX AUDIT",
+    "uuid": "703815a4-61f8-4aef-b0c2-0bb4d70fd06a",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      185
+    ],
+    "Type": "TIME",
+    "Serv": "BUSTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO PREPARATION OF FEDERAL FORM 2553 S-ELECTION",
+    "uuid": "7244d813-0a9c-42f3-8bb7-debc5804c1d3",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      51
+    ],
+    "Type": "TIME",
+    "Serv": "ATTEST",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO COMPILED FINANCIAL STATEMENT",
+    "uuid": "eaea520d-ef24-44be-a49e-82afbcfc620e",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      336
+    ],
+    "Type": "TIME",
+    "Serv": "TAS",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO TAX CONSULTING",
+    "uuid": "5171fb7d-8d2c-46d1-b326-2195c2eb3a32",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      407
+    ],
+    "Type": "TIME",
+    "Serv": "BUSTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO 1031 EXCHANGE CONSULTING",
+    "uuid": "4b26b56c-f898-4283-aceb-35d1aa8fe2e5",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      74
+    ],
+    "Type": "TIME",
+    "Serv": "VAL",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED INCLUDING BUSINESS VALULATION ENGAGEMENT",
+    "uuid": "67409246-6198-4b83-b587-61b5b8569117",
+    "isDefault": false
+  },
+  {
+    "Level": "ALL",
+    "Idx": [
+      0
+    ],
+    "Type": "ALL",
+    "Serv": "ALL",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED AS FOLLOWS :",
+    "uuid": "6b9a1533-9deb-43e3-9e5d-ef76c489b0c6",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      377
+    ],
+    "Type": "TIME",
+    "Serv": "VAL",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED INCLUDING FORENSIC CONSULTING SERVICES",
+    "uuid": "97a9768d-b9db-44f2-8085-91320f52049b",
+    "isDefault": false
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "WIP",
+    "Serv": "MAS",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO MANAGEMENT ADVISORY",
+    "uuid": "f0f9e256-024e-4381-b444-d8a1dfec688e",
+    "isDefault": true
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "WIP",
+    "Serv": "SALT",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO STATE AND LOCAL TAX",
+    "uuid": "d3d4e0e5-b6a9-4423-9cc7-ba85daae18f4",
+    "isDefault": true
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      23
+    ],
+    "Type": "TIME",
+    "Serv": "INDTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO PREPARATION OF INDIVIDUAL INCOME TAX RETURN",
+    "uuid": "36e184d7-e0bf-41ff-a2af-cd8134dd957d",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      493
+    ],
+    "Type": "TIME",
+    "Serv": "NFP",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO PREPARATION OF 990N",
+    "uuid": "cfc010c9-f711-4c34-bbd0-a21aaf8029c2",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      387
+    ],
+    "Type": "TIME",
+    "Serv": "INDTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO STATE TAX AUDIT",
+    "uuid": "46d6c68a-2cfb-46e4-8bd6-0879f55be3d4",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      213
+    ],
+    "Type": "TIME",
+    "Serv": "BUSTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO PREPARATION OF FEDERAL FORM 720 FEDERAL EXCISE TAX",
+    "uuid": "b068df60-9ae5-47a1-ab33-b0ae2cfd2b22",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      49
+    ],
+    "Type": "TIME",
+    "Serv": "ATTEST",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO CONTRACTORS LICENSE RENEWAL",
+    "uuid": "467d2d20-47be-4bfb-8da4-2b01779d075a",
+    "isDefault": false
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "WIP",
+    "Serv": "AUDIT",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO AUDIT SERVICES",
+    "uuid": "074fc5d0-b134-4084-adef-6135d05dec98",
+    "isDefault": true
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      257
+    ],
+    "Type": "TIME",
+    "Serv": "EOS",
+    "Narrative": "EOS IMPLEMENTATION",
+    "uuid": "3abbaf50-5429-4b21-b533-b95d2b50cc23",
+    "isDefault": false
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "TIME",
+    "Serv": "HR",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED AS FOLLOWS :",
+    "uuid": "52365db0-2ec9-482f-8ae9-857c71e0d46f",
+    "isDefault": true
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "TIME",
+    "Serv": "NFP",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED AS FOLLOWS :",
+    "uuid": "c3bc121a-5c88-44bb-bc0e-d29ba8bb08d4",
+    "isDefault": true
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "WIP",
+    "Serv": "TAS",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO TRANSACTION ADVISORY SERVICES",
+    "uuid": "42b3417f-8e3c-43e8-9303-d751eea77c54",
+    "isDefault": true
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      185
+    ],
+    "Type": "TIME",
+    "Serv": "TAS",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO PREPARATION OF FEDERAL FORM 2553 S-ELECTION",
+    "uuid": "2d2f7fd5-4256-4e46-abb2-c88540335d9e",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      386
+    ],
+    "Type": "TIME",
+    "Serv": "INDTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO PREPARATION OF AMENDED INDIVIDUAL INCOME TAX RETURN",
+    "uuid": "aa626496-6227-4d58-9356-1ee39b9c6685",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      38
+    ],
+    "Type": "TIME",
+    "Serv": "INDTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO OTHER TAX SERVICES",
+    "uuid": "6dd64381-641e-42d6-82c2-83a3bf8b7157",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      75,
+      123,
+      194,
+      195,
+      196,
+      197,
+      364,
+      430,
+      431,
+      535,
+      536
+    ],
+    "Type": "TIME",
+    "Serv": "ACCTG",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED INCLUDING PREPARATION OF BUSINESS PERSONAL PROPERTY TAX RETURN(S)",
+    "uuid": "003795dd-8686-4d08-bf4d-c78ee5fe7e8a",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      110
+    ],
+    "Type": "TIME",
+    "Serv": "AUDIT",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO SINGLE AUDIT",
+    "uuid": "c632507a-82e2-4b4c-8cc4-b760f4a078a1",
+    "isDefault": false
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "TIME",
+    "Serv": "AUDIT",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO AUDIT SERVICES",
+    "uuid": "fe0b7661-5856-4066-9f94-1986bd033cf7",
+    "isDefault": true
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "WIP",
+    "Serv": "BUSTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO BUSINESS TAX SERVICES",
+    "uuid": "5235f666-68e2-4e5b-bb52-1c88f1bdda53",
+    "isDefault": true
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "DISB",
+    "Serv": "EOS",
+    "Narrative": "OUT OF POCKET EXPENSES - TRAVEL",
+    "uuid": "3c3c245c-6d61-4cff-9ef3-60a97fc3e2c0",
+    "isDefault": true
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "WIP",
+    "Serv": "GCC",
+    "Narrative": "PROFESSIONAL SERVICES INCLUDING MONTHLY ACCOUNTING SERVICES",
+    "uuid": "e4d0cb55-b691-4b93-9a57-bc4545889d2a",
+    "isDefault": true
+  },
+  {
+    "Level": "ALL",
+    "Idx": [
+      0
+    ],
+    "Type": "ALL",
+    "Serv": "ALL",
+    "Narrative": "OUT OF SCOPE",
+    "uuid": "96475961-ae17-48cf-8a78-0fd6f7701156",
+    "isDefault": false
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "TIME",
+    "Serv": "VAL",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO BUSINESS VALUATION",
+    "uuid": "7a23fbcb-0888-44ad-ae1a-509884c78b20",
+    "isDefault": true
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      56
+    ],
+    "Type": "TIME",
+    "Serv": "ESTATE",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO PREPARATION OF FEDERAL FORM 709 GIFT TAX RETURN",
+    "uuid": "a087fd67-5dd4-4b46-a439-571334d9f5b1",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      384
+    ],
+    "Type": "TIME",
+    "Serv": "BUSTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO PREPARATION OF STANDALONE STATE RETURN(S)",
+    "uuid": "2baa96bb-81fa-47be-8a5a-7bc5b4babb15",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      52
+    ],
+    "Type": "TIME",
+    "Serv": "ATTEST",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO REVIEWED FINANCIAL STATEMENT",
+    "uuid": "a1295b0e-a606-4336-8199-3237a8aec8e1",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      428
+    ],
+    "Type": "DISB",
+    "Serv": "ACCTG",
+    "Narrative": "OUT OF POCKET EXPENSES - SOFTWARE ACCESS FEES",
+    "uuid": "0453520b-2c5d-4ee3-ae16-fdaebf2a08e5",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      415
+    ],
+    "Type": "TIME",
+    "Serv": "BUSTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO PREPARATION OF STATE ANNUAL REPORT",
+    "uuid": "7213d3a9-404b-4d7d-997e-d0bc8c5e2053",
+    "isDefault": false
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "TIME",
+    "Serv": "ATTEST",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO ATTEST SERVICES",
+    "uuid": "c3d675d9-aa45-4201-8258-ef762c6554be",
+    "isDefault": true
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "TIME",
+    "Serv": "BUSTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO BUSINESS TAX SERVICES",
+    "uuid": "faa56b0a-af7b-43fa-bfa3-75a0b64c7c64",
+    "isDefault": true
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "WIP",
+    "Serv": "ESTATE",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO ESTATE TAX SERVICES",
+    "uuid": "b22b6eb9-e58e-4ba2-b46c-9fed681cc712",
+    "isDefault": true
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "WIP",
+    "Serv": "INDTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO INDIVIDUAL TAX SERVICES",
+    "uuid": "f3724aa5-f9d8-46a1-88e5-d9734e2e8113",
+    "isDefault": true
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "WIP",
+    "Serv": "NFP",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED AS FOLLOWS :",
+    "uuid": "3d4dc99e-617f-4da2-855e-3ee35b7299b9",
+    "isDefault": true
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "WIP",
+    "Serv": "TASTAX",
+    "Narrative": "PROJECT [PLACEHOLDER]",
+    "uuid": "74c9b3dc-030c-4fad-9e9e-4b1237e96bfe",
+    "isDefault": true
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      130
+    ],
+    "Type": "TIME",
+    "Serv": "ESTATE",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO PREPARATION OF FEDERAL FORM 1042 WITHHOLDING TAX FOR FOREIGN PERSONS",
+    "uuid": "b2762387-31a3-4eff-ba8e-03f2f6ff8803",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      99,
+      129
+    ],
+    "Type": "TIME",
+    "Serv": "BUSTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO PREPARATION OF AL PRIVILEGE TAX",
+    "uuid": "4675ab4d-6ffb-434a-be65-21a7eab3c71d",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      388
+    ],
+    "Type": "TIME",
+    "Serv": "INDTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED INCLUDING REVIEW OF NOTICE AND RELATED STATE TAX CORRESPONDENCE",
+    "uuid": "40946ff3-2b6e-4b17-a969-9e04c04d28f6",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      43
+    ],
+    "Type": "TIME",
+    "Serv": "ATTEST",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO AGREED UPON PROCEDURES",
+    "uuid": "1191f5e0-d067-4e8b-a869-cff1ce7295bd",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      167
+    ],
+    "Type": "TIME",
+    "Serv": "GCC",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO INCURRED COST SUBMISSION",
+    "uuid": "b54c39e1-7ebd-4030-92c2-e5b90f2275a8",
+    "isDefault": false
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "TIME",
+    "Serv": "ACCTG",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED INCLUDING MONTHLY CLIENT ACCOUNTING SERVICES",
+    "uuid": "5839e658-e422-4f8b-9683-6836f81358b5",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      353
+    ],
+    "Type": "TIME",
+    "Serv": "BUSTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO COST SEG STUDY",
+    "uuid": "3d2d3fbb-3a62-4fba-ae29-36ca85a98e1d",
+    "isDefault": false
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "WIP",
+    "Serv": "EOS",
+    "Narrative": "EOS IMPLEMENTATION",
+    "uuid": "c5d50f94-6e8f-4edf-b7bd-4a2708450fee",
+    "isDefault": true
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "WIP",
+    "Serv": "HR",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED AS FOLLOWS :",
+    "uuid": "eb3c8892-a49c-4dcb-81fc-101781618647",
+    "isDefault": true
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "TIME",
+    "Serv": "MAS",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO MANAGEMENT ADVISORY",
+    "uuid": "ba47d053-a06d-48e1-8f91-92ff0fdcac59",
+    "isDefault": true
+  },
+  {
+    "Level": "SERV",
+    "Idx": [
+      0
+    ],
+    "Type": "TIME",
+    "Serv": "TAS",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO TRANSACTION ADVISORY SERVICES",
+    "uuid": "dd525764-a0d8-45db-a399-07f8c9943396",
+    "isDefault": true
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      200
+    ],
+    "Type": "TIME",
+    "Serv": "BUSTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO PREPARATION OF HOMEOWNER'S ASSOCIATION TAX RETURN",
+    "uuid": "68bf4e3f-2c89-4ead-b1a1-1db04faaa88e",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      386
+    ],
+    "Type": "TIME",
+    "Serv": "ESTATE",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO PREPARATION OF AMENDED FIDUCIARY INCOME TAX RETURN",
+    "uuid": "608343ec-d87c-4e0a-81ef-e8755522e4e1",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      383
+    ],
+    "Type": "TIME",
+    "Serv": "BUSTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO PREPARATION OF TAX ESTIMATES",
+    "uuid": "e0a0979c-7dee-439d-9741-f37b33da423f",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      35
+    ],
+    "Type": "TIME",
+    "Serv": "BUSTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO PREPARATION OF AMENDED BUSINESS INCOME TAX RETURN",
+    "uuid": "afe0772b-3e8a-4295-96ff-7f432e5cf991",
+    "isDefault": false
+  },
+  {
+    "Level": "JOB",
+    "Idx": [
+      367
+    ],
+    "Type": "TIME",
+    "Serv": "ATTEST",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO PEER REVIEW",
+    "uuid": "dba2fc1b-4a7f-4e74-8107-dffdc530318f",
+    "isDefault": false
+  }
+]
