@@ -53,19 +53,6 @@ color: #dddddd;
 font-size: 1rem;
 }
 
-/* Select fields adopt same styling as inputs */
-.edit-form select {
-width: 100%;
-padding: 0.5rem;
-margin-top: 0.25rem;
-margin-bottom: 1rem;
-border: 1px solid #7f8c8d;
-border-radius: 4px;
-background-color: #20232a;
-color: #dddddd;
-font-size: 1rem;
-}
-
 /* style any option that’s been selected */
 .edit-form select option:checked {
 background-color: #a6e1dd !important;
@@ -91,21 +78,16 @@ gap: 1rem;
 .buttons button {
 font: inherit;
 padding: 0.5rem 1rem;
-border: none;
+border: 1px;
 border-radius: 4px;
 cursor: pointer;
-}
-
-/* Cancel button is outlined */
-.buttons button[type="button"] {
-background: #282c34;
 color: #dddddd;
-}
-
-/* Save button uses accent background */
-.buttons button[type="submit"] {
-background: #282c34;
-color: #dddddd;
+box-shadow: #282c34;
+background-image: linear-gradient(
+    to right,          /* direction: left → right */
+    #063941 0%,        /* start color */
+    #282c34 100%       /* end color */
+    );
 }
 
 /* Hover state for both buttons */
@@ -133,11 +115,12 @@ opacity: 0.8;
 --rmsc-radius: 6px;
 /* control height */
 --rmsc-h: 2.5rem;
+color: #063941;
 }
 
 /* if you need more fine-grained tweaks, you can reach into its class names: */
 .rmsc .dropdown-container {
-box-shadow: none;       /* drop the default box-shadow */
+box-shadow: none  !important ;    /* drop the default box-shadow */
 }
 
 .rmsc .select-item {
@@ -149,7 +132,7 @@ white-space: normal;
 .rmsc .select-item:hover {
 background: var(--rmsc-hover);
 }
-.rmsc .search input {
+.rmsc .search-input {
 font-size: 0.9rem;
 padding: 0 var(--rmsc-p);
 color: #063941;
@@ -164,7 +147,28 @@ display: none !important;
 background: var(--rmsc-selected) !important;
 }
 
-/* Grey out and strike-through placeholder when disabled */
-.rmsc .gray {
-  color: #7f8c8d !important;
+/* now reinforce that any select with .rmsc in the edit-form 
+   uses the --rmsc variables and styling */
+.edit-form select {
+display: grid;
+grid-template-columns: auto 1fr !important; /* auto for checkbox, 1fr for text */
+white-space: normal;
+  padding: var(--rmsc-p);
+  border: (--rmsc-border);
+background: var(--rmsc-hover);
+  border-radius: var(--rmsc-radius);
+  background-color: #ffffff;
+  color: #063941;
+  height: var(--rmsc-h);
+  font-size: 1rem;            /* or whatever your rmsc default is */
+  box-shadow: none;           /* if rmsc normally drops its shadow */
+  width: 100%;
+  margin-top: 0.25rem;
+  margin-bottom: 1rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+/* and on focus, use the rmsc main color */
+.edit-form select.rmsc:focus {
+  outline: 2px solid var(--rmsc-main);
 }

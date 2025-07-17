@@ -110,13 +110,31 @@ export default function EditNarrativeModal({
   }
 
   // Handle input changes
-  function handleChange(e) {
-    const { name, value, type, checked } = e.target;
-    setForm(f => ({
-      ...f,
-      [name]: type === 'checkbox' ? checked : value
-    }));
-  }
+function handleChange(e) {
+  const { name, value, type, checked } = e.target;
+
+  console.log(e.target); //Debugging line to check the event target
+  
+  setForm(prev => {
+    // start by applying whatever field just changed
+    const next = {
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    };
+
+    console.log(next);
+    // if they just changed the service, and it’s different than before…
+    if (prev.Serv !== next.value || next.Level !== 'JOB') {
+    console.log("Change in serv or level != job, wiping selections");
+      next.Idx = [];
+      next.JobName = [];
+    handleJobChange([]);
+    }
+
+    return next;
+  });
+}
+
 
   // Submit form
   function handleSubmit(e) {
@@ -145,26 +163,7 @@ export default function EditNarrativeModal({
       shouldCloseOnEsc
     >
       <h2>Edit Narrative</h2>
-      <form onSubmit={handleSubmit} className="edit-form">
-        <label>
-          Job(s)
-          <MultiSelect
-            options={filteredJobOptions}
-            value={selectedOptions}
-            onChange={handleJobChange}
-            labelledBy="Select jobs"
-            hasSelectAll={false}
-            disabled={form.Level !== 'JOB'}
-            ClearSelectedIcon={null}
-            overrideStrings={{
-              selectSomeItems:
-                form.Level === 'JOB'
-                  ? 'Select job(s)...'
-                  : 'No job selection needed'
-            }}
-          />
-        </label>
-
+      <form onSubmit={handleSubmit} className="edit-form rsmc">
         <label>
           Level
           <select name="Level" value={form.Level} onChange={handleChange} required>
@@ -176,6 +175,20 @@ export default function EditNarrativeModal({
             <option value="SERV">SERV</option>
           </select>
         </label>
+
+        {form.Level === 'JOB' && ( //Only populate if Level is JOB
+        <label>
+          Job(s)
+          <MultiSelect
+            options={filteredJobOptions}
+            value={selectedOptions}
+            onChange={handleJobChange}
+            labelledBy="Select jobs"
+            hasSelectAll={false}
+            ClearSelectedIcon={null} //Hides 'x' token
+          />
+        </label>
+        )}
 
         <label>
           Type
