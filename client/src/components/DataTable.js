@@ -19,6 +19,7 @@ export default function DataTable({
 }) {
   return (
     <DataTableComponent
+      className={'data-table'}
       title={title}
       columns={columns}
       data={data}

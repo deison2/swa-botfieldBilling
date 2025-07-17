@@ -1,11 +1,12 @@
 import { useEffect, useState, useMemo } from 'react';
 import Sidebar from '../../components/Sidebar';
-import KpiShell from '../../components/KPIShell';
 import GeneralDataTable from '../../components/DataTable';
 import TopBar from '../../components/TopBar';
 import sampleJobs from '../../devSampleData/sampleNarrativeStandards.json'; // For testing only
 import EditNarrativeModal from '../../components/EditNarrativeModal.js';
+import './NarrativeStandards.css';
 import jobMapping from '../../data/jobMapping.json';
+import AddNarrativeModal from '../../components/AddNarrativeModal';
 // import { v4 as uuidv4 } from 'uuid';
 
 import {
@@ -26,6 +27,37 @@ export default function NarrativeStandards() {
   // const [rows, setRows] = useState([]); //PROD VERSION
   const [rows, setRows] = useState(sampleJobs); // REMOVE THIS LINE AFTER TESTING
   const [loading, setLoading] = useState(true);
+  const [isAddOpen, setIsAddOpen] = useState(false);
+
+  // Filtering
+  const [levelFilter, setLevelFilter]     = useState('');
+  const [typeFilter, setTypeFilter]       = useState('');
+  const [serviceFilter, setServiceFilter] = useState('');
+
+  const clearFilters = () => {
+    setLevelFilter('');
+    setTypeFilter('');
+    setServiceFilter('');
+    setFilterText('');
+  };
+
+  // inside NarrativeStandards(), before the return:
+const levelOptions = useMemo(
+  () => Array.from(new Set(rows.map(r => r.Level)))
+      .sort((a, b) => a.localeCompare(b)),
+  [rows]
+);
+const typeOptions = useMemo(
+  () => Array.from(new Set(rows.map(r => r.Type)))
+      .sort((a, b) => a.localeCompare(b)),
+  [rows]
+);
+const serviceOptions = useMemo(
+  () => Array.from(new Set(rows.map(r => r.Serv)))
+      .sort((a, b) => a.localeCompare(b)),
+  [rows]
+);
+
 
   // search state
   const [filterText, setFilterText] = useState('');
@@ -42,10 +74,14 @@ export default function NarrativeStandards() {
   }, []);
 
   // 2. table/modal handlers
-  async function handleAdd(item) {
-    const newItem = await addNarrative(item);
-    setRows(r => [...r, newItem]);
+
+  async function openAddModal(item) {
+    setIsAddOpen(true);
   }
+ async function handleCreate(item) {
+   const newItem = await addNarrative(item);
+   setRows(r => [...r, newItem]);
+ }
   async function handleUpdate(item) {
     // await updateNarrative(item); // NEEDS BACKEND API SET UP
     setRows(r => r.map(rw => (rw.uuid === item.uuid ? item : rw)));
@@ -73,53 +109,76 @@ export default function NarrativeStandards() {
     closeEditModal();
   }
   const filteredRows = useMemo(() => {
-    if (!filterText) return rows;
-    const ft = filterText.toLowerCase();
-    return rows.filter(r =>
-      // check whichever columns you want searchable:
-      r.Narrative.toLowerCase().includes(ft)
+  return rows
+    .filter(r =>
+      // full‐text search
+      !filterText ||
+        r.Narrative.toLowerCase().includes(filterText.toLowerCase())
+    )
+    .filter(r =>
+      // Level dropdown
+      !levelFilter || r.Level === levelFilter
+    )
+    .filter(r =>
+      // Type dropdown
+      !typeFilter || r.Type === typeFilter
+    )
+    .filter(r =>
+      // Service dropdown
+      !serviceFilter || r.Serv === serviceFilter
     );
-  }, [rows, filterText]);
+}, [rows, filterText, levelFilter, typeFilter, serviceFilter]);
+
 
   const columns = [
-    { name: 'Narrative', selector: row => row.Narrative, sortable: false, wrap: true },
-    {
-  name: 'Job Name(s)',
-  sortable: true,
-  // Value used for sorting
-  selector: row => {
-    if (row.Level === 'ALL') {
-      return '';
-    }
-    if (row.Level === 'SERV') {
-      return `${row.Serv} - Service Level Standard`;
-    }
-    // Default: map jobs by lookup
-    return row.Idx
-      .map(i => jobLookup[i] || `#${i}`)
-      .join(', ');
-  },
-  // Rendered cell (with line breaks)
-  cell: row => {
-    if (row.Level === 'ALL') {
-      return <div />;
-    }
-    if (row.Level === 'SERV') {
+    { 
+      name: 'Narrative'
+      , grow: 3
+      , selector: row => row.Narrative
+      , sortable: false
+      , wrap: true 
+    }, //test
+  {
+    name: 'Job Name(s)',
+    grow: 3, //thrice as greedy as other columns
+    sortable: true,
+    selector: row => {
+      if (row.Level === 'ALL') return '';
+      if (row.Level === 'SERV') return `${row.Serv} - Service Level Standard`;
+      return row.Idx.map(i => jobLookup[i] || `#${i}`).join(', ');
+    },
+    cell: row => {
+      if (row.Level === 'ALL') {
+        return <div />;
+      }
+
+      // build a flat list of labels in every case
+      const labels =
+        row.Level === 'SERV'
+          ? [`${row.Serv} - Service Level Standard`]
+          : row.Idx.map(i => jobLookup[i] || `#${i}`);
+
+      // show up to 3 chips, stash the rest
+      const visible = labels.slice(0, 3);
+      const hidden  = labels.slice(3);
+
       return (
-        <div style={{ whiteSpace: 'pre-wrap' }}>
-          {`${row.Serv} - Service Level Standard`}
+        <div className="chip-container">
+          {visible.map(lbl => (
+            <span key={lbl} className="chip">
+              {lbl}
+            </span>
+          ))}
+
+          {hidden.length > 0 && (
+            <span className="chip more" data-tooltip={hidden.join('\n')}>
+              +{hidden.length}
+            </span>
+          )}
         </div>
       );
-    }
-    const lines = row.Idx.map(i => jobLookup[i] || `#${i}`);
-    return (
-      <div style={{ whiteSpace: 'pre-wrap' }}>
-        {lines.join('\n')}
-      </div>
-    );
-  },
-  // allow the cell to grow vertically
-  allowoverflow: true
+    },
+    allowOverflow: true
     },
     { name: 'Level', selector: row => row.Level, sortable: true },
     { name: 'Type', selector: row => row.Type, sortable: true },
@@ -140,13 +199,65 @@ export default function NarrativeStandards() {
       <TopBar />
 
       <main className="main-content">
-        {/* KPIs */}
+        {/* Filtering*/}
         <div className="kpi-container">
-          <KpiShell title="TOTAL BILLED" value="$0.00" />
-          <KpiShell title="TOTAL WIP" value="$0.00" />
-          <KpiShell title="UNIQUE CLIENTS" value="0" />
-          <KpiShell title="UNIQUE STAFF" value="0" />
-        </div>
+  {/* Clear button */}
+          <button
+            type="button"
+            className="clear-filters-btn"
+            onClick={clearFilters}
+          >
+            Clear Filters
+          </button>
+  {/* Level filter */}
+  <select
+    value={levelFilter}
+    onChange={e => setLevelFilter(e.target.value)}
+  >
+    <option value="">All Levels</option>
+    {levelOptions.map(lvl => (
+      <option key={lvl} value={lvl}>
+        {lvl}
+      </option>
+    ))}
+  </select>
+
+  {/* Type filter */}
+  <select
+    value={typeFilter}
+    onChange={e => setTypeFilter(e.target.value)}
+  >
+    <option value="">All Types</option>
+    {typeOptions.map(type => (
+      <option key={type} value={type}>
+        {type}
+      </option>
+    ))}
+  </select>
+
+  {/* Service filter */}
+  <select
+    value={serviceFilter}
+    onChange={e => setServiceFilter(e.target.value)}
+  >
+    <option value="">All Services</option>
+    {serviceOptions.map(svc => (
+      <option key={svc} value={svc}>
+        {svc}
+      </option>
+    ))}
+  </select>
+
+  {/* NEW: add narrative button */}
+          <button
+            type="button"
+            className="add-narrative-btn"
+            onClick={openAddModal}
+          >
+            + New Narrative
+          </button>
+</div>
+
 
         {/* Data table */}
         <div className="table-section">
@@ -168,7 +279,7 @@ export default function NarrativeStandards() {
             columns={columns}
             data={filteredRows}
             progressPending={loading}
-            onRowAdd={handleAdd}
+            onRowAdd={openAddModal}
             onRowUpdate={handleUpdate}
             onRowDelete={handleDelete}
             pagination
@@ -177,6 +288,12 @@ export default function NarrativeStandards() {
           />
         </div>
       </main>
+            <AddNarrativeModal
+        isOpen={isAddOpen}
+        onRequestClose={() => setIsAddOpen(false)}
+        onSave={handleCreate}
+        availableJobs={jobMapping}
+      />
             <EditNarrativeModal
         isOpen={isModalOpen}
         onRequestClose={closeEditModal}
