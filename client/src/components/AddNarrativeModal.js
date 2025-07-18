@@ -1,168 +1,159 @@
-import { useState, useEffect, useMemo } from 'react';
+// src/components/AddNarrativeModal.js
+import React, { useState, useEffect, useMemo } from 'react';
 import Modal from 'react-modal';
 import { MultiSelect } from 'react-multi-select-component';
-import { toast, ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-import './EditNarrativeModal.css';
 import services from '../data/services.json';
+import { toast, ToastContainer } from 'react-toastify';
+import './EditNarrativeModal.css';
+
+Modal.setAppElement('#root');
+
+const initialFormState = {
+  Level: '',
+  Idx: [],
+  JobName: [],
+  Type: '',
+  Serv: '',
+  Narrative: '',
+  isDefault: false
+};
 
 export default function AddNarrativeModal({
   isOpen,
   onRequestClose,
   onSave,
-  availableJobs
+  availableJobs // array of { Idx: number, JobName: string, Serv: string }
 }) {
-  // form state
-  const [form, setForm] = useState({
-    Narrative: '',
-    Level: 'ALL',
-    Type: '',
-    Serv: '',
-    Idx: [],
-    JobName: []
-  });
 
-  // select options
-  const serviceOptions = useMemo(
-    () => services.map(s => ({ value: s.code, label: s.name })),
-    []
-  );
+
+  const [form, setForm] = useState(initialFormState);
+  const [selectedOptions, setSelectedOptions] = useState([]);
+
+  // 3️⃣ Build job-options & filter logic (same as in edit modal)
   const jobOptions = useMemo(
     () =>
-      availableJobs.map(({ Idx, JobName }) => ({
-        value: Idx,
-        label: JobName
+      availableJobs.map(job => ({
+        label: `${job.JobName} (${job.Serv})`,
+        value: job.Idx,
+        serv: job.Serv
       })),
     [availableJobs]
   );
 
-  // reset form & toasts when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      setForm({
-        Narrative: '',
-        Level: '',
-        Type: '',
-        Serv: '',
-        Idx: [],
-        JobName: []
-      });
-      toast.dismiss();
+  const sortedJobOptions = useMemo(() => {
+    const sel = new Set(selectedOptions.map(o => o.value));
+    return jobOptions
+      .slice()
+      .sort((a, b) => (sel.has(a.value) && !sel.has(b.value) ? -1 : sel.has(b.value) && !sel.has(a.value) ? 1 : a.label.localeCompare(b.label)));
+  }, [jobOptions, selectedOptions]);
+
+  const filteredJobOptions = useMemo(() => {
+    if (form.Serv === '' || form.Serv === 'ALL') return sortedJobOptions;
+    const base = sortedJobOptions.filter(opt => opt.serv === form.Serv);
+    const missing = selectedOptions.filter(sel => !base.some(opt => opt.value === sel.value));
+    return [...base, ...missing];
+  }, [sortedJobOptions, form.Serv, selectedOptions]);
+
+  // 4️⃣ Handlers
+  function handleChange(e) {
+    const { name, value, type, checked } = e.target;
+    setForm(prev => {
+      const next = { ...prev, [name]: type === 'checkbox' ? checked : value };
+      // if service or level changed, wipe job selections
+      if (name === 'Serv' && prev.Serv !== next.Serv) {
+        next.Idx = [];
+        next.JobName = [];
+        setSelectedOptions([]);
+      }
+      return next;
+    });
+  }
+
+  function handleJobChange(selected) {
+    if (form.Serv !== 'ALL') {
+      const invalid = selected.find(opt => opt.serv !== form.Serv);
+      if (invalid) {
+        return; // or toast an error
+      }
     }
-  }, [isOpen]);
-
-  // handle simple input/select changes
-  const handleChange = e => {
-    const { name, value } = e.target;
-    setForm(f => ({
-      ...f,
-      [name]: value
-    }));
-    if (name === 'Level' && value !== 'JOB') {
-      setForm(f => ({ ...f, Idx: [], JobName: [] }));
-    }
-  };
-
-  // level=SERV -> service select
-  const handleServiceChange = e => {
-    setForm(f => ({ ...f, Serv: e.target.value }));
-  };
-
-  // level=JOB -> job multi-select
-  const handleJobChange = selected => {
-    if (form.Level !== 'JOB') return;
+    setSelectedOptions(selected);
     setForm(f => ({
       ...f,
       Idx: selected.map(o => o.value),
       JobName: selected.map(o => o.label)
     }));
-  };
+  }
 
-  // simple validation with toast notifications
-  const validate = () => {
-    let valid = true;
-    if (!form.Narrative.trim()) {
-      toast.error('Narrative is required');
-      valid = false;
-    }
-    if (!form.Type.trim()) {
-      toast.error('Type is required');
-      valid = false;
-    }
-    if (form.Level === 'SERV' && !form.Serv) {
-      toast.error('Service is required');
-      valid = false;
-    }
-    if (form.Level === 'JOB' && form.Idx.length === 0) {
-      toast.error('At least one Job must be selected');
-      valid = false;
-    }
-    return valid;
-  };
-
-  // submit handler
-  const handleSubmit = async e => {
+  // 5️⃣ Submission: local + cloud
+  async function handleSubmit(e) {
     e.preventDefault();
-    if (!validate()) return;
-    await onSave(form);
-    onRequestClose();
-  };
+
+    
+    // 1️⃣ validate each field
+    if (!form.Type) {
+      toast.error('Please select a Type');
+      return;
+    }
+    if (!form.Serv) {
+      toast.error('Please select a Service');
+      return;
+    }
+    // only require jobs if Level is JOB
+    if (form.Idx.length === 0) {
+      toast.error('Please select at least one Job');
+      return;
+    }
+    if (!form.Narrative.trim()) {
+      toast.error('Narrative cannot be empty');
+      return;
+    }
+
+    // simple validation
+    if (!form.Type || !form.Serv ||!form.Idx) return;
+     
+      onSave(form);
+      onRequestClose();
+  }
 
   return (
     <Modal
       isOpen={isOpen}
       onRequestClose={onRequestClose}
-      ariaHideApp={false}
-      className="modal"
       overlayClassName="overlay"
+      className="modal"
+      contentLabel="Add Narrative"
+      shouldCloseOnOverlayClick
+      shouldCloseOnEsc
     >
-      <ToastContainer position="top-right" autoClose={3000} />
-
-      <form className="edit-form" onSubmit={handleSubmit}>
+      <h2>Add Narrative</h2>
+      <form onSubmit={handleSubmit} className="edit-form rsmc">
         <label>
           Level
-          <select name="Level" value={form.Level} onChange={handleChange} required>
-            <option value="" disabled>
-              — select level —
-            </option>
-            <option value="ALL">ALL</option>
+          <select name="Level" value={form.Level} defaultValue={'JOB'} onChange={handleChange}>
             <option value="JOB">JOB</option>
-            <option value="SERV">SERV</option>
           </select>
         </label>
 
         <label>
           Service
           <select name="Serv" value={form.Serv} onChange={handleChange} required>
-            <option value="" disabled>
-              — select service —
-            </option>
+            <option value="" disabled>— select service —</option>
             {services.map(s => (
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
         </label>
 
-        {form.Level === 'SERV' && (
+        {form.Serv !== '' && (
           <label>
-            Service
-            <select name="Serv" value={form.Serv} onChange={handleServiceChange}>
-              <option value="">Select a service</option>
-              {serviceOptions.map(opt => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </label>
-        )}
-
-        {form.Level === 'JOB' && form.Serv !== '' && (
-          <label>
-            Job Name(s)
+            Job(s)
             <MultiSelect
-              options={jobOptions}
-              value={jobOptions.filter(opt => form.Idx.includes(opt.value))}
+              options={filteredJobOptions}
+              value={selectedOptions}
               onChange={handleJobChange}
-              labelledBy="Select Jobs"
+              labelledBy="Select jobs"
+              hasSelectAll={false}
+              ClearSelectedIcon={null}
             />
           </label>
         )}
@@ -170,22 +161,16 @@ export default function AddNarrativeModal({
         <label>
           Type
           <select name="Type" value={form.Type} onChange={handleChange} required>
-            <option value="" disabled>
-              — select type —
-            </option>
+            <option value="" disabled>— select type —</option>
             <option value="ALL">ALL</option>
             <option value="DISB">DISB</option>
             <option value="TIME">TIME</option>
           </select>
         </label>
-        
+
         <label>
           Narrative
-          <input
-            name="Narrative"
-            value={form.Narrative}
-            onChange={handleChange}
-          />
+          <textarea name="Narrative" value={form.Narrative} onChange={handleChange} />
         </label>
 
         <div className="buttons">
@@ -193,6 +178,7 @@ export default function AddNarrativeModal({
           <button type="submit">Save</button>
         </div>
       </form>
+      <ToastContainer position="top-right" autoClose={3000} />
     </Modal>
   );
 }

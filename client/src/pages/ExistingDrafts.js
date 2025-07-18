@@ -1,8 +1,8 @@
 import { useEffect, useState, useMemo } from 'react';
-import Sidebar from '../../components/Sidebar';
-import KpiShell from '../../components/KPIShell';
-import GeneralDataTable from '../../components/DataTable';
-import TopBar from '../../components/TopBar';
+import Sidebar from '../components/Sidebar.js';
+import KpiShell from '../components/KPIShell.js';
+import GeneralDataTable from '../components/DataTable.js';
+import TopBar from '../components/TopBar.js';
 
 
 export default function ExistingDrafts() {

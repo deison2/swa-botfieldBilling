@@ -30,6 +30,31 @@ max-width: 600px;
 box-sizing: border-box;
 text-align: left;
 z-index: 1001;
+font: bold;
+font-weight: bold;
+}
+
+/* MultiSelect container */
+.rmsc {
+/* change the main accent color (focus/border) */
+--rmsc-main: #007bff;
+/* option hover background */
+--rmsc-hover: #e9ecef;
+/* selected-item background */
+--rmsc-selected: #cfe2ff;
+/* overall border color */
+--rmsc-border: #ced4da;
+/* text / icon gray */
+--rmsc-gray: #6c757d;
+/* dropdown background */
+--rmsc-bg: #ffffff;
+/* spacing inside items */
+--rmsc-p: 8px;
+/* border‐radius */
+--rmsc-radius: 6px;
+/* control height */
+--rmsc-h: 2.5rem;
+color: #063941;
 }
 
 /* Form labels styled bold and spaced */
@@ -42,15 +67,25 @@ font-weight: bold;
 /* Inputs and textarea adopt dark background and accent borders */
 .edit-form input,
 .edit-form textarea {
-width: 100%;
-padding: 0.5rem;
-margin-top: 0.25rem;
-margin-bottom: 1rem;
-border: 1px solid #7f8c8d;
-border-radius: 4px;
-background-color: #20232a;
-color: #dddddd;
-font-size: 1rem;
+resize: none;
+display: grid;
+grid-template-columns: auto 1fr !important; /* auto for checkbox, 1fr for text */
+white-space: normal;
+  padding: var(--rmsc-p);
+  border: (--rmsc-border);
+background: var(--rmsc-hover);
+  border-radius: var(--rmsc-radius);
+  background-color: #ffffff;
+  color: #063941;
+  height: var(--rmsc-h);
+  font-size: 1rem;            /* or whatever your rmsc default is */
+  box-shadow: none;           /* if rmsc normally drops its shadow */
+  width: 100%;
+  margin-top: 0.25rem;
+  margin-bottom: 1rem;
+  font-weight: bold;
+  justify-items: center;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
 }
 
 /* style any option that’s been selected */
@@ -93,29 +128,6 @@ background-image: linear-gradient(
 /* Hover state for both buttons */
 .buttons button:hover {
 opacity: 0.8;
-}
-
-/* MultiSelect container */
-.rmsc {
-/* change the main accent color (focus/border) */
---rmsc-main: #007bff;
-/* option hover background */
---rmsc-hover: #e9ecef;
-/* selected-item background */
---rmsc-selected: #cfe2ff;
-/* overall border color */
---rmsc-border: #ced4da;
-/* text / icon gray */
---rmsc-gray: #6c757d;
-/* dropdown background */
---rmsc-bg: #ffffff;
-/* spacing inside items */
---rmsc-p: 8px;
-/* border‐radius */
---rmsc-radius: 6px;
-/* control height */
---rmsc-h: 2.5rem;
-color: #063941;
 }
 
 /* if you need more fine-grained tweaks, you can reach into its class names: */
@@ -165,6 +177,7 @@ background: var(--rmsc-hover);
   width: 100%;
   margin-top: 0.25rem;
   margin-bottom: 1rem;
+  font-weight: bold;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
 }
 

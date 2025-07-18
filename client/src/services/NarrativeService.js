@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+// import { v4 as uuidv4 } from 'uuid';
 
 // Replace these with your real fetch/save calls:
 async function fetchAll() {
@@ -20,12 +20,12 @@ export async function loadNarratives() {
   return fetchAll();
 }
 
-export async function addNarrative(item) {
-  const newItem = { id: uuidv4(), ...item };
-  const all = await fetchAll();
-  const updated = [...all, newItem];
-  await saveAll(updated);
-  return newItem;
+export async function addNarrative(newItem) {
+  //const all = await fetchAll(); NEEDS BACKEND API SET UP
+  //const updated = [...all, newItem];
+  //await saveAll(updated);
+  console.log('Adding narrative:', newItem);
+  return true; //true until API is set up
 }
 
 export async function updateNarrative(updatedItem) {

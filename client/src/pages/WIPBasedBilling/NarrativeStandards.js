@@ -7,7 +7,7 @@ import EditNarrativeModal from '../../components/EditNarrativeModal.js';
 import './NarrativeStandards.css';
 import jobMapping from '../../data/jobMapping.json';
 import AddNarrativeModal from '../../components/AddNarrativeModal';
-// import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from 'uuid';
 
 import {
   loadNarratives,
@@ -79,7 +79,9 @@ const serviceOptions = useMemo(
     setIsAddOpen(true);
   }
  async function handleCreate(item) {
-   const newItem = await addNarrative(item);
+  console.log('handleCreate called');
+   const newItem = { uuid: uuidv4(), ...item };
+  await addNarrative(newItem); // NEEDS BACKEND API SET UP
    setRows(r => [...r, newItem]);
  }
   async function handleUpdate(item) {
@@ -178,7 +180,7 @@ const serviceOptions = useMemo(
         </div>
       );
     },
-    allowOverflow: true
+    allowoverflow: true
     },
     { name: 'Level', selector: row => row.Level, sortable: true },
     { name: 'Type', selector: row => row.Type, sortable: true },

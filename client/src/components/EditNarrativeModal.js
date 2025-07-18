@@ -25,8 +25,7 @@ export default function EditNarrativeModal({
     Level: '',
     Type: '',
     Serv: '',
-    Narrative: '',
-    isDefault: false
+    Narrative: ''
   });
   const [selectedOptions, setSelectedOptions] = useState([]);
 
@@ -124,7 +123,7 @@ function handleChange(e) {
 
     console.log(next);
     // if they just changed the service, and it’s different than before…
-    if (prev.Serv !== next.value || next.Level !== 'JOB') {
+    if (prev.Serv !== next.Serv || next.Level !== 'JOB') {
     console.log("Change in serv or level != job, wiping selections");
       next.Idx = [];
       next.JobName = [];
@@ -176,13 +175,25 @@ function handleChange(e) {
           </select>
         </label>
 
+        <label>
+          Service
+          <select name="Serv" value={form.Serv} onChange={handleChange} required>
+            <option value="" disabled>
+              — select service —
+            </option>
+            {services.map(s => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </label>
+
         {form.Level === 'JOB' && ( //Only populate if Level is JOB
         <label>
           Job(s)
           <MultiSelect
             options={filteredJobOptions}
             value={selectedOptions}
-            onChange={handleJobChange}
+            onChange={handleChange}
             labelledBy="Select jobs"
             hasSelectAll={false}
             ClearSelectedIcon={null} //Hides 'x' token
@@ -203,25 +214,10 @@ function handleChange(e) {
         </label>
 
         <label>
-          Service
-          <select name="Serv" value={form.Serv} onChange={handleChange} required>
-            <option value="" disabled>
-              — select service —
-            </option>
-            {services.map(s => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-        </label>
-
-        <label>
           Narrative
-          <textarea name="Narrative" value={form.Narrative} onChange={handleChange} />
-        </label>
-
-        <label>
-          Default?
-          <input type="checkbox" name="isDefault" checked={form.isDefault} disabled />
+          <textarea name="Narrative" 
+          value={form.Narrative} 
+          onChange={handleChange} />
         </label>
 
         <div className="buttons">
