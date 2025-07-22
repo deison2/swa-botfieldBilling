@@ -1,5 +1,3 @@
-// import { v4 as uuidv4 } from 'uuid';
-
 // Replace these with your real fetch/save calls:
 async function fetchAll() {
   const res = await fetch('/api/narratives');
