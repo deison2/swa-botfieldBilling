@@ -14,20 +14,35 @@ const initialFormState = {
   JobName: [],
   Type: '',
   Serv: '',
-  Narrative: '',
-  isDefault: false
+  Narrative: ''
 };
 
 export default function AddNarrativeModal({
   isOpen,
   onRequestClose,
   onSave,
-  availableJobs // array of { Idx: number, JobName: string, Serv: string }
+  availableJobs, // array of { Idx: number, JobName: string, Serv: string }
+  allNarratives    // pass in `rows` from the parent
 }) {
 
 
   const [form, setForm] = useState(initialFormState);
   const [selectedOptions, setSelectedOptions] = useState([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setForm(initialFormState);
+      setSelectedOptions([]);
+    }
+  }, [isOpen]);
+
+  const usedJobIdx = useMemo(() => {
+    return new Set(
+      (allNarratives || [])
+        .filter(n => n.Level === 'JOB')
+        .flatMap(n => n.Idx || [])
+    );
+  }, [allNarratives]);
 
   // 3️⃣ Build job-options & filter logic (same as in edit modal)
   const jobOptions = useMemo(
@@ -48,11 +63,20 @@ export default function AddNarrativeModal({
   }, [jobOptions, selectedOptions]);
 
   const filteredJobOptions = useMemo(() => {
-    if (form.Serv === '' || form.Serv === 'ALL') return sortedJobOptions;
-    const base = sortedJobOptions.filter(opt => opt.serv === form.Serv);
-    const missing = selectedOptions.filter(sel => !base.some(opt => opt.value === sel.value));
-    return [...base, ...missing];
-  }, [sortedJobOptions, form.Serv, selectedOptions]);
+    let opts = sortedJobOptions;
+
+    // keep same-service (plus any already-selected)
+    if (form.Serv && form.Serv !== 'ALL') {
+      const base = opts.filter(opt => opt.serv === form.Serv);
+      const missing = selectedOptions.filter(
+        sel => !base.some(o => o.value === sel.value)
+      );
+      opts = [...base, ...missing];
+    }
+
+    // now exclude any job taken elsewhere
+    return opts.filter(opt => !usedJobIdx.has(opt.value));
+  }, [sortedJobOptions, form.Serv, selectedOptions, usedJobIdx]);
 
   // 4️⃣ Handlers
   function handleChange(e) {
@@ -86,30 +110,13 @@ export default function AddNarrativeModal({
 
   // 5️⃣ Submission: local + cloud
   async function handleSubmit(e) {
+
     e.preventDefault();
 
-    
-    // 1️⃣ validate each field
-    if (!form.Type) {
-      toast.error('Please select a Type');
-      return;
-    }
-    if (!form.Serv) {
-      toast.error('Please select a Service');
-      return;
-    }
-    // only require jobs if Level is JOB
-    if (form.Idx.length === 0) {
-      toast.error('Please select at least one Job');
-      return;
-    }
-    if (!form.Narrative.trim()) {
-      toast.error('Narrative cannot be empty');
-      return;
-    }
-
-    // simple validation
-    if (!form.Type || !form.Serv ||!form.Idx) return;
+    if (!form.Type) { toast.error('Please select a Type'); return; }
+    if (!form.Serv) { toast.error('Please select a Service'); return; }
+    if (form.Idx.length === 0) { toast.error('Please select at least one Job'); return; }
+    if (!form.Narrative.trim()) { toast.error('Narrative cannot be empty'); return; }
      
       onSave(form);
       onRequestClose();
@@ -129,7 +136,7 @@ export default function AddNarrativeModal({
       <form onSubmit={handleSubmit} className="edit-form rsmc">
         <label>
           Level
-          <select name="Level" value={form.Level} defaultValue={'JOB'} onChange={handleChange}>
+          <select name="Level" value={form.Level} defaultValue={'JOB'} onChange={handleChange} disabled>
             <option value="JOB">JOB</option>
           </select>
         </label>

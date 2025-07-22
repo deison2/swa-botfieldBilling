@@ -7,7 +7,10 @@ import EditNarrativeModal from '../../components/EditNarrativeModal.js';
 import './NarrativeStandards.css';
 import jobMapping from '../../data/jobMapping.json';
 import AddNarrativeModal from '../../components/AddNarrativeModal';
+import DeleteNarrativeModal from '../../components/DeleteNarrativeModal.js';
 import { v4 as uuidv4 } from 'uuid';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 import {
   loadNarratives,
@@ -24,10 +27,40 @@ const jobLookup = jobMapping.reduce((acc, { Idx, JobName }) => {
 
 export default function NarrativeStandards() {
 
+const SERVICE_COLORS = {
+  ACCTG:   '#003C4B',
+  ATTEST:  '#00464B',
+  AUDIT:   '#11614C',
+  BUSTAX:  '#24764D',
+  INDTAX:  '#49A050',
+  ESTATE:  '#79B873',
+  NFP:     '#AEDCAA',
+  HR:      '#DDDDDD',
+  MAS:     '#999999',
+  SALT:    '#555555',
+  TAS:     '#333333',
+  TASTAX:  '#111111',
+  VAL:     '#111111',
+  ALL:     '#111111'
+};
+
+// ➋ build conditionalRowStyles from that map
+const conditionalRowStyles = Object.entries(SERVICE_COLORS).map(
+  ([service, color]) => ({
+    when: row => row.Serv === service,
+    style: { color,
+      fontWeight: 'bold' 
+    }
+  })
+);
+
+
   // const [rows, setRows] = useState([]); //PROD VERSION
   const [rows, setRows] = useState(sampleJobs); // REMOVE THIS LINE AFTER TESTING
   const [loading, setLoading] = useState(true);
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [rowToDelete, setRowToDelete]   = useState(null);
 
   // Filtering
   const [levelFilter, setLevelFilter]     = useState('');
@@ -102,9 +135,27 @@ const serviceOptions = useMemo(
     setSelectedRow(null);
     setIsModalOpen(false);
   }
-    async function handleModalDelete(uuid) {
-    await handleDelete(uuid);    // your existing deleteNarrative + state update
-    closeEditModal();
+  function openDeleteModal(row) {
+    console.log('openDeleteModal called with row:', row);
+    if (row.Level !== 'JOB')
+    {
+      toast.error("Only Job-level narratives can be deleted.");
+      console.log('User attempt to delete Serv-level or ALL-level narrative');
+      return
+    }
+    setRowToDelete(row);
+    setIsDeleteOpen(true);
+  }
+  function closeDeleteModal() {
+    setRowToDelete(null);
+    setIsDeleteOpen(false);
+  }
+
+  function handleConfirmDelete(uuid) {
+    // 1) remove from local state
+    setRows(rs => rs.filter(r => r.uuid !== uuid));
+    deleteNarrative(uuid)
+    closeDeleteModal();
   }
   async function handleSave(updated) {
     await handleUpdate(updated);
@@ -112,11 +163,33 @@ const serviceOptions = useMemo(
   }
   const filteredRows = useMemo(() => {
   return rows
-    .filter(r =>
-      // full‐text search
-      !filterText ||
-        r.Narrative.toLowerCase().includes(filterText.toLowerCase())
-    )
+    .filter(r => {
+      if (!filterText) return true;
+
+      const text = filterText.toLowerCase();
+
+      // 1️⃣ check narrative
+      if (r.Narrative.toLowerCase().includes(text)) return true;
+
+      if (r.Level === 'SPEC') 
+        {
+          const specText = 'SPEC'
+          if (specText.toLowerCase().includes(text))
+          return true;
+        }
+
+      // 2️⃣ check job names (only for JOB-level rows)
+      if (r.Level === 'JOB') {
+        const jobNames = r.Idx
+          .map(i => jobLookup[i] || `#${i}`)
+          .join(' ')
+          .toLowerCase();
+        if (jobNames.includes(text)) return true;
+      }
+
+      // 3️⃣ fallback: no match
+      return false;
+    })
     .filter(r =>
       // Level dropdown
       !levelFilter || r.Level === levelFilter
@@ -145,20 +218,24 @@ const serviceOptions = useMemo(
     grow: 3, //thrice as greedy as other columns
     sortable: true,
     selector: row => {
-      if (row.Level === 'ALL') return '';
-      if (row.Level === 'SERV') return `${row.Serv} - Service Level Standard`;
-      return row.Idx.map(i => jobLookup[i] || `#${i}`).join(', ');
+      if (row.Level === 'SPEC') return 'Special Circumstances (Detailed Invoice, Out of Scope, etc.)';
+      else if (row.Level === 'SERV') return `${row.Serv} - Service Level Standard`;
+      else return row.Idx.map(i => jobLookup[i] || '').join(', ');
     },
     cell: row => {
-      if (row.Level === 'ALL') {
-        return <div />;
-      }
-
       // build a flat list of labels in every case
-      const labels =
-        row.Level === 'SERV'
-          ? [`${row.Serv} - Service Level Standard`]
-          : row.Idx.map(i => jobLookup[i] || `#${i}`);
+      let labels;
+        if (row.Level === 'SERV') 
+          {
+            labels = [`${row.Serv} - Service Level Standard`]
+          }
+        
+        else if (row.Level === 'SPEC') 
+          {
+            labels = ['Special Circumstances (Detailed Invoice, Out of Scope, etc.)']
+          }
+        else 
+            labels = row.Idx.map(i => jobLookup[i] || `#${i}`);
 
       // show up to 3 chips, stash the rest
       const visible = labels.slice(0, 3);
@@ -182,13 +259,19 @@ const serviceOptions = useMemo(
     },
     allowoverflow: true
     },
-    { name: 'Level', selector: row => row.Level, sortable: true },
-    { name: 'Type', selector: row => row.Type, sortable: true },
-    { name: 'Service', selector: row => row.Serv, sortable: true },
-    { name: 'Default?', selector: row => (row.isDefault ? '✔️' : '—'), sortable: true },
+    { name: 'Level', selector: row => row.Level, sortable: true , grow: .5 },
+    { name: 'Type', selector: row => row.Type, sortable: true , grow: .5 },
+    { name: 'Service', selector: row => row.Serv, sortable: true , grow: .5 },
     {
       name: 'Actions',
       cell: row => <button onClick={() => openEditModal(row)}>Edit</button>,
+      ignoreRowClick: true,
+      allowoverflow: true,
+      button: true
+    },
+    {
+      name: 'Actions',
+      cell: row => <button onClick={() => openDeleteModal(row)}>Delete</button>,
       ignoreRowClick: true,
       allowoverflow: true,
       button: true
@@ -287,6 +370,7 @@ const serviceOptions = useMemo(
             pagination
             highlightOnHover
             striped
+            conditionalRowStyles={conditionalRowStyles}
           />
         </div>
       </main>
@@ -295,15 +379,24 @@ const serviceOptions = useMemo(
         onRequestClose={() => setIsAddOpen(false)}
         onSave={handleCreate}
         availableJobs={jobMapping}
+        allNarratives={rows}
       />
             <EditNarrativeModal
         isOpen={isModalOpen}
         onRequestClose={closeEditModal}
         initialData={selectedRow}
         onSave={handleSave}
-        onDelete={handleModalDelete}
         availableJobs={jobMapping}
+        allNarratives={rows} 
       />
+            <DeleteNarrativeModal
+        isOpen={isDeleteOpen}
+        onRequestClose={closeDeleteModal}
+        narrative={rowToDelete}
+        jobLookup={jobLookup}
+        onConfirmDelete={handleConfirmDelete}
+      />
+      <ToastContainer position="top-right" autoClose={5000} />
     </div>
   );
 }

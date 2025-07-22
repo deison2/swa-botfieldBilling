@@ -1,12 +1,12 @@
 [
   {
     "Idx":194,
-    "JobName":"[YYYY] Business Personal Property Tax - MS",
+    "JobName":"Business Personal Property Tax - MS",
     "Serv":"ACCTG"
   },
   {
     "Idx":367,
-    "JobName":"[YYYY] Peer Review Report",
+    "JobName":"Peer Review Report",
     "Serv":"ATTEST"
   },
   {
@@ -21,17 +21,17 @@
   },
   {
     "Idx":29,
-    "JobName":"[TTTT] 990T Unrelated Business Income Tax",
+    "JobName":"990T Unrelated Business Income Tax",
     "Serv":"NFP"
   },
   {
     "Idx":533,
-    "JobName":"[YYYY] Business Personal Property Tax - MI",
+    "JobName":"Business Personal Property Tax - MI",
     "Serv":"ACCTG"
   },
   {
     "Idx":423,
-    "JobName":"[TTTT] Combined MSEL\/SOW",
+    "JobName":"Combined MSEL\/SOW",
     "Serv":"MAS"
   },
   {
@@ -61,7 +61,7 @@
   },
   {
     "Idx":543,
-    "JobName":"[YYYY] Bank\/CC Recons (All Periods)",
+    "JobName":"Bank\/CC Recons (All Periods)",
     "Serv":"ACCTG"
   },
   {
@@ -81,37 +81,37 @@
   },
   {
     "Idx":192,
-    "JobName":"[TTTT] CA - Los Angeles Business Tax Renewal",
+    "JobName":"CA - Los Angeles Business Tax Renewal",
     "Serv":"SALT"
   },
   {
     "Idx":334,
-    "JobName":"[YYYY] Tax 361",
+    "JobName":"Tax 361",
     "Serv":"MAS"
   },
   {
     "Idx":522,
-    "JobName":"[YYYY] NY Biennial Statement",
+    "JobName":"NY Biennial Statement",
     "Serv":"BUSTAX"
   },
   {
     "Idx":387,
-    "JobName":"[TTTT] Tax Audit - State",
+    "JobName":"Tax Audit - State",
     "Serv":"NFP"
   },
   {
     "Idx":507,
-    "JobName":"[YYYY] NV Annual Report",
+    "JobName":"NV Annual Report",
     "Serv":"BUSTAX"
   },
   {
     "Idx":56,
-    "JobName":"[TTTT] 709 Gift Tax Return",
+    "JobName":"709 Gift Tax Return",
     "Serv":"ESTATE"
   },
   {
     "Idx":387,
-    "JobName":"[TTTT] Tax Audit - State",
+    "JobName":"Tax Audit - State",
     "Serv":"ACCTG"
   },
   {
@@ -121,7 +121,7 @@
   },
   {
     "Idx":369,
-    "JobName":"[TTTT] Annual Tax Planning",
+    "JobName":"Annual Tax Planning",
     "Serv":"INDTAX"
   },
   {
@@ -131,17 +131,17 @@
   },
   {
     "Idx":503,
-    "JobName":"[YYYY] Alabama Lodging Tax",
+    "JobName":"Alabama Lodging Tax",
     "Serv":"BUSTAX"
   },
   {
     "Idx":100,
-    "JobName":"[TTTT] AL Privilege Tax (SMLLC)",
+    "JobName":"AL Privilege Tax (SMLLC)",
     "Serv":"INDTAX"
   },
   {
     "Idx":504,
-    "JobName":"[YYYY] MS PERS",
+    "JobName":"MS PERS",
     "Serv":"BUSTAX"
   },
   {
@@ -151,17 +151,17 @@
   },
   {
     "Idx":364,
-    "JobName":"[YYYY] Business Personal Property Tax - NC",
+    "JobName":"Business Personal Property Tax - NC",
     "Serv":"ACCTG"
   },
   {
     "Idx":386,
-    "JobName":"[TTTT] Amended Return",
+    "JobName":"Amended Return",
     "Serv":"ESTATE"
   },
   {
     "Idx":75,
-    "JobName":"[YYYY] Business Personal Property Tax",
+    "JobName":"Business Personal Property Tax",
     "Serv":"BOOK"
   },
   {
@@ -171,7 +171,7 @@
   },
   {
     "Idx":216,
-    "JobName":"[TTTT] Canada T2 - Corporate Tax Return",
+    "JobName":"Canada T2 - Corporate Tax Return",
     "Serv":"ESTATE"
   },
   {
@@ -186,17 +186,17 @@
   },
   {
     "Idx":33,
-    "JobName":"[TTTT] Tax Correspondence - Federal",
+    "JobName":"Tax Correspondence - Federal",
     "Serv":"INDTAX"
   },
   {
     "Idx":521,
-    "JobName":"[YYYY] DE Annual Report",
+    "JobName":"DE Annual Report",
     "Serv":"BUSTAX"
   },
   {
     "Idx":25,
-    "JobName":"[TTTT] 1120 Corporation Return",
+    "JobName":"1120 Corporation Return",
     "Serv":"TASTAX"
   },
   {
@@ -231,7 +231,7 @@
   },
   {
     "Idx":105,
-    "JobName":"[TTTT] 5500 Annual Return of EBP",
+    "JobName":"5500 Annual Return of EBP",
     "Serv":"BUSTAX"
   },
   {
@@ -256,7 +256,7 @@
   },
   {
     "Idx":37,
-    "JobName":"[TTTT] Tax Audit - Federal",
+    "JobName":"Tax Audit - Federal",
     "Serv":"BUSTAX"
   },
   {
@@ -276,12 +276,12 @@
   },
   {
     "Idx":336,
-    "JobName":"[YYYY] Tax Consulting",
+    "JobName":"Tax Consulting",
     "Serv":"BUSTAX"
   },
   {
     "Idx":509,
-    "JobName":"[YYYY] MO Annual Report",
+    "JobName":"MO Annual Report",
     "Serv":"BUSTAX"
   },
   {
@@ -291,7 +291,7 @@
   },
   {
     "Idx":557,
-    "JobName":"[YYYY] Write Up Annual - Tax",
+    "JobName":"Write Up Annual - Tax",
     "Serv":"ESTATE"
   },
   {
@@ -301,7 +301,7 @@
   },
   {
     "Idx":524,
-    "JobName":"[YYYY] VT Annual Report",
+    "JobName":"VT Annual Report",
     "Serv":"BUSTAX"
   },
   {
@@ -316,17 +316,17 @@
   },
   {
     "Idx":381,
-    "JobName":"[TTTT] State PTE Consulting",
+    "JobName":"State PTE Consulting",
     "Serv":"BUSTAX"
   },
   {
     "Idx":387,
-    "JobName":"[TTTT] Tax Audit - State",
+    "JobName":"Tax Audit - State",
     "Serv":"INDTAX"
   },
   {
     "Idx":350,
-    "JobName":"[YYYY] PRF Reporting",
+    "JobName":"PRF Reporting",
     "Serv":"ACCTG"
   },
   {
@@ -341,7 +341,7 @@
   },
   {
     "Idx":388,
-    "JobName":"[TTTT] Tax Correspondence - State",
+    "JobName":"Tax Correspondence - State",
     "Serv":"BUSTAX"
   },
   {
@@ -361,7 +361,7 @@
   },
   {
     "Idx":197,
-    "JobName":"[YYYY] Business Personal Property Tax - AZ",
+    "JobName":"Business Personal Property Tax - AZ",
     "Serv":"ACCTG"
   },
   {
@@ -376,12 +376,12 @@
   },
   {
     "Idx":490,
-    "JobName":"[YYYY] [QY] Compiled Financial Statements - [PEM]-[PED]",
+    "JobName":"[QY] Compiled Financial Statements - [PEM]-[PED]",
     "Serv":"ATTEST"
   },
   {
     "Idx":551,
-    "JobName":"[YYYY] Process 401k Payments (All Periods)",
+    "JobName":"Process 401k Payments (All Periods)",
     "Serv":"ACCTG"
   },
   {
@@ -406,37 +406,37 @@
   },
   {
     "Idx":336,
-    "JobName":"[YYYY] Tax Consulting",
+    "JobName":"Tax Consulting",
     "Serv":"INDTAX"
   },
   {
     "Idx":218,
-    "JobName":"[YYYY] Client 361",
+    "JobName":"Client 361",
     "Serv":"MAS"
   },
   {
     "Idx":26,
-    "JobName":"[TTTT] 1120S S-Corporation Return",
+    "JobName":"1120S S-Corporation Return",
     "Serv":"BUSTAX"
   },
   {
     "Idx":520,
-    "JobName":"[YYYY] TN Annual Report",
+    "JobName":"TN Annual Report",
     "Serv":"BUSTAX"
   },
   {
     "Idx":43,
-    "JobName":"[YYYY] Agreed Upon Procedures",
+    "JobName":"Agreed Upon Procedures",
     "Serv":"ATTEST"
   },
   {
     "Idx":541,
-    "JobName":"[YYYY] Accounts Payable (All Periods)",
+    "JobName":"Accounts Payable (All Periods)",
     "Serv":"ACCTG"
   },
   {
     "Idx":50,
-    "JobName":"[YYYY] Highway License",
+    "JobName":"Highway License",
     "Serv":"ATTEST"
   },
   {
@@ -461,22 +461,22 @@
   },
   {
     "Idx":510,
-    "JobName":"[YYYY] WI Annual Report",
+    "JobName":"WI Annual Report",
     "Serv":"BUSTAX"
   },
   {
     "Idx":129,
-    "JobName":"[TTTT] AL BPT-IN",
+    "JobName":"AL BPT-IN",
     "Serv":"INDTAX"
   },
   {
     "Idx":374,
-    "JobName":"[TTTT] State PTE Election",
+    "JobName":"State PTE Election",
     "Serv":"BUSTAX"
   },
   {
     "Idx":46,
-    "JobName":"[YYYY] Supervisory Exam",
+    "JobName":"Supervisory Exam",
     "Serv":"ATTEST"
   },
   {
@@ -496,12 +496,12 @@
   },
   {
     "Idx":430,
-    "JobName":"[YYYY] Business Personal Property Tax - CA",
+    "JobName":"Business Personal Property Tax - CA",
     "Serv":"ACCTG"
   },
   {
     "Idx":224,
-    "JobName":"[TTTT] 926 US Trans Prop to FC",
+    "JobName":"926 US Trans Prop to FC",
     "Serv":"ESTATE"
   },
   {
@@ -511,7 +511,7 @@
   },
   {
     "Idx":113,
-    "JobName":"[TTTT] 2290 - Heavy Highway Vehicle Use",
+    "JobName":"2290 - Heavy Highway Vehicle Use",
     "Serv":"BUSTAX"
   },
   {
@@ -521,22 +521,22 @@
   },
   {
     "Idx":514,
-    "JobName":"[YYYY] NM Biennial Report",
+    "JobName":"NM Biennial Report",
     "Serv":"BUSTAX"
   },
   {
     "Idx":369,
-    "JobName":"[TTTT] Annual Tax Planning",
+    "JobName":"Annual Tax Planning",
     "Serv":"BUSTAX"
   },
   {
     "Idx":351,
-    "JobName":"[YYYY] PRF Application",
+    "JobName":"PRF Application",
     "Serv":"ACCTG"
   },
   {
     "Idx":193,
-    "JobName":"[TTTT] 8027 Employers Return of Tip Income",
+    "JobName":"8027 Employers Return of Tip Income",
     "Serv":"BUSTAX"
   },
   {
@@ -566,7 +566,7 @@
   },
   {
     "Idx":110,
-    "JobName":"[YYYY] Single Audit Submission",
+    "JobName":"Single Audit Submission",
     "Serv":"AUDIT"
   },
   {
@@ -576,7 +576,7 @@
   },
   {
     "Idx":405,
-    "JobName":"[TTTT] Tax Provisions",
+    "JobName":"Tax Provisions",
     "Serv":"BUSTAX"
   },
   {
@@ -591,7 +591,7 @@
   },
   {
     "Idx":186,
-    "JobName":"[TTTT] 1120 Corporation Return (6\/30 YE)",
+    "JobName":"1120 Corporation Return (6\/30 YE)",
     "Serv":"BUSTAX"
   },
   {
@@ -601,7 +601,7 @@
   },
   {
     "Idx":511,
-    "JobName":"[YYYY] WY Annual Report",
+    "JobName":"WY Annual Report",
     "Serv":"BUSTAX"
   },
   {
@@ -611,17 +611,17 @@
   },
   {
     "Idx":185,
-    "JobName":"[TTTT] 2553 S-Election",
+    "JobName":"2553 S-Election",
     "Serv":"BUSTAX"
   },
   {
     "Idx":369,
-    "JobName":"[TTTT] Annual Tax Planning",
+    "JobName":"Annual Tax Planning",
     "Serv":"NFP"
   },
   {
     "Idx":545,
-    "JobName":"[YYYY] Payroll Tax Pmts (All Periods)",
+    "JobName":"Payroll Tax Pmts (All Periods)",
     "Serv":"ACCTG"
   },
   {
@@ -636,12 +636,12 @@
   },
   {
     "Idx":124,
-    "JobName":"[TTTT] AL-ET-1 (Credit Union)",
+    "JobName":"AL-ET-1 (Credit Union)",
     "Serv":"NFP"
   },
   {
     "Idx":225,
-    "JobName":"[TTTT] 8621 Info Return of Shldr Passive FC",
+    "JobName":"8621 Info Return of Shldr Passive FC",
     "Serv":"ESTATE"
   },
   {
@@ -656,22 +656,22 @@
   },
   {
     "Idx":37,
-    "JobName":"[TTTT] Tax Audit - Federal",
+    "JobName":"Tax Audit - Federal",
     "Serv":"ESTATE"
   },
   {
     "Idx":200,
-    "JobName":"[TTTT] 1120H Homeowners Assoc Return",
+    "JobName":"1120H Homeowners Assoc Return",
     "Serv":"BUSTAX"
   },
   {
     "Idx":548,
-    "JobName":"[YYYY] Payroll (All Periods)",
+    "JobName":"Payroll (All Periods)",
     "Serv":"GCC"
   },
   {
     "Idx":383,
-    "JobName":"[TTTT] Tax Estimates",
+    "JobName":"Tax Estimates",
     "Serv":"ESTATE"
   },
   {
@@ -681,17 +681,17 @@
   },
   {
     "Idx":137,
-    "JobName":"[TTTT] 1120-IC-DISC",
+    "JobName":"1120-IC-DISC",
     "Serv":"BUSTAX"
   },
   {
     "Idx":368,
-    "JobName":"[YYYY] Teaching (external CPE)",
+    "JobName":"Teaching (external CPE)",
     "Serv":"ATTEST"
   },
   {
     "Idx":513,
-    "JobName":"[YYYY] IL Annual Report",
+    "JobName":"IL Annual Report",
     "Serv":"BUSTAX"
   },
   {
@@ -706,7 +706,7 @@
   },
   {
     "Idx":552,
-    "JobName":"[YYYY] Quarterly Bonus Calc",
+    "JobName":"Quarterly Bonus Calc",
     "Serv":"ACCTG"
   },
   {
@@ -721,12 +721,12 @@
   },
   {
     "Idx":548,
-    "JobName":"[YYYY] Payroll (All Periods)",
+    "JobName":"Payroll (All Periods)",
     "Serv":"ACCTG"
   },
   {
     "Idx":25,
-    "JobName":"[TTTT] 1120 Corporation Return",
+    "JobName":"1120 Corporation Return",
     "Serv":"BUSTAX"
   },
   {
@@ -741,12 +741,12 @@
   },
   {
     "Idx":366,
-    "JobName":"[TTTT] 5227 Split-Interest Trust",
+    "JobName":"5227 Split-Interest Trust",
     "Serv":"ESTATE"
   },
   {
     "Idx":100,
-    "JobName":"[TTTT] AL Privilege Tax (SMLLC)",
+    "JobName":"AL Privilege Tax (SMLLC)",
     "Serv":"BUSTAX"
   },
   {
@@ -766,12 +766,12 @@
   },
   {
     "Idx":67,
-    "JobName":"[YYYY] CAAS Consulting",
+    "JobName":"CAAS Consulting",
     "Serv":"ACCTG"
   },
   {
     "Idx":265,
-    "JobName":"[TTTT] AL-ET-1 (Bank)",
+    "JobName":"AL-ET-1 (Bank)",
     "Serv":"BUSTAX"
   },
   {
@@ -781,12 +781,12 @@
   },
   {
     "Idx":52,
-    "JobName":"[YYYY] Reviewed Financial Statement",
+    "JobName":"Reviewed Financial Statement",
     "Serv":"ATTEST"
   },
   {
     "Idx":542,
-    "JobName":"[YYYY] Accounts Receivable (All Periods)",
+    "JobName":"Accounts Receivable (All Periods)",
     "Serv":"ACCTG"
   },
   {
@@ -796,22 +796,22 @@
   },
   {
     "Idx":40,
-    "JobName":"[YYYY] Audited Financial Statement",
+    "JobName":"Audited Financial Statement",
     "Serv":"AUDIT"
   },
   {
     "Idx":386,
-    "JobName":"[TTTT] Amended Return",
+    "JobName":"Amended Return",
     "Serv":"NFP"
   },
   {
     "Idx":525,
-    "JobName":"[YYYY] MA Annual Report",
+    "JobName":"MA Annual Report",
     "Serv":"BUSTAX"
   },
   {
     "Idx":33,
-    "JobName":"[TTTT] Tax Correspondence - Federal",
+    "JobName":"Tax Correspondence - Federal",
     "Serv":"ESTATE"
   },
   {
@@ -821,17 +821,17 @@
   },
   {
     "Idx":426,
-    "JobName":"[TTTT] AL Contractors License Renewal",
+    "JobName":"AL Contractors License Renewal",
     "Serv":"ATTEST"
   },
   {
     "Idx":561,
-    "JobName":"[YYYY] Business Personal Property Tax - KY",
+    "JobName":"Business Personal Property Tax - KY",
     "Serv":"ACCTG"
   },
   {
     "Idx":232,
-    "JobName":"[YYYY] Sales Tax License Renewal",
+    "JobName":"Sales Tax License Renewal",
     "Serv":"ACCTG"
   },
   {
@@ -841,7 +841,7 @@
   },
   {
     "Idx":415,
-    "JobName":"[YYYY] State Annual Reports",
+    "JobName":"State Annual Reports",
     "Serv":"BUSTAX"
   },
   {
@@ -851,7 +851,7 @@
   },
   {
     "Idx":440,
-    "JobName":"[TTTT] 8869 QSUB Election",
+    "JobName":"8869 QSUB Election",
     "Serv":"BUSTAX"
   },
   {
@@ -866,7 +866,7 @@
   },
   {
     "Idx":493,
-    "JobName":"[TTTT] 990-N Electronic Postcard",
+    "JobName":"990-N Electronic Postcard",
     "Serv":"NFP"
   },
   {
@@ -876,12 +876,12 @@
   },
   {
     "Idx":549,
-    "JobName":"[YYYY] Payroll Tax Forms (All Periods)",
+    "JobName":"Payroll Tax Forms (All Periods)",
     "Serv":"GCC"
   },
   {
     "Idx":51,
-    "JobName":"[YYYY] Compiled Financial Statement",
+    "JobName":"Compiled Financial Statement",
     "Serv":"ATTEST"
   },
   {
@@ -891,7 +891,7 @@
   },
   {
     "Idx":387,
-    "JobName":"[TTTT] Tax Audit - State",
+    "JobName":"Tax Audit - State",
     "Serv":"ESTATE"
   },
   {
@@ -901,12 +901,12 @@
   },
   {
     "Idx":47,
-    "JobName":"[YYYY] Projected Financial Statement",
+    "JobName":"Projected Financial Statement",
     "Serv":"ATTEST"
   },
   {
     "Idx":41,
-    "JobName":"[YYYY] FI Audit",
+    "JobName":"FI Audit",
     "Serv":"AUDIT"
   },
   {
@@ -931,17 +931,17 @@
   },
   {
     "Idx":24,
-    "JobName":"[TTTT] 1065 Partnership Return",
+    "JobName":"1065 Partnership Return",
     "Serv":"BUSTAX"
   },
   {
     "Idx":45,
-    "JobName":"[YYYY] SOC2",
+    "JobName":"SOC2",
     "Serv":"ATTEST"
   },
   {
     "Idx":262,
-    "JobName":"[YYYY] Consulting",
+    "JobName":"Consulting",
     "Serv":"MAS"
   },
   {
@@ -971,7 +971,7 @@
   },
   {
     "Idx":55,
-    "JobName":"[TTTT] 706 Estate Tax Return",
+    "JobName":"706 Estate Tax Return",
     "Serv":"ESTATE"
   },
   {
@@ -996,7 +996,7 @@
   },
   {
     "Idx":534,
-    "JobName":"[YYYY] Business Personal Property Tax - SC",
+    "JobName":"Business Personal Property Tax - SC",
     "Serv":"ACCTG"
   },
   {
@@ -1016,7 +1016,7 @@
   },
   {
     "Idx":446,
-    "JobName":"[YYYY] [QY] Agreed Upon Procedures - [PEM]-[PED]",
+    "JobName":"[QY] Agreed Upon Procedures - [PEM]-[PED]",
     "Serv":"ATTEST"
   },
   {
@@ -1036,22 +1036,22 @@
   },
   {
     "Idx":37,
-    "JobName":"[TTTT] Tax Audit - Federal",
+    "JobName":"Tax Audit - Federal",
     "Serv":"ACCTG"
   },
   {
     "Idx":383,
-    "JobName":"[TTTT] Tax Estimates",
+    "JobName":"Tax Estimates",
     "Serv":"NFP"
   },
   {
     "Idx":532,
-    "JobName":"[YYYY] Business Personal Property Tax - AR",
+    "JobName":"Business Personal Property Tax - AR",
     "Serv":"ACCTG"
   },
   {
     "Idx":544,
-    "JobName":"[YYYY] Business Licenses (All Jurisdictions)",
+    "JobName":"Business Licenses (All Jurisdictions)",
     "Serv":"ACCTG"
   },
   {
@@ -1061,22 +1061,22 @@
   },
   {
     "Idx":37,
-    "JobName":"[TTTT] Tax Audit - Federal",
+    "JobName":"Tax Audit - Federal",
     "Serv":"INDTAX"
   },
   {
     "Idx":501,
-    "JobName":"[YYYY] LA Annual Report",
+    "JobName":"LA Annual Report",
     "Serv":"BUSTAX"
   },
   {
     "Idx":383,
-    "JobName":"[TTTT] Tax Estimates",
+    "JobName":"Tax Estimates",
     "Serv":"INDTAX"
   },
   {
     "Idx":37,
-    "JobName":"[TTTT] Tax Audit - Federal",
+    "JobName":"Tax Audit - Federal",
     "Serv":"NFP"
   },
   {
@@ -1086,47 +1086,47 @@
   },
   {
     "Idx":505,
-    "JobName":"[YYYY] IN Annual Report",
+    "JobName":"IN Annual Report",
     "Serv":"BUSTAX"
   },
   {
     "Idx":133,
-    "JobName":"[YYYY] Form 1095-C Employer Provided Coverage",
+    "JobName":"Form 1095-C Employer Provided Coverage",
     "Serv":"BUSTAX"
   },
   {
     "Idx":103,
-    "JobName":"[TTTT] FinCen 114",
+    "JobName":"FinCen 114",
     "Serv":"ESTATE"
   },
   {
     "Idx":23,
-    "JobName":"[TTTT] 1040 Individual Tax Return",
+    "JobName":"1040 Individual Tax Return",
     "Serv":"INDTAX"
   },
   {
     "Idx":540,
-    "JobName":"[YYYY] Write Up (All Periods)",
+    "JobName":"Write Up (All Periods)",
     "Serv":"GCC"
   },
   {
     "Idx":123,
-    "JobName":"[YYYY] Business Personal Property Tax - FL",
+    "JobName":"Business Personal Property Tax - FL",
     "Serv":"ACCTG"
   },
   {
     "Idx":538,
-    "JobName":"[TTTT] 83(b) Election",
+    "JobName":"83(b) Election",
     "Serv":"TASTAX"
   },
   {
     "Idx":258,
-    "JobName":"[TTTT] 8802 - App for US Residency Cert.",
+    "JobName":"8802 - App for US Residency Cert.",
     "Serv":"ESTATE"
   },
   {
     "Idx":130,
-    "JobName":"[TTTT] 1042 Withholding Tax for Foreign Person",
+    "JobName":"1042 Withholding Tax for Foreign Person",
     "Serv":"ESTATE"
   },
   {
@@ -1151,7 +1151,7 @@
   },
   {
     "Idx":369,
-    "JobName":"[TTTT] Annual Tax Planning",
+    "JobName":"Annual Tax Planning",
     "Serv":"ESTATE"
   },
   {
@@ -1161,7 +1161,7 @@
   },
   {
     "Idx":506,
-    "JobName":"[YYYY] CO Annual Report",
+    "JobName":"CO Annual Report",
     "Serv":"BUSTAX"
   },
   {
@@ -1171,7 +1171,7 @@
   },
   {
     "Idx":196,
-    "JobName":"[YYYY] Business Personal Property Tax - GA",
+    "JobName":"Business Personal Property Tax - GA",
     "Serv":"ACCTG"
   },
   {
@@ -1181,7 +1181,7 @@
   },
   {
     "Idx":528,
-    "JobName":"[YYYY] CT Annual Report",
+    "JobName":"CT Annual Report",
     "Serv":"BUSTAX"
   },
   {
@@ -1191,7 +1191,7 @@
   },
   {
     "Idx":336,
-    "JobName":"[YYYY] Tax Consulting",
+    "JobName":"Tax Consulting",
     "Serv":"NFP"
   },
   {
@@ -1201,7 +1201,7 @@
   },
   {
     "Idx":266,
-    "JobName":"[TTTT] 5472 Info Return of FC",
+    "JobName":"5472 Info Return of FC",
     "Serv":"ESTATE"
   },
   {
@@ -1231,7 +1231,7 @@
   },
   {
     "Idx":206,
-    "JobName":"[YYYY] EIDL Assistance",
+    "JobName":"EIDL Assistance",
     "Serv":"COVID-19"
   },
   {
@@ -1246,17 +1246,17 @@
   },
   {
     "Idx":559,
-    "JobName":"[YYYY] Recurring Billing Memo Job",
+    "JobName":"Recurring Billing Memo Job",
     "Serv":"ACCTG"
   },
   {
     "Idx":527,
-    "JobName":"[YYYY] KS Annual Report",
+    "JobName":"KS Annual Report",
     "Serv":"BUSTAX"
   },
   {
     "Idx":243,
-    "JobName":"[YYYY] Sales Tax (GovCon)",
+    "JobName":"Sales Tax (GovCon)",
     "Serv":"ACCTG"
   },
   {
@@ -1266,7 +1266,7 @@
   },
   {
     "Idx":106,
-    "JobName":"[TTTT] Personal Use of Auto",
+    "JobName":"Personal Use of Auto",
     "Serv":"ACCTG"
   },
   {
@@ -1286,7 +1286,7 @@
   },
   {
     "Idx":519,
-    "JobName":"[YYYY] NV List of Officers",
+    "JobName":"NV List of Officers",
     "Serv":"BUSTAX"
   },
   {
@@ -1296,7 +1296,7 @@
   },
   {
     "Idx":535,
-    "JobName":"[YYYY] Business Personal Property Tax - TN",
+    "JobName":"Business Personal Property Tax - TN",
     "Serv":"ACCTG"
   },
   {
@@ -1321,7 +1321,7 @@
   },
   {
     "Idx":554,
-    "JobName":"[YYYY] MT Annual Report",
+    "JobName":"MT Annual Report",
     "Serv":"BUSTAX"
   },
   {
@@ -1341,12 +1341,12 @@
   },
   {
     "Idx":336,
-    "JobName":"[YYYY] Tax Consulting",
+    "JobName":"Tax Consulting",
     "Serv":"ESTATE"
   },
   {
     "Idx":432,
-    "JobName":"[YYYY] Business Personal Property Tax - WI",
+    "JobName":"Business Personal Property Tax - WI",
     "Serv":"ACCTG"
   },
   {
@@ -1356,12 +1356,12 @@
   },
   {
     "Idx":126,
-    "JobName":"[TTTT] 8938 Foreign Financial Assets",
+    "JobName":"8938 Foreign Financial Assets",
     "Serv":"ESTATE"
   },
   {
     "Idx":556,
-    "JobName":"[TTTT] 990-PF Attorney General Filing",
+    "JobName":"990-PF Attorney General Filing",
     "Serv":"NFP"
   },
   {
@@ -1371,7 +1371,7 @@
   },
   {
     "Idx":57,
-    "JobName":"[TTTT] 8971 Beneficiary Acquiring Property",
+    "JobName":"8971 Beneficiary Acquiring Property",
     "Serv":"ESTATE"
   },
   {
@@ -1396,12 +1396,12 @@
   },
   {
     "Idx":185,
-    "JobName":"[TTTT] 2553 S-Election",
+    "JobName":"2553 S-Election",
     "Serv":"TASTAX"
   },
   {
     "Idx":131,
-    "JobName":"[TTTT] W-8 BEN",
+    "JobName":"W-8 BEN",
     "Serv":"ESTATE"
   },
   {
@@ -1416,7 +1416,7 @@
   },
   {
     "Idx":547,
-    "JobName":"[YYYY] Sales\/Use\/Liquor Tax (Monthly)",
+    "JobName":"Sales\/Use\/Liquor Tax (Monthly)",
     "Serv":"ACCTG"
   },
   {
@@ -1431,7 +1431,7 @@
   },
   {
     "Idx":515,
-    "JobName":"[YYYY] OR Annual Report",
+    "JobName":"OR Annual Report",
     "Serv":"BUSTAX"
   },
   {
@@ -1446,22 +1446,22 @@
   },
   {
     "Idx":250,
-    "JobName":"[TTTT] 8832 Entity Classification Election",
+    "JobName":"8832 Entity Classification Election",
     "Serv":"TASTAX"
   },
   {
     "Idx":75,
-    "JobName":"[YYYY] Business Personal Property Tax",
+    "JobName":"Business Personal Property Tax",
     "Serv":"ACCTG"
   },
   {
     "Idx":502,
-    "JobName":"[YYYY] NJ Annual Report",
+    "JobName":"NJ Annual Report",
     "Serv":"BUSTAX"
   },
   {
     "Idx":132,
-    "JobName":"[YYYY] Alabama DOL Audit",
+    "JobName":"Alabama DOL Audit",
     "Serv":"ACCTG"
   },
   {
@@ -1471,22 +1471,22 @@
   },
   {
     "Idx":129,
-    "JobName":"[TTTT] AL BPT-IN",
+    "JobName":"AL BPT-IN",
     "Serv":"BUSTAX"
   },
   {
     "Idx":54,
-    "JobName":"[TTTT] 3520 Foreign Trusts",
+    "JobName":"3520 Foreign Trusts",
     "Serv":"ESTATE"
   },
   {
     "Idx":119,
-    "JobName":"[TTTT] Unclaimed Property-AL",
+    "JobName":"Unclaimed Property-AL",
     "Serv":"ACCTG"
   },
   {
     "Idx":122,
-    "JobName":"[TTTT] Unclaimed Property - FL",
+    "JobName":"Unclaimed Property - FL",
     "Serv":"ACCTG"
   },
   {
@@ -1496,7 +1496,7 @@
   },
   {
     "Idx":517,
-    "JobName":"[YYYY] SD Annual Report",
+    "JobName":"SD Annual Report",
     "Serv":"BUSTAX"
   },
   {
@@ -1506,7 +1506,7 @@
   },
   {
     "Idx":531,
-    "JobName":"[YYYY] 720 Federal Excise Tax Annual",
+    "JobName":"720 Federal Excise Tax Annual",
     "Serv":"BUSTAX"
   },
   {
@@ -1516,22 +1516,22 @@
   },
   {
     "Idx":247,
-    "JobName":"[YYYY] Employee Retention Credit",
+    "JobName":"Employee Retention Credit",
     "Serv":"COVID-19"
   },
   {
     "Idx":388,
-    "JobName":"[TTTT] Tax Correspondence - State",
+    "JobName":"Tax Correspondence - State",
     "Serv":"ACCTG"
   },
   {
     "Idx":549,
-    "JobName":"[YYYY] Payroll Tax Forms (All Periods)",
+    "JobName":"Payroll Tax Forms (All Periods)",
     "Serv":"ACCTG"
   },
   {
     "Idx":104,
-    "JobName":"[TTTT] 8752 Required Payment or Refund",
+    "JobName":"8752 Required Payment or Refund",
     "Serv":"BUSTAX"
   },
   {
@@ -1541,7 +1541,7 @@
   },
   {
     "Idx":201,
-    "JobName":"[TTTT] 8858 Info Return - FDE",
+    "JobName":"8858 Info Return - FDE",
     "Serv":"ESTATE"
   },
   {
@@ -1566,17 +1566,17 @@
   },
   {
     "Idx":444,
-    "JobName":"[YYYY] Outsourced Internal Audit",
+    "JobName":"Outsourced Internal Audit",
     "Serv":"ATTEST"
   },
   {
     "Idx":384,
-    "JobName":"[TTTT] Standalone State Returns",
+    "JobName":"Standalone State Returns",
     "Serv":"BUSTAX"
   },
   {
     "Idx":512,
-    "JobName":"[YYYY] ID Annual Report",
+    "JobName":"ID Annual Report",
     "Serv":"BUSTAX"
   },
   {
@@ -1591,17 +1591,17 @@
   },
   {
     "Idx":44,
-    "JobName":"[YYYY] SOC1",
+    "JobName":"SOC1",
     "Serv":"ATTEST"
   },
   {
     "Idx":564,
-    "JobName":"[YYYY] Business Personal Property Tax - TX",
+    "JobName":"Business Personal Property Tax - TX",
     "Serv":"ACCTG"
   },
   {
     "Idx":207,
-    "JobName":"[YYYY] Cash Flow Project",
+    "JobName":"Cash Flow Project",
     "Serv":"MAS"
   },
   {
@@ -1611,17 +1611,17 @@
   },
   {
     "Idx":540,
-    "JobName":"[YYYY] Write Up (All Periods)",
+    "JobName":"Write Up (All Periods)",
     "Serv":"ACCTG"
   },
   {
     "Idx":388,
-    "JobName":"[TTTT] Tax Correspondence - State",
+    "JobName":"Tax Correspondence - State",
     "Serv":"NFP"
   },
   {
     "Idx":27,
-    "JobName":"[TTTT] 990 Non-Profit Return",
+    "JobName":"990 Non-Profit Return",
     "Serv":"NFP"
   },
   {
@@ -1666,7 +1666,7 @@
   },
   {
     "Idx":195,
-    "JobName":"[YYYY] Business Personal Property Tax - LA",
+    "JobName":"Business Personal Property Tax - LA",
     "Serv":"ACCTG"
   },
   {
@@ -1691,7 +1691,7 @@
   },
   {
     "Idx":33,
-    "JobName":"[TTTT] Tax Correspondence - Federal",
+    "JobName":"Tax Correspondence - Federal",
     "Serv":"NFP"
   },
   {
@@ -1701,7 +1701,7 @@
   },
   {
     "Idx":214,
-    "JobName":"[TTTT] 8865 - Foreign Partnership",
+    "JobName":"8865 - Foreign Partnership",
     "Serv":"ESTATE"
   },
   {
@@ -1721,22 +1721,22 @@
   },
   {
     "Idx":336,
-    "JobName":"[YYYY] Tax Consulting",
+    "JobName":"Tax Consulting",
     "Serv":"TASTAX"
   },
   {
     "Idx":529,
-    "JobName":"[YYYY] NC Annual Report",
+    "JobName":"NC Annual Report",
     "Serv":"BUSTAX"
   },
   {
     "Idx":71,
-    "JobName":"[YYYY] 1099 Other Taxable Income ",
+    "JobName":"1099 Other Taxable Income ",
     "Serv":"ACCTG"
   },
   {
     "Idx":388,
-    "JobName":"[TTTT] Tax Correspondence - State",
+    "JobName":"Tax Correspondence - State",
     "Serv":"INDTAX"
   },
   {
@@ -1746,7 +1746,7 @@
   },
   {
     "Idx":33,
-    "JobName":"[TTTT] Tax Correspondence - Federal",
+    "JobName":"Tax Correspondence - Federal",
     "Serv":"ACCTG"
   },
   {
@@ -1761,7 +1761,7 @@
   },
   {
     "Idx":186,
-    "JobName":"[TTTT] 1120 Corporation Return (6\/30 YE)",
+    "JobName":"1120 Corporation Return (6\/30 YE)",
     "Serv":"TASTAX"
   },
   {
@@ -1771,7 +1771,7 @@
   },
   {
     "Idx":42,
-    "JobName":"[YYYY] Attestation",
+    "JobName":"Attestation",
     "Serv":"ATTEST"
   },
   {
@@ -1786,17 +1786,17 @@
   },
   {
     "Idx":387,
-    "JobName":"[TTTT] Tax Audit - State",
+    "JobName":"Tax Audit - State",
     "Serv":"BUSTAX"
   },
   {
     "Idx":546,
-    "JobName":"[YYYY] Preparation (All Periods)",
+    "JobName":"Preparation (All Periods)",
     "Serv":"GCC"
   },
   {
     "Idx":523,
-    "JobName":"[YYYY] NV Commerce Return",
+    "JobName":"NV Commerce Return",
     "Serv":"BUSTAX"
   },
   {
@@ -1806,22 +1806,22 @@
   },
   {
     "Idx":492,
-    "JobName":"[TTTT] 1120-POL Income Tax Return",
+    "JobName":"1120-POL Income Tax Return",
     "Serv":"BUSTAX"
   },
   {
     "Idx":245,
-    "JobName":"[YYYY] Business Personal Property Tax - MD",
+    "JobName":"Business Personal Property Tax - MD",
     "Serv":"ACCTG"
   },
   {
     "Idx":24,
-    "JobName":"[TTTT] 1065 Partnership Return",
+    "JobName":"1065 Partnership Return",
     "Serv":"TASTAX"
   },
   {
     "Idx":550,
-    "JobName":"[YYYY] Depreciation (All Periods)",
+    "JobName":"Depreciation (All Periods)",
     "Serv":"ACCTG"
   },
   {
@@ -1831,7 +1831,7 @@
   },
   {
     "Idx":545,
-    "JobName":"[YYYY] Payroll Tax Pmts (All Periods)",
+    "JobName":"Payroll Tax Pmts (All Periods)",
     "Serv":"GCC"
   },
   {
@@ -1846,12 +1846,12 @@
   },
   {
     "Idx":563,
-    "JobName":"[YYYY] NE Annual Report",
+    "JobName":"NE Annual Report",
     "Serv":"BUSTAX"
   },
   {
     "Idx":526,
-    "JobName":"[YYYY] AZ Annual Report",
+    "JobName":"AZ Annual Report",
     "Serv":"BUSTAX"
   },
   {
@@ -1861,22 +1861,22 @@
   },
   {
     "Idx":236,
-    "JobName":"[TTTT] 4720 Federal Excise Tax on Charities",
+    "JobName":"4720 Federal Excise Tax on Charities",
     "Serv":"NFP"
   },
   {
     "Idx":39,
-    "JobName":"[YYYY] Employee Benefit Plan Audit",
+    "JobName":"Employee Benefit Plan Audit",
     "Serv":"AUDIT"
   },
   {
     "Idx":102,
-    "JobName":"[TTTT] 3520-A Foreign Trust",
+    "JobName":"3520-A Foreign Trust",
     "Serv":"ESTATE"
   },
   {
     "Idx":494,
-    "JobName":"[TTTT] 990-EZ Short Form Return",
+    "JobName":"990-EZ Short Form Return",
     "Serv":"NFP"
   },
   {
@@ -1891,52 +1891,52 @@
   },
   {
     "Idx":53,
-    "JobName":"[TTTT] 1041 Estate and Trust Return",
+    "JobName":"1041 Estate and Trust Return",
     "Serv":"ESTATE"
   },
   {
     "Idx":208,
-    "JobName":"[YYYY] PPP Loan Forgiveness",
+    "JobName":"PPP Loan Forgiveness",
     "Serv":"COVID-19"
   },
   {
     "Idx":28,
-    "JobName":"[TTTT] 990PF Private Foundation Return",
+    "JobName":"990PF Private Foundation Return",
     "Serv":"NFP"
   },
   {
     "Idx":516,
-    "JobName":"[YYYY] OK Annual Report",
+    "JobName":"OK Annual Report",
     "Serv":"BUSTAX"
   },
   {
     "Idx":227,
-    "JobName":"[TTTT] 8886 Reportable Transaction Disclosure",
+    "JobName":"8886 Reportable Transaction Disclosure",
     "Serv":"ESTATE"
   },
   {
     "Idx":508,
-    "JobName":"[YYYY] CA Annual Report",
+    "JobName":"CA Annual Report",
     "Serv":"BUSTAX"
   },
   {
     "Idx":428,
-    "JobName":"[YYYY] Client Software-Access Fees",
+    "JobName":"Client Software-Access Fees",
     "Serv":"ACCTG"
   },
   {
     "Idx":383,
-    "JobName":"[TTTT] Tax Estimates",
+    "JobName":"Tax Estimates",
     "Serv":"BUSTAX"
   },
   {
     "Idx":167,
-    "JobName":"[YYYY] Incurred Cost Submission",
+    "JobName":"Incurred Cost Submission",
     "Serv":"GCC"
   },
   {
     "Idx":551,
-    "JobName":"[YYYY] Process 401k Payments (All Periods)",
+    "JobName":"Process 401k Payments (All Periods)",
     "Serv":"GCC"
   },
   {
@@ -1951,17 +1951,17 @@
   },
   {
     "Idx":388,
-    "JobName":"[TTTT] Tax Correspondence - State",
+    "JobName":"Tax Correspondence - State",
     "Serv":"ESTATE"
   },
   {
     "Idx":199,
-    "JobName":"[YYYY] CAS SOW",
+    "JobName":"CAS SOW",
     "Serv":"ACCTG"
   },
   {
     "Idx":518,
-    "JobName":"[YYYY] UT Annual Report",
+    "JobName":"UT Annual Report",
     "Serv":"BUSTAX"
   },
   {
@@ -1976,12 +1976,12 @@
   },
   {
     "Idx":205,
-    "JobName":"[YYYY] PPP Loan",
+    "JobName":"PPP Loan",
     "Serv":"COVID-19"
   },
   {
     "Idx":546,
-    "JobName":"[YYYY] Preparation (All Periods)",
+    "JobName":"Preparation (All Periods)",
     "Serv":"ACCTG"
   },
   {
@@ -2011,12 +2011,12 @@
   },
   {
     "Idx":440,
-    "JobName":"[TTTT] 8869 QSUB Election",
+    "JobName":"8869 QSUB Election",
     "Serv":"TASTAX"
   },
   {
     "Idx":530,
-    "JobName":"[YYYY] VA Annual Report",
+    "JobName":"VA Annual Report",
     "Serv":"BUSTAX"
   },
   {
@@ -2026,7 +2026,7 @@
   },
   {
     "Idx":557,
-    "JobName":"[YYYY] Write Up Annual - Tax",
+    "JobName":"Write Up Annual - Tax",
     "Serv":"BUSTAX"
   },
   {
@@ -2036,7 +2036,7 @@
   },
   {
     "Idx":491,
-    "JobName":"[TTTT] 1120-PC Property and Casualty Insurance Company Return",
+    "JobName":"1120-PC Property and Casualty Insurance Company Return",
     "Serv":"BUSTAX"
   },
   {
@@ -2046,27 +2046,27 @@
   },
   {
     "Idx":250,
-    "JobName":"[TTTT] 8832 Entity Classification Election",
+    "JobName":"8832 Entity Classification Election",
     "Serv":"BUSTAX"
   },
   {
     "Idx":536,
-    "JobName":"[YYYY] Business Personal Property Tax - VA",
+    "JobName":"Business Personal Property Tax - VA",
     "Serv":"ACCTG"
   },
   {
     "Idx":243,
-    "JobName":"[YYYY] Sales Tax (GovCon)",
+    "JobName":"Sales Tax (GovCon)",
     "Serv":"GCC"
   },
   {
     "Idx":386,
-    "JobName":"[TTTT] Amended Return",
+    "JobName":"Amended Return",
     "Serv":"INDTAX"
   },
   {
     "Idx":33,
-    "JobName":"[TTTT] Tax Correspondence - Federal",
+    "JobName":"Tax Correspondence - Federal",
     "Serv":"BUSTAX"
   },
   {
@@ -2081,17 +2081,17 @@
   },
   {
     "Idx":500,
-    "JobName":"[YYYY] WA Annual Report",
+    "JobName":"WA Annual Report",
     "Serv":"BUSTAX"
   },
   {
     "Idx":349,
-    "JobName":"[YYYY] Non-Recurring CAAS",
+    "JobName":"Non-Recurring CAAS",
     "Serv":"ACCTG"
   },
   {
     "Idx":386,
-    "JobName":"[TTTT] Amended Return",
+    "JobName":"Amended Return",
     "Serv":"BUSTAX"
   },
   {
@@ -2106,12 +2106,12 @@
   },
   {
     "Idx":128,
-    "JobName":"[TTTT] 5471 Info Return of Person re FC",
+    "JobName":"5471 Info Return of Person re FC",
     "Serv":"ESTATE"
   },
   {
     "Idx":26,
-    "JobName":"[TTTT] 1120S S-Corporation Return",
+    "JobName":"1120S S-Corporation Return",
     "Serv":"TASTAX"
   },
   {
@@ -2121,7 +2121,7 @@
   },
   {
     "Idx":557,
-    "JobName":"[YYYY] Write Up Annual - Tax",
+    "JobName":"Write Up Annual - Tax",
     "Serv":"INDTAX"
   }
 ]

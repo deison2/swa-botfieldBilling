@@ -15,7 +15,8 @@ export default function EditNarrativeModal({
   initialData,
   onSave,
   onDelete,
-  availableJobs // array of { Idx: number, JobName: string, Serv: string }
+  availableJobs, // array of { Idx: number, JobName: string, Serv: string }
+  allNarratives, // array of all narratives for validation
 }) {
   // Form state
   const [form, setForm] = useState({
@@ -28,6 +29,16 @@ export default function EditNarrativeModal({
     Narrative: ''
   });
   const [selectedOptions, setSelectedOptions] = useState([]);
+
+    // ➊ compute the set of job-Idx already used by other narratives
+  const usedJobIdx = useMemo(() => {
+    if (!allNarratives) return new Set();
+    return new Set(
+      allNarratives
+        .filter(r => r.uuid !== initialData?.uuid && r.Level === 'JOB')
+        .flatMap(r => r.Idx || [])
+    );
+  }, [allNarratives, initialData]);
 
   // Build raw options including service
   const jobOptions = useMemo(
@@ -52,18 +63,24 @@ export default function EditNarrativeModal({
     });
   }, [jobOptions, selectedOptions]);
 
-  // Filter by service (include ALL or specific)
   const filteredJobOptions = useMemo(() => {
-    if (!form.Serv || form.Serv === 'ALL') {
-      return sortedJobOptions;
+    let opts = sortedJobOptions;
+
+    // keep only same-service if SERVICE filter applies
+    if (form.Serv && form.Serv !== 'ALL') {
+      const base = opts.filter(opt => opt.serv === form.Serv);
+      const missing = selectedOptions.filter(
+        sel => !base.some(opt => opt.value === sel.value)
+      );
+      opts = [...base, ...missing];
     }
-    // ensure selected options remain
-    const base = sortedJobOptions.filter(opt => opt.serv === form.Serv);
-    const missing = selectedOptions.filter(
-      sel => !base.some(opt => opt.value === sel.value)
-    );
-    return [...base, ...missing];
-  }, [sortedJobOptions, form.Serv, selectedOptions]);
+
+    // ➌ now drop any option that’s already used *elsewhere*, unless it’s on THIS row
+    return opts.filter(opt => {
+      const isSelectedHere = selectedOptions.some(o => o.value === opt.value);
+      return isSelectedHere || !usedJobIdx.has(opt.value);
+    });
+  }, [sortedJobOptions, form.Serv, selectedOptions, usedJobIdx]);
 
   // Seed form when modal opens
   useEffect(() => {

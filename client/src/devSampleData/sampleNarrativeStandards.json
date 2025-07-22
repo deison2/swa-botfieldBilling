@@ -4,7 +4,7 @@
     "Idx": [
       0
     ],
-    "Type": "WIP",
+    "Type": "TIME",
     "Serv": "ATTEST",
     "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO ATTEST SERVICES",
     "uuid": "315cf739-5343-45d8-b408-47c359e7ca0e",
@@ -132,17 +132,6 @@
     "isDefault": false
   },
   {
-    "Level": "ALL",
-    "Idx": [
-      0
-    ],
-    "Type": "DISB",
-    "Serv": "ALL",
-    "Narrative": "OUT OF POCKET EXPENSES",
-    "uuid": "47bd08ec-8a7d-49c7-8d0c-ecd7da944cff",
-    "isDefault": true
-  },
-  {
     "Level": "JOB",
     "Idx": [
       59
@@ -180,7 +169,7 @@
     "Idx": [
       0
     ],
-    "Type": "WIP",
+    "Type": "TIME",
     "Serv": "VAL",
     "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO BUSINESS VALUATION",
     "uuid": "99d4e2f7-56f9-4407-bd49-53e31c24e1b3",
@@ -389,11 +378,11 @@
     "isDefault": false
   },
   {
-    "Level": "ALL",
+    "Level": "SPEC",
     "Idx": [
       0
     ],
-    "Type": "ALL",
+    "Type": "SPEC",
     "Serv": "ALL",
     "Narrative": "PROFESSIONAL SERVICES RENDERED AS FOLLOWS :",
     "uuid": "6b9a1533-9deb-43e3-9e5d-ef76c489b0c6",
@@ -415,7 +404,7 @@
     "Idx": [
       0
     ],
-    "Type": "WIP",
+    "Type": "TIME",
     "Serv": "MAS",
     "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO MANAGEMENT ADVISORY",
     "uuid": "f0f9e256-024e-4381-b444-d8a1dfec688e",
@@ -426,7 +415,7 @@
     "Idx": [
       0
     ],
-    "Type": "WIP",
+    "Type": "TIME",
     "Serv": "SALT",
     "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO STATE AND LOCAL TAX",
     "uuid": "d3d4e0e5-b6a9-4423-9cc7-ba85daae18f4",
@@ -492,7 +481,7 @@
     "Idx": [
       0
     ],
-    "Type": "WIP",
+    "Type": "TIME",
     "Serv": "AUDIT",
     "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO AUDIT SERVICES",
     "uuid": "074fc5d0-b134-4084-adef-6135d05dec98",
@@ -536,7 +525,7 @@
     "Idx": [
       0
     ],
-    "Type": "WIP",
+    "Type": "TIME",
     "Serv": "TAS",
     "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO TRANSACTION ADVISORY SERVICES",
     "uuid": "42b3417f-8e3c-43e8-9303-d751eea77c54",
@@ -623,7 +612,7 @@
     "Idx": [
       0
     ],
-    "Type": "WIP",
+    "Type": "TIME",
     "Serv": "BUSTAX",
     "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO BUSINESS TAX SERVICES",
     "uuid": "5235f666-68e2-4e5b-bb52-1c88f1bdda53",
@@ -645,18 +634,18 @@
     "Idx": [
       0
     ],
-    "Type": "WIP",
+    "Type": "TIME",
     "Serv": "GCC",
     "Narrative": "PROFESSIONAL SERVICES INCLUDING MONTHLY ACCOUNTING SERVICES",
     "uuid": "e4d0cb55-b691-4b93-9a57-bc4545889d2a",
     "isDefault": true
   },
   {
-    "Level": "ALL",
+    "Level": "SPEC",
     "Idx": [
       0
     ],
-    "Type": "ALL",
+    "Type": "SPEC",
     "Serv": "ALL",
     "Narrative": "OUT OF SCOPE",
     "uuid": "96475961-ae17-48cf-8a78-0fd6f7701156",
@@ -755,7 +744,7 @@
     "Idx": [
       0
     ],
-    "Type": "WIP",
+    "Type": "TIME",
     "Serv": "ESTATE",
     "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO ESTATE TAX SERVICES",
     "uuid": "b22b6eb9-e58e-4ba2-b46c-9fed681cc712",
@@ -766,7 +755,7 @@
     "Idx": [
       0
     ],
-    "Type": "WIP",
+    "Type": "TIME",
     "Serv": "INDTAX",
     "Narrative": "PROFESSIONAL SERVICES RENDERED RELATED TO INDIVIDUAL TAX SERVICES",
     "uuid": "f3724aa5-f9d8-46a1-88e5-d9734e2e8113",
@@ -777,7 +766,7 @@
     "Idx": [
       0
     ],
-    "Type": "WIP",
+    "Type": "TIME",
     "Serv": "NFP",
     "Narrative": "PROFESSIONAL SERVICES RENDERED AS FOLLOWS :",
     "uuid": "3d4dc99e-617f-4da2-855e-3ee35b7299b9",
@@ -788,7 +777,7 @@
     "Idx": [
       0
     ],
-    "Type": "WIP",
+    "Type": "TIME",
     "Serv": "TASTAX",
     "Narrative": "PROJECT [PLACEHOLDER]",
     "uuid": "74c9b3dc-030c-4fad-9e9e-4b1237e96bfe",
@@ -877,7 +866,7 @@
     "Idx": [
       0
     ],
-    "Type": "WIP",
+    "Type": "TIME",
     "Serv": "EOS",
     "Narrative": "EOS IMPLEMENTATION",
     "uuid": "c5d50f94-6e8f-4edf-b7bd-4a2708450fee",
@@ -888,7 +877,7 @@
     "Idx": [
       0
     ],
-    "Type": "WIP",
+    "Type": "TIME",
     "Serv": "HR",
     "Narrative": "PROFESSIONAL SERVICES RENDERED AS FOLLOWS :",
     "uuid": "eb3c8892-a49c-4dcb-81fc-101781618647",
