@@ -4,7 +4,10 @@ import { NavLink } from 'react-router-dom';
 import './Sidebar.css';
 
 export default function Sidebar() {
-  const [wipOpen, setWipOpen] = useState(false);
+  const [wipOpen, setWipOpen] = useState(() => {
+    const stored = window.localStorage.getItem('wipOpen');
+    return stored !== null ? JSON.parse(stored) : false;
+  });
 
   const linkClass = ({ isActive }) =>
     isActive ? 'sidebar-link active' : 'sidebar-link';
@@ -17,7 +20,13 @@ export default function Sidebar() {
         {/* Collapsible WIP-Based-Billing */}
         <div
           className="wip-toggle"
-          onClick={() => setWipOpen(open => !open)}
+          onClick={() =>
+              setWipOpen(open => {
+              const next = !open;
+              window.localStorage.setItem('wipOpen', JSON.stringify(next));
+              return next;
+            })
+          }
         >
           {wipOpen ? '▼' : '▶'} WIP-Based-Billing
         </div>

@@ -36,8 +36,9 @@ export async function updateNarrative(updatedItem) {
 }
 
 export async function deleteNarrative(id) {
-  const all = await fetchAll();
-  const updated = all.filter(i => i.id !== id);
-  await saveAll(updated);
+  //const all = await fetchAll();
+  //const updated = all.filter(i => i.id !== id);
+  //await saveAll(updated);
+  console.log('Deleting narrative:', id);
   return id;
 }
