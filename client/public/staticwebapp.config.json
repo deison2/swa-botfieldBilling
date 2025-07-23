@@ -17,13 +17,21 @@
     {
       "route": "/",
       "allowedRoles": ["authenticated"],
-      "serve": "/index.html",
+      "serve": "/index.html"
+    },
+    {
+      "route": "/",
+      "statusCode": 401,
       "rewrite": "/login"
     },
     {
       "route": "/*",
       "allowedRoles": ["authenticated"],
-      "serve": "/index.html",
+      "serve": "/index.html"
+    },
+    {
+      "route": "/*",
+      "statusCode": 401,
       "rewrite": "/login"
     }
   ]
