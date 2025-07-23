@@ -1,6 +1,6 @@
 {
   "name": "client",
-  "version": "19.1.0",
+  "version": "18.3.1",
   "private": true,
   "dependencies": {
     "@azure/storage-blob": "^12.27.0",
