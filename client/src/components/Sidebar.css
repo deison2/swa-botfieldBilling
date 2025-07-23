@@ -11,12 +11,6 @@
   box-sizing: border-box;
 }
 
-.logo {
-  font-size: 20px;
-  font-weight: bold;
-  text-align: center;
-}
-
 .footer {
   font-size: 12px;
   font-weight: bold;
@@ -69,3 +63,36 @@
   color: #063941;
   font-weight: bold;
 }
+
+.logo-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 1rem 1rem 0.5rem 1rem;
+}
+
+.botfield-container {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #dff0ed, #b2d7d0);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.keith-bot-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.logo {
+  font-weight: bold;
+  font-size: 1.1rem;
+  color: white;
+}
+
