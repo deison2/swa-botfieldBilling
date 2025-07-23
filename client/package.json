@@ -43,11 +43,5 @@
       "last 1 safari version"
     ]
   },
-  "proxy": "http://localhost:3001",
-  "overrides": {
-  "react-multi-select-component@4.3.4": {
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
-  }
-}
+  "proxy": "http://localhost:3001"
 }
