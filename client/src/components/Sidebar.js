@@ -11,7 +11,20 @@ export default function Sidebar() {
 
   return (
     <aside className="sidebar">
-      <div className="logo">BMSS</div>
+      {/* Left-aligned bot + logo container */}
+      <div className="logo-wrapper">
+        <div className="botfield-container">
+          <video
+            className="keith-bot-icon"
+            src="https://storageacctbmssprod001.blob.core.windows.net/container-bmssprod001-public/kbWaving.mp4"
+            autoPlay
+            loop
+            muted
+            playsInline
+          />
+        </div>
+        <div className="logo">Keith Botfield</div>
+      </div>
 
       <nav className="nav">
         {/* Collapsible WIP-Based-Billing */}
