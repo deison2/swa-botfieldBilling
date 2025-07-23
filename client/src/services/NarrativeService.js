@@ -1,42 +1,34 @@
 // Replace these with your real fetch/save calls:
-async function fetchAll() {
-  const res = await fetch('/api/narratives');
-  return res.ok ? res.json() : Promise.reject('Fetch failed');
+
+const API = 'http://localhost:3001/api/narratives';
+
+export async function loadNarratives() {
+  const res = await fetch(API);
+  if (!res.ok) throw new Error('load failed');
+  return res.json();
 }
 
-async function saveAll(items) {
-  const res = await fetch('/api/narratives', {
+export async function addNarrative(item) {
+  const res = await fetch(API, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(items),
+    body: JSON.stringify(item),
   });
-  if (!res.ok) throw new Error('Save failed');
+  if (!res.ok) throw new Error('add failed');
+  return res.json();
 }
 
-// Public API:
-export async function loadNarratives() {
-  return fetchAll();
+export async function updateNarrative(item) {
+  const res = await fetch(`${API}/${item.uuid}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(item),
+  });
+  if (!res.ok) throw new Error('update failed');
+  return res.json();
 }
 
-export async function addNarrative(newItem) {
-  //const all = await fetchAll(); NEEDS BACKEND API SET UP
-  //const updated = [...all, newItem];
-  //await saveAll(updated);
-  console.log('Adding narrative:', newItem);
-  return true; //true until API is set up
-}
-
-export async function updateNarrative(updatedItem) {
-  const all = await fetchAll();
-  const updated = all.map(i => (i.id === updatedItem.id ? updatedItem : i));
-  await saveAll(updated);
-  return updatedItem;
-}
-
-export async function deleteNarrative(id) {
-  //const all = await fetchAll();
-  //const updated = all.filter(i => i.id !== id);
-  //await saveAll(updated);
-  console.log('Deleting narrative:', id);
-  return id;
-}
+export async function deleteNarrative(uuid) {
+  const res = await fetch(`${API}/${uuid}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('delete failed');
+} 

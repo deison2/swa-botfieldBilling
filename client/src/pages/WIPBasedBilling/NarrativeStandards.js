@@ -122,10 +122,6 @@ const serviceOptions = useMemo(
     setRows(r => r.map(rw => (rw.uuid === item.uuid ? item : rw)));
     console.log(item);
   }
-  async function handleDelete(uuid) {
-    await deleteNarrative(uuid);
-    setRows(r => r.filter(rw => rw.uuid !== uuid));
-  }
 
   function openEditModal(row) {
     setSelectedRow(row);
@@ -366,7 +362,7 @@ const serviceOptions = useMemo(
             progressPending={loading}
             onRowAdd={openAddModal}
             onRowUpdate={handleUpdate}
-            onRowDelete={handleDelete}
+            onRowDelete={handleConfirmDelete}
             pagination
             highlightOnHover
             striped
