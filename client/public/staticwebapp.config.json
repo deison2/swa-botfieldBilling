@@ -1,0 +1,18 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/.auth/*", "/api/*"]
+  },
+  "routes": [
+    {
+      "route": "/login",
+      "allowedRoles": ["anonymous", "authenticated"]
+    },
+    {
+      "route": "/*",
+      "allowedRoles": ["authenticated"],
+      "statusCode": 401,
+      "serve": "/login"
+    }
+  ]
+}
