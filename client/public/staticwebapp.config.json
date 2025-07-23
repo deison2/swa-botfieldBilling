@@ -16,8 +16,8 @@
     },
     {
       "route": "/",
-      "allowedRoles": ["authenticated"],
-      "serve": "/login"
+      "redirect": "/login",
+      "statusCode": 302
     },
     {
       "route": "/*",
