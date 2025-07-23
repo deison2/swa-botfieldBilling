@@ -58,6 +58,10 @@ export default function ExistingDrafts() {
   const [partnerFilter,   setPartnerFilter]     = useState('');
   const [managerFilter,   setManagerFilter]     = useState('');
   const [searchText,      setSearchText]        = useState('');
+  const [realOp, setRealOp] = useState('');
+  const [realVal1, setRealVal1] = useState('');
+  const [realVal2, setRealVal2] = useState('');
+
 
   /* dropdown options */
   const originatorOptions = useMemo(
@@ -77,10 +81,40 @@ export default function ExistingDrafts() {
           c.name.toLowerCase().includes(searchText.toLowerCase())
         )
       )
-      .filter(r => !originatorFilter || r.ORIGINATOR   === originatorFilter)
-      .filter(r => !partnerFilter   || r.CLIENTPARTNER === partnerFilter)
-      .filter(r => !managerFilter   || r.CLIENTMANAGER === managerFilter);
-  }, [rows, searchText, originatorFilter, partnerFilter, managerFilter]);
+      .filter(r => !originatorFilter || r.ORIGINATOR === originatorFilter)
+      .filter(r => !partnerFilter || r.CLIENTPARTNER === partnerFilter)
+      .filter(r => !managerFilter || r.CLIENTMANAGER === managerFilter)
+      .filter(r => {
+        if (!realOp || realVal1 === '') return true;
+
+        const percent = (r.BILLED / (r.WIP || 1)) * 100;
+        const rounded = Math.round(percent);
+
+        switch (realOp) {
+          case 'lt':  return rounded <  +realVal1;
+          case 'lte': return rounded <= +realVal1;
+          case 'eq':  return rounded === +realVal1;
+          case 'gte': return rounded >= +realVal1;
+          case 'gt':  return rounded >  +realVal1;
+          case 'btw':
+            if (realVal2 === '') return true;
+            const min = Math.min(+realVal1, +realVal2);
+            const max = Math.max(+realVal1, +realVal2);
+            return rounded >= min && rounded <= max;
+          default: return true;
+        }
+      })
+      ;
+  }, [
+    rows,
+    searchText,
+    originatorFilter,
+    partnerFilter,
+    managerFilter,
+    realOp,
+    realVal1,
+    realVal2
+  ]);
 
   /* ───────── chips in main table ───────── */
   const ChipSet = ({ items, field }) => {
@@ -232,6 +266,9 @@ const Expandable = ({ data }) => {
     setPartnerFilter('');
     setManagerFilter('');
     setSearchText('');
+    setRealOp('');
+    setRealVal1('');
+    setRealVal2('');
   };
   const handleGeneratePDF = () =>
     console.log('TODO – merge PDFs & email to billing@bmss.com');
@@ -256,6 +293,37 @@ const Expandable = ({ data }) => {
             <option value="">All Managers</option>
             {managerOptions.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
+          <select
+              value={realOp}
+              onChange={e => setRealOp(e.target.value)}
+              title="Realization operator"
+            >
+              <option value="">Real. % Filter</option>
+              <option value="lt">Less Than</option>
+              <option value="lte">Less Than or Equal</option>
+              <option value="eq">Equals</option>
+              <option value="gte">Greater Than or Equal</option>
+              <option value="gt">Greater Than</option>
+              <option value="btw">Between</option>
+            </select>
+
+            <input
+              type="number"
+              placeholder="Enter % as a Whole Number (e.g. 85)"
+              value={realVal1}
+              onChange={e => setRealVal1(e.target.value)}
+              style={{ width: '180px' }}
+            />
+
+            {realOp === 'btw' && (
+              <input
+                type="number"
+                placeholder="and..."
+                value={realVal2}
+                onChange={e => setRealVal2(e.target.value)}
+                style={{ width: '100px' }}
+              />
+            )}
           <button onClick={clearFilters}>Reset Filters</button>
           <button onClick={handleGeneratePDF}>Generate PDF(s)</button>
         </div>
