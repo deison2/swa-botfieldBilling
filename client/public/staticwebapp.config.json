@@ -15,6 +15,11 @@
       "statusCode": 302
     },
     {
+      "route": "/",
+      "allowedRoles": ["authenticated"],
+      "serve": "/login"
+    },
+    {
       "route": "/*",
       "allowedRoles": ["authenticated"],
       "serve": "/index.html"
