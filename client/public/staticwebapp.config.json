@@ -6,13 +6,18 @@
   "routes": [
     {
       "route": "/login",
-      "allowedRoles": ["anonymous", "authenticated"]
+      "redirect": "/.auth/login/aad",
+      "statusCode": 302
+    },
+    {
+      "route": "/logout",
+      "redirect": "/.auth/logout?post_logout_redirect_uri=/login",
+      "statusCode": 302
     },
     {
       "route": "/*",
       "allowedRoles": ["authenticated"],
-      "statusCode": 401,
-      "serve": "/login"
+      "serve": "/index.html"
     }
   ]
 }
