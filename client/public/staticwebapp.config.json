@@ -3,6 +3,7 @@
     "rewrite": "/index.html",
     "exclude": ["/.auth/*", "/api/*"]
   },
+
   "routes": [
     {
       "route": "/login",
@@ -14,25 +15,18 @@
       "redirect": "/.auth/logout?post_logout_redirect_uri=/login",
       "statusCode": 302
     },
+
     {
-      "route": "/",
+      "route": "/*",           
       "allowedRoles": ["authenticated"],
       "serve": "/index.html"
-    },
-    {
-      "route": "/",
-      "statusCode": 401,
-      "rewrite": "/login"
-    },
-    {
-      "route": "/*",
-      "allowedRoles": ["authenticated"],
-      "serve": "/index.html"
-    },
-    {
-      "route": "/*",
-      "statusCode": 401,
-      "rewrite": "/login"
     }
-  ]
+  ],
+
+  "responseOverrides": {
+    "401": {
+      "redirect": "/login",
+      "statusCode": 302
+    }
+  }
 }
