@@ -1,0 +1,21 @@
+[
+  {
+    "uuid": "6addfbd7-92b8-49f0-914c-e48aef95f10b",
+    "Level": "JOB",
+    "Idx": [
+      24,
+      186,
+      25,
+      26
+    ],
+    "JobName": [
+      "1065 Partnership Return (BUSTAX)",
+      "1120 Corporation Return (6/30 YE) (BUSTAX)",
+      "1120 Corporation Return (BUSTAX)",
+      "1120S S-Corporation Return (BUSTAX)"
+    ],
+    "Type": "TIME",
+    "Serv": "BUSTAX",
+    "Narrative": "PROFESSIONAL SERVICES RENDERED RELATING TO PREPARATION OF BUSINESS INCOME TAX"
+  }
+]

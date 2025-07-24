@@ -164,10 +164,6 @@ function handleChange(e) {
     onRequestClose();
   }
 
-  function handleDeleteClick() {
-    onDelete(form.uuid);
-  }
-
   return (
     <Modal
       isOpen={isOpen}
@@ -239,7 +235,6 @@ function handleChange(e) {
 
         <div className="buttons">
           <button type="button" onClick={onRequestClose}>Cancel</button>
-          <button type="button" className="delete-button" onClick={handleDeleteClick}>Delete</button>
           <button type="submit">Save</button>
         </div>
       </form>

@@ -15,7 +15,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import {
   loadNarratives,
   addNarrative,
-  //updateNarrative,
+  updateNarrative,
   deleteNarrative
 } from '../../services/NarrativeService.js';
 
@@ -100,11 +100,20 @@ const serviceOptions = useMemo(
   const [selectedRow, setSelectedRow] = useState(null);
 
   // 1. load on mount
-  useEffect(() => {
-    loadNarratives()
-      .then(data => setRows(data))
-      .finally(() => setLoading(false));
-  }, []);
+useEffect(() => {
+  (async () => {
+    try {
+      const data = await loadNarratives();
+      setRows(data);
+    } catch (e) {
+      console.error(e);
+      toast.error(e.message);
+    } finally {
+      setLoading(false);
+    }
+  })();
+}, []);
+
 
   // 2. table/modal handlers
 
@@ -114,13 +123,14 @@ const serviceOptions = useMemo(
  async function handleCreate(item) {
   console.log('handleCreate called');
    const newItem = { uuid: uuidv4(), ...item };
-  await addNarrative(newItem); // NEEDS BACKEND API SET UP
+   await addNarrative(newItem);
    setRows(r => [...r, newItem]);
  }
   async function handleUpdate(item) {
-    // await updateNarrative(item); // NEEDS BACKEND API SET UP
+    await updateNarrative(item.uuid, item);
     setRows(r => r.map(rw => (rw.uuid === item.uuid ? item : rw)));
     console.log(item);
+    closeEditModal();
   }
 
   function openEditModal(row) {
@@ -152,10 +162,6 @@ const serviceOptions = useMemo(
     setRows(rs => rs.filter(r => r.uuid !== uuid));
     deleteNarrative(uuid)
     closeDeleteModal();
-  }
-  async function handleSave(updated) {
-    await handleUpdate(updated);
-    closeEditModal();
   }
   const filteredRows = useMemo(() => {
   return rows
@@ -361,7 +367,7 @@ const serviceOptions = useMemo(
             data={filteredRows}
             progressPending={loading}
             onRowAdd={openAddModal}
-            onRowUpdate={handleUpdate}
+            onRowUpdate={openEditModal}
             onRowDelete={handleConfirmDelete}
             pagination
             highlightOnHover
@@ -381,7 +387,7 @@ const serviceOptions = useMemo(
         isOpen={isModalOpen}
         onRequestClose={closeEditModal}
         initialData={selectedRow}
-        onSave={handleSave}
+        onSave={handleUpdate}
         availableJobs={jobMapping}
         allNarratives={rows} 
       />

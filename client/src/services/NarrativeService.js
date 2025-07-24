@@ -1,34 +1,36 @@
-// Replace these with your real fetch/save calls:
-
-const API = 'http://localhost:3001/api/narratives';
+const API = "/api/narratives";
 
 export async function loadNarratives() {
   const res = await fetch(API);
-  if (!res.ok) throw new Error('load failed');
+  if (!res.ok) {
+    const text = await res.text(); // capture error payload
+    throw new Error(`Load failed: ${res.status} ${text}`);
+  }
   return res.json();
 }
+
 
 export async function addNarrative(item) {
   const res = await fetch(API, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(item),
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(item)
   });
-  if (!res.ok) throw new Error('add failed');
+  if (!res.ok) throw new Error("Create failed");
   return res.json();
 }
 
-export async function updateNarrative(item) {
-  const res = await fetch(`${API}/${item.uuid}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(item),
+export async function updateNarrative(uuid, partial) {
+  const res = await fetch(`${API}/${uuid}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(partial)
   });
-  if (!res.ok) throw new Error('update failed');
+  if (!res.ok) throw new Error("Update failed");
   return res.json();
 }
 
 export async function deleteNarrative(uuid) {
-  const res = await fetch(`${API}/${uuid}`, { method: 'DELETE' });
-  if (!res.ok) throw new Error('delete failed');
-} 
+  const res = await fetch(`${API}/${uuid}`, { method: "DELETE" });
+  if (!res.ok && res.status !== 204) throw new Error("Delete failed");
+}

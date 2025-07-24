@@ -135,11 +135,15 @@ export default function AddNarrativeModal({
       <h2>Add Narrative</h2>
       <form onSubmit={handleSubmit} className="edit-form rsmc">
         <label>
-          Level
-          <select name="Level" value={form.Level} defaultValue={'JOB'} onChange={handleChange} disabled>
-            <option value="JOB">JOB</option>
-          </select>
-        </label>
+  Level
+  {/* This select is purely visual */}
+  <select value="JOB" disabled>
+    <option value="JOB">JOB</option>
+  </select>
+
+  {/* This actually gets posted */}
+  <input type="hidden" name="Level" value="JOB" />
+</label>
 
         <label>
           Service
