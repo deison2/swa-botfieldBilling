@@ -9,7 +9,7 @@ import './EditNarrativeModal.css';
 Modal.setAppElement('#root');
 
 const initialFormState = {
-  Level: '',
+  Level: 'JOB',
   Idx: [],
   JobName: [],
   Type: '',
