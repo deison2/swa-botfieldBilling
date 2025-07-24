@@ -136,13 +136,17 @@ export default function AddNarrativeModal({
       <form onSubmit={handleSubmit} className="edit-form rsmc">
         <label>
   Level
-  {/* This select is purely visual */}
-  <select value="JOB" disabled>
+  <select
+    name="Level"
+    value="JOB"
+    onChange={() => {}}
+    style={{
+      pointerEvents: "none",     // user can’t click or focus
+      backgroundColor: "#eee"   // visually “disabled”
+    }}
+  >
     <option value="JOB">JOB</option>
   </select>
-
-  {/* This actually gets posted */}
-  <input type="hidden" name="Level" value="JOB" />
 </label>
 
         <label>
