@@ -36,14 +36,6 @@ export default function AddNarrativeModal({
     }
   }, [isOpen]);
 
-  const usedJobIdx = useMemo(() => {
-    return new Set(
-      (allNarratives || [])
-        .filter(n => n.Level === 'JOB')
-        .flatMap(n => n.Idx || [])
-    );
-  }, [allNarratives]);
-
   // 3️⃣ Build job-options & filter logic (same as in edit modal)
   const jobOptions = useMemo(
     () =>
@@ -75,8 +67,8 @@ export default function AddNarrativeModal({
     }
 
     // now exclude any job taken elsewhere
-    return opts.filter(opt => !usedJobIdx.has(opt.value));
-  }, [sortedJobOptions, form.Serv, selectedOptions, usedJobIdx]);
+    return opts;
+  }, [sortedJobOptions, form.Serv, selectedOptions]);
 
   // 4️⃣ Handlers
   function handleChange(e) {
@@ -109,18 +101,61 @@ export default function AddNarrativeModal({
   }
 
   // 5️⃣ Submission: local + cloud
-  async function handleSubmit(e) {
+ async function handleSubmit(e) {
+  e.preventDefault();
 
-    e.preventDefault();
-
-    if (!form.Type) { toast.error('Please select a Type'); return; }
-    if (!form.Serv) { toast.error('Please select a Service'); return; }
-    if (form.Idx.length === 0) { toast.error('Please select at least one Job'); return; }
-    if (!form.Narrative.trim()) { toast.error('Narrative cannot be empty'); return; }
-     
-      onSave(form);
-      onRequestClose();
+  // basic validations
+  if (!form.Type) {
+    toast.error('Please select a Type');
+    return;
   }
+  if (!form.Serv) {
+    toast.error('Please select a Service');
+    return;
+  }
+  if (form.Idx.length === 0) {
+    toast.error('Please select at least one Job');
+    return;
+  }
+  if (!form.Narrative.trim()) {
+    toast.error('Narrative cannot be empty');
+    return;
+  }
+
+  // find any existing narratives with same Service + Type + overlapping Job(s)
+  const collisions = allNarratives.filter(n =>
+    n.Serv === form.Serv &&
+    n.Type === form.Type &&
+    Array.isArray(n.Idx) &&
+    n.Idx.some(idx => form.Idx.includes(idx))
+  );
+
+  if (collisions.length > 0) {
+    // gather the specific job-Idxs that collide
+    const collidedIdxs = Array.from(
+      new Set(
+        collisions.flatMap(n =>
+          n.Idx.filter(idx => form.Idx.includes(idx))
+        )
+      )
+    );
+
+    // map those idxs back to the selectedOptions labels
+    const collidedJobs = selectedOptions
+      .filter(o => collidedIdxs.includes(o.value))
+      .map(o => o.label);
+
+    toast.error(
+      `A narrative already exists for job${collidedJobs.length>1?'s':''} ${collidedJobs.join(', ')} ` +
+      `with Service "${form.Serv}" and Type "${form.Type}".`
+    );
+    return;
+  }
+
+  // if we get here, no duplicates → save!
+  onSave(form);
+  onRequestClose();
+}
 
   return (
     <Modal

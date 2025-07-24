@@ -287,7 +287,7 @@ useEffect(() => {
 
       <main className="main-content">
         {/* Filtering*/}
-        <div className="kpi-container">
+        <div className="filter-bar">
   {/* Clear button */}
           <button
             type="button"

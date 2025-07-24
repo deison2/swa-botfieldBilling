@@ -108,3 +108,29 @@
 .add-narrative-btn:hover {
   opacity: 0.8;
 }
+
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.filter-bar select,
+.filter-bar button {
+  padding: 6px 10px;
+  font: inherit;
+}
+
+.filter-bar select,
+.filter-bar button {
+  background: #063941;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.filter-bar button:hover {
+  opacity: 0.85;
+}
