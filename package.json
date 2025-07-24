@@ -3,6 +3,7 @@
   "version": "18.3.1",
   "private": true,
   "dependencies": {
+    "@azure/msal-browser": "^4.16.0",
     "@azure/storage-blob": "^12.27.0",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
