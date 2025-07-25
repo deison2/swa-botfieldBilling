@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Outlet, Navigate } from "react-router-dom";
+import UnderConstructionPage from './components/UnderConstructionPage';
 
 // Import page components
 import RecurringRetainers from "./pages/RecurringRetainers";
@@ -36,20 +37,62 @@ function App() {
 
         {/* WIP-Based-Billing parent with nested routes */}
         <Route path="WIP-Based-Billing" element={<WIPBasedBillingLayout />}>
-          <Route index element={<GeneralInformation />} /> {/* default nested page */}
+          <Route index element={<NarrativeStandards />} /> {/* default nested page */}
+
+
+
+
+
+          {/* --- PROD--- ROUTES    */}
+          {/* 
           <Route path="General-Information" element={<GeneralInformation />} />
+          */}
           <Route path="Narrative-Standards" element={<NarrativeStandards />} />
+          {/* 
           <Route path="Office-Standards" element={<OfficeStandards />} />
           <Route path="Partner-Standards" element={<PartnerStandards />} />
           <Route path="Client-Standards" element={<ClientStandards />} />
+          */}
+
+
+
+          {/* --- DEV --- (UNDER CONSTRUCTION) ROUTES    */}
+          <Route path="General-Information" element={<UnderConstructionPage />} />
+          {/* 
+          <Route path="Narrative-Standards" element={<UnderConstructionPage />} />
+          */}
+          <Route path="Office-Standards" element={<UnderConstructionPage />} />
+          <Route path="Partner-Standards" element={<UnderConstructionPage />} />
+          <Route path="Client-Standards" element={<UnderConstructionPage />} />
         </Route>
 
-        {/* Other top-level routes */}
+
+
+
+
+
+        {/* --- Other top-level routes --- PROD --- */}
+          {/* 
         <Route path="Recurring-Retainers" element={<RecurringRetainers />} />
         <Route path="Tech-Fees" element={<TechFees />} />
         <Route path="Billing-Groups" element={<BillingGroups />} />
+          */}
         <Route path="Existing-Drafts" element={<ExistingDrafts />} />
+          {/* 
         <Route path="Misc-Reports" element={<MiscReports />} />
+          */}
+        
+
+
+        {/* --- Other top-level routes --- DEV --- */}
+        <Route path="Recurring-Retainers" element={<UnderConstructionPage />} />
+        <Route path="Tech-Fees" element={<UnderConstructionPage />} />
+        <Route path="Billing-Groups" element={<UnderConstructionPage />} />
+          {/* 
+        <Route path="Existing-Drafts" element={<UnderConstructionPage />} />
+          */}
+        <Route path="Misc-Reports" element={<UnderConstructionPage />} />
+
 
         {/* Fallback for unmatched routes */}
         <Route path="*" element={<div>Page not found</div>} />

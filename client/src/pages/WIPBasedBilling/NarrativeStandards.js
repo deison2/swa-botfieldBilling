@@ -265,15 +265,17 @@ useEffect(() => {
     { name: 'Type', selector: row => row.Type, sortable: true , grow: .5 },
     { name: 'Service', selector: row => row.Serv, sortable: true , grow: .5 },
     {
-      name: 'Actions',
-      cell: row => <button onClick={() => openEditModal(row)}>Edit</button>,
+      name: '',
+      cell: row => <button className="ed-del-btn" onClick={() => openEditModal(row)}>Edit</button>,
+      center: true,
       ignoreRowClick: true,
       allowoverflow: true,
       button: true
     },
     {
-      name: 'Actions',
-      cell: row => <button onClick={() => openDeleteModal(row)}>Delete</button>,
+      name: '',
+      cell: row => <button className="ed-del-btn" onClick={() => openDeleteModal(row)}>Delete</button>,
+      center: true,
       ignoreRowClick: true,
       allowoverflow: true,
       button: true

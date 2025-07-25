@@ -102,10 +102,26 @@
   border-radius: 4px;
   padding: 0.5rem 1rem;
   font: inherit;
+  font-weight: bold;
   cursor: pointer;
 }
 
 .add-narrative-btn:hover {
+  opacity: 0.8;
+}
+
+.ed-del-btn {
+  margin: auto;           /* pushes it to the far right */
+  background: #063941;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ed-del-btn:hover {
   opacity: 0.8;
 }
 
