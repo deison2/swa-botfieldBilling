@@ -3,18 +3,18 @@ import { AuthProvider, useAuth } from './auth/AuthContext';
 import UnderConstructionPage from './components/UnderConstructionPage';
 
 // Import page components
-import RecurringRetainers from "./pages/RecurringRetainers";
-import TechFees from "./pages/TechFees";
-import BillingGroups from "./pages/BillingGroups";
+//import RecurringRetainers from "./pages/RecurringRetainers";
+//import TechFees from "./pages/TechFees";
+//import BillingGroups from "./pages/BillingGroups";
 import ExistingDrafts from "./pages/ExistingDrafts";
-import MiscReports from "./pages/MiscReports";
+//import MiscReports from "./pages/MiscReports";
 
 // WIP-Based-Billing nested pages
-import GeneralInformation   from './pages/WIPBasedBilling/GeneralInformation';
+//import GeneralInformation   from './pages/WIPBasedBilling/GeneralInformation';
 import NarrativeStandards   from './pages/WIPBasedBilling/NarrativeStandards';
-import OfficeStandards      from './pages/WIPBasedBilling/OfficeStandards';
-import PartnerStandards     from './pages/WIPBasedBilling/PartnerStandards';
-import ClientStandards      from './pages/WIPBasedBilling/ClientStandards';
+//import OfficeStandards      from './pages/WIPBasedBilling/OfficeStandards';
+//import PartnerStandards     from './pages/WIPBasedBilling/PartnerStandards';
+//import ClientStandards      from './pages/WIPBasedBilling/ClientStandards';
 
 /* ───────── layout for nested WIP pages ───────── */
 function WIPBasedBillingLayout() {
