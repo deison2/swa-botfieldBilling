@@ -28,7 +28,9 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "dev":  "npm start",                                   
+    "swa":  "swa start http://localhost:3000 --run \"npm start\""
   },
   "eslintConfig": {
     "extends": [
@@ -48,5 +50,8 @@
       "last 1 safari version"
     ]
   },
-  "proxy": "http://localhost:3001"
+  "proxy": "http://localhost:3001",
+  "devDependencies": {
+    "@azure/static-web-apps-cli": "^2.0.6"
+  }
 }

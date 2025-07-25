@@ -1,0 +1,8 @@
+{
+  "clientPrincipal": {
+    "identityProvider": "aad",
+    "userId": "56b84c73a39645f9881480c33d198f35",
+    "userDetails": "tcrawford@bmss.com",
+    "userRoles": ["anonymous", "authenticated"]
+  }
+}
