@@ -2,7 +2,7 @@
 .topbar {
   grid-column: 1 / -1;
   grid-row: 1 / 2;
-  background: linear-gradient(to right, #063941, #547872);;              /* deep teal */
+  background: linear-gradient(to right, #063941, #547872);              /* deep teal */
   color: #ffffff;
   display: flex;
   justify-content: space-between;
