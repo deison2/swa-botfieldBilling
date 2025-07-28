@@ -2,7 +2,6 @@ import { useEffect, useState, useMemo } from 'react';
 import Sidebar from '../../components/Sidebar';
 import GeneralDataTable from '../../components/DataTable';
 import TopBar from '../../components/TopBar';
-import sampleJobs from '../../devSampleData/sampleNarrativeStandards.json'; // For testing only
 import EditNarrativeModal from '../../components/EditNarrativeModal.js';
 import './NarrativeStandards.css';
 // import jobMapping from '../../data/jobMapping.json';
