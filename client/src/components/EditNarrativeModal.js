@@ -5,7 +5,14 @@ import { MultiSelect } from 'react-multi-select-component';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './EditNarrativeModal.css';
-import services from '../data/services.json';
+
+import {
+  loadServiceMapping
+} from '../services/NarrativeService.js';
+
+const servData = await loadServiceMapping();
+const servMapping = servData.map(item => item.SERVINDEX);
+console.log(servMapping);
 
 Modal.setAppElement('#root');
 
@@ -194,7 +201,7 @@ function handleChange(e) {
             <option value="" disabled>
               — select service —
             </option>
-            {services.map(s => (
+            {servMapping.map(s => (
               <option key={s} value={s}>{s}</option>
             ))}
           </select>

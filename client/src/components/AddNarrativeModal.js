@@ -2,11 +2,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from 'react-modal';
 import { MultiSelect } from 'react-multi-select-component';
-import services from '../data/services.json';
+//import services from '../data/services.json';
 import { toast, ToastContainer } from 'react-toastify';
 import './EditNarrativeModal.css';
 
+import {
+  loadServiceMapping
+} from '../services/NarrativeService.js';
+
 Modal.setAppElement('#root');
+
+
+const servData = await loadServiceMapping();
+const servMapping = servData.map(item => item.SERVINDEX);
 
 const initialFormState = {
   Level: 'JOB',
@@ -188,7 +196,7 @@ export default function AddNarrativeModal({
           Service
           <select name="Serv" value={form.Serv} onChange={handleChange} required>
             <option value="" disabled>— select service —</option>
-            {services.map(s => (
+            {servMapping.map(s => (
               <option key={s} value={s}>{s}</option>
             ))}
           </select>

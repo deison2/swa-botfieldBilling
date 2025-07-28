@@ -5,7 +5,7 @@ import TopBar from '../../components/TopBar';
 import sampleJobs from '../../devSampleData/sampleNarrativeStandards.json'; // For testing only
 import EditNarrativeModal from '../../components/EditNarrativeModal.js';
 import './NarrativeStandards.css';
-import jobMapping from '../../data/jobMapping.json';
+// import jobMapping from '../../data/jobMapping.json';
 import AddNarrativeModal from '../../components/AddNarrativeModal';
 import DeleteNarrativeModal from '../../components/DeleteNarrativeModal.js';
 import { v4 as uuidv4 } from 'uuid';
@@ -16,10 +16,12 @@ import {
   loadNarratives,
   addNarrative,
   updateNarrative,
-  deleteNarrative
+  deleteNarrative,
+  loadJobMapping
 } from '../../services/NarrativeService.js';
 
 // Dynamically create job names based off the Idx array
+const jobMapping = await loadJobMapping();
 const jobLookup = jobMapping.reduce((acc, { Idx, JobName }) => {
   acc[Idx] = JobName;
   return acc;
@@ -55,8 +57,8 @@ const conditionalRowStyles = Object.entries(SERVICE_COLORS).map(
 );
 
 
-  // const [rows, setRows] = useState([]); //PROD VERSION
-  const [rows, setRows] = useState(sampleJobs); // REMOVE THIS LINE AFTER TESTING
+  const [rows, setRows] = useState([]); //PROD VERSION
+  //const [rows, setRows] = useState(sampleJobs); // REMOVE THIS LINE AFTER TESTING
   const [loading, setLoading] = useState(true);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -73,6 +75,22 @@ const conditionalRowStyles = Object.entries(SERVICE_COLORS).map(
     setServiceFilter('');
     setFilterText('');
   };
+
+  
+  // 1. load on mount
+useEffect(() => {
+  (async () => {
+    try {
+      const data = await loadNarratives();
+      setRows(data);
+    } catch (e) {
+      console.error(e);
+      toast.error(e.message);
+    } finally {
+      setLoading(false);
+    }
+  })();
+}, []);
 
   // inside NarrativeStandards(), before the return:
 const levelOptions = useMemo(
@@ -98,21 +116,6 @@ const serviceOptions = useMemo(
   // default modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState(null);
-
-  // 1. load on mount
-useEffect(() => {
-  (async () => {
-    try {
-      const data = await loadNarratives();
-      setRows(data);
-    } catch (e) {
-      console.error(e);
-      toast.error(e.message);
-    } finally {
-      setLoading(false);
-    }
-  })();
-}, []);
 
 
   // 2. table/modal handlers
