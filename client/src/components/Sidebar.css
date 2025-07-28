@@ -2,12 +2,12 @@
 .sidebar {
   grid-column: 1 / 2;
   grid-row: 1 / 3;
-  background-color: #063941;
+  background: linear-gradient(to bottom, #063941, #547872);;
   color: white;
   display: flex;
   flex-direction: column;
   position: relative;
-  padding: 20px;
+  padding: 10px;
   box-sizing: border-box;
 }
 
