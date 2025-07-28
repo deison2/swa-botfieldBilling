@@ -38,7 +38,7 @@ export default function Sidebar() {
         ─── WIP-Based section (super-users only) ─── 
         -- UPDATE FOR PROD-DEV SWITCH (&& for prod, || for dev) --        
         */}
-        {isSuperUser || (
+        {isSuperUser && (
           <>
             <div
               className="wip-toggle"
