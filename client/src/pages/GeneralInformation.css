@@ -24,3 +24,20 @@
   padding: 16px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
+
+.app-overview {
+  margin-bottom: 2rem;
+}
+
+.app-overview h2 {
+  font-size: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.app-overview ul {
+  padding-left: 1.5rem;
+}
+
+.app-overview li {
+  margin-bottom: 0.5rem;
+}

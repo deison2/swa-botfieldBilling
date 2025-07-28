@@ -34,7 +34,10 @@ export default function Sidebar() {
       </div>
 
       <nav className="nav">
-        {/* ─── WIP-Based section (super-users only) ─── */}
+        {/* 
+        ─── WIP-Based section (super-users only) ─── 
+        -- UPDATE FOR PROD-DEV SWITCH (&& for prod, || for dev) --        
+        */}
         {isSuperUser && (
           <>
             <div
@@ -52,14 +55,6 @@ export default function Sidebar() {
 
             {wipOpen && (
               <ul className="submenu">
-                <li>
-                  <NavLink
-                    to="/WIP-Based-Billing/General-Information"
-                    className={linkClass}
-                  >
-                    General Information
-                  </NavLink>
-                </li>
                 <li>
                   <NavLink
                     to="/WIP-Based-Billing/Narrative-Standards"
@@ -99,6 +94,18 @@ export default function Sidebar() {
 
         {/* ─── Top-level pages ─── */}
         <ul className="main-menu">
+
+          {/* Everyone can see Existing Drafts */}
+          <li>
+            <NavLink to="/General-Information" className={linkClass}>
+              General Information
+            </NavLink>
+          </li>
+          <li>
+            <NavLink to="/Existing-Drafts" className={linkClass}>
+              Existing Drafts
+            </NavLink>
+          </li>
           {isSuperUser && (
             <>
               <li>
@@ -123,13 +130,6 @@ export default function Sidebar() {
               </li>
             </>
           )}
-
-          {/* Everyone can see Existing Drafts */}
-          <li>
-            <NavLink to="/Existing-Drafts" className={linkClass}>
-              Existing Drafts
-            </NavLink>
-          </li>
         </ul>
       </nav>
 
