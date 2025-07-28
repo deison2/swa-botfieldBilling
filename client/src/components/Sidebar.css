@@ -11,6 +11,17 @@
   box-sizing: border-box;
 }
 
+.sidebar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 2px;
+  height: 100%;
+  background: linear-gradient(to bottom, #4f888e, #d9f0ec);
+  opacity: 0.5;
+}
+
 .footer {
   font-size: 12px;
   font-weight: bold;

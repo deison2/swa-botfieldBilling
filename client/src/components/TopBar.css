@@ -1,56 +1,57 @@
-/* components/TopBar.css */
+/* TopBar.css */
 .topbar {
-  grid-column: 2 / 3;
+  grid-column: 1 / -1;
   grid-row: 1 / 2;
-  background: white;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  background: linear-gradient(to right, #063941, #547872);;              /* deep teal */
+  color: #ffffff;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 20px;
+  padding: 0 24px;
+  height: 100%;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  font-family: 'Segoe UI', sans-serif;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.topbar-left .app-name {
+  margin-left: 250px; /* Match sidebar width */
+  color: #fff;
   font-weight: 600;
-  font-size: 18px;
-  color: #333;
-  position: relative;
+  font-size: 1.25rem;
+  line-height: 5vh;
+  letter-spacing: 0.5px;
 }
 
-.topbar-left {
-  flex: 1;
-  font-size: 20px;
-  font-weight: bold;
-}
-
-.topbar-icons {
+.topbar-right {
   display: flex;
-  gap: 20px;
+  align-items: center;
+  gap: 16px;
 }
 
 .icon-button {
-  background: none;
+  background: transparent;
   border: none;
+  font-size: 1.2rem;
+  color: #ffffffcc;
   cursor: pointer;
-  font-size: 20px;
-  color: #333;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 5px;
+  transition: color 0.2s ease;
 }
 
 .icon-button:hover {
-  color: #007bff;
+  color: #ffffff;
 }
 
-.user-circle {
-  background-color: #007bff;
-  color: white;
-  width: 32px;
-  height: 32px;
+.user-profile {
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
+  background: #e4f0ef;
+  color: #063941;
+  font-weight: bold;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
-  font-size: 14px;
-  user-select: none;
+  font-size: 0.9rem;
+  box-shadow: 0 0 0 2px white;
 }

@@ -6,18 +6,19 @@ export default function TopBar() {
   return (
     <header className="topbar">
       <div className="topbar-left">
-        Automated Billing Application
+        <span className="app-name">Automated Billing</span>
       </div>
-      <div className="topbar-icons">
-        <button className="icon-button" aria-label="Notifications">
-          🔔
+
+      <div className="topbar-right">
+        <button className="icon-button" title="Notifications">
+          <i className="fas fa-bell"></i>
         </button>
-        <button className="icon-button" aria-label="Help">
-          ❓
+        <button className="icon-button" title="Help">
+          <i className="fas fa-question-circle"></i>
         </button>
-        <button className="icon-button" aria-label="User Profile">
-          <div className="user-circle">DE</div>
-        </button>
+        <div className="user-profile" title="User Profile">
+          <span className="user-initials">DE</span>
+        </div>
       </div>
     </header>
   );
