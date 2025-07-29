@@ -5,12 +5,15 @@ import { MultiSelect } from 'react-multi-select-component';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './EditNarrativeModal.css';
+import { dataType } from '../config.js'; // import dataType from config
+import services from '../data/services.json';
 
 import {
   loadServiceMapping
 } from '../services/NarrativeService.js';
 
-const servData = await loadServiceMapping();
+// Dynamically load service mapping based on environment
+const servData = dataType === 'PROD' ? await loadServiceMapping() : services;
 const servMapping = servData.map(item => item.SERVINDEX);
 console.log(servMapping);
 

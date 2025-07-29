@@ -2,9 +2,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from 'react-modal';
 import { MultiSelect } from 'react-multi-select-component';
-//import services from '../data/services.json';
+import services from '../data/services.json';
 import { toast, ToastContainer } from 'react-toastify';
 import './EditNarrativeModal.css';
+import { dataType } from '../config.js'; // import dataType from config
 
 import {
   loadServiceMapping
@@ -12,8 +13,8 @@ import {
 
 Modal.setAppElement('#root');
 
-
-const servData = await loadServiceMapping();
+// Dynamically load service mapping based on environment
+const servData = dataType === 'PROD' ? await loadServiceMapping() : services;
 const servMapping = servData.map(item => item.SERVINDEX);
 
 const initialFormState = {

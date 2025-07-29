@@ -4,12 +4,13 @@ import GeneralDataTable from '../../components/DataTable';
 import TopBar from '../../components/TopBar';
 import EditNarrativeModal from '../../components/EditNarrativeModal.js';
 import './NarrativeStandards.css';
-// import jobMapping from '../../data/jobMapping.json';
+import jobMappingDev from '../../data/jobMapping.json';
 import AddNarrativeModal from '../../components/AddNarrativeModal';
 import DeleteNarrativeModal from '../../components/DeleteNarrativeModal.js';
 import { v4 as uuidv4 } from 'uuid';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { dataType } from '../../config.js'; // import dataType from config
 
 import {
   loadNarratives,
@@ -20,7 +21,7 @@ import {
 } from '../../services/NarrativeService.js';
 
 // Dynamically create job names based off the Idx array
-const jobMapping = await loadJobMapping();
+const jobMapping = dataType === 'PROD' ? await loadJobMapping() : jobMappingDev;
 const jobLookup = jobMapping.reduce((acc, { Idx, JobName }) => {
   acc[Idx] = JobName;
   return acc;
