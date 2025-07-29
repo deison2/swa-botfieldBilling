@@ -2,7 +2,7 @@
  * ExistingDrafts.js  – 2025-07-25
  *************************************************************************/
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 
 import Sidebar          from '../components/Sidebar';
 import TopBar           from '../components/TopBar';
@@ -27,6 +27,36 @@ export default function ExistingDrafts() {
   const [rawRows] = useState(sampleDrafts);
   const [loading] = useState(false);
 
+  /* >>> selection-state (NEW) >>> */
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const toggleOne   = id =>
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  const toggleMany  = ids =>
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      ids.forEach(id => next.add(id));
+      return next;
+    });
+  const clearAll = () => setSelectedIds(new Set());
+  /* <<< selection-state END <<< */
+
+  /* >>> header-checkbox-ref (NEW) >>> */
+  const headerCbRef = useRef(null);
+  /* <<< header-checkbox-ref END <<< */
+
+  /* >>> modal-state (NEW) >>> */
+  const [showScopeModal, setShowScopeModal] = useState(false);
+  /* <<< modal-state END <<< */
+
+  /* >>> select-all logic (REPLACED) >>> */
+  const handleSelectAll = () => {
+    setShowScopeModal(true);           // just open the modal
+  };
+  /* <<< select-all logic END <<< */
   /* ── VISIBILITY  (filter by ROLES) ──────────────────────────── */
   const visibleRawRows = useMemo(() => {
     if (!ready) return [];
@@ -123,6 +153,30 @@ export default function ExistingDrafts() {
 
   /* ── columns (uses ChipSet + currency) ─────────────────────── */
   const columns = [
+      /* >>> checkbox-column (NEW) >>> */
+    {
+      name : (
+      <input
+        type="checkbox"
+        className="row-cb"
+        ref={headerCbRef}
+        onChange={handleSelectAll}
+      />
+    ),
+    selector : r => r.DRAFTFEEIDX,   // any stub selector – required by the lib
+    width : '60px',
+    ignoreRowClick : true,
+    sortable : false,
+      cell : r => (
+        <input
+          type="checkbox"
+          className="row-cb"
+          checked={selectedIds.has(r.DRAFTFEEIDX)}
+          onChange={() => toggleOne(r.DRAFTFEEIDX)}
+        />
+      ),
+    },
+    /* <<< checkbox-column END <<< */
     { name : 'Code',      width:'150px', grow:2, sortable:true,
       cell : r => <ChipSet items={r.CLIENTS} field="code" /> },
     { name : 'Name',      grow:3, sortable:true,
@@ -276,6 +330,42 @@ export default function ExistingDrafts() {
   const handleGeneratePDF = () =>
     console.log('TODO – merge PDFs & email to billing@bmss.com');
 
+  /* >>> SelectScopeModal component (NEW) >>> */
+  function SelectScopeModal({ visibleCount, totalCount, onSelectVisible, onSelectAll, onClose }) {
+    if (!showScopeModal) return null;
+
+    return (
+      <div className="scope-modal-backdrop" onClick={onClose}>
+        <div className="scope-modal" onClick={e => e.stopPropagation()}>
+          {/* mascot */}
+          <div className="botfield-container modal-bot">
+            <video
+              className="keith-bot-icon"
+              src="https://storageacctbmssprod001.blob.core.windows.net/container-bmssprod001-public/kbWaving.mp4"
+              autoPlay loop muted playsInline
+            />
+          </div>
+
+          <h3>Select rows to act on</h3>
+          <p className="scope-hint">
+            Choose whether you want to select only the rows on this page or&nbsp;every row that meets your current filters.
+          </p>
+
+          <div className="scope-btn-row">
+            <button className="scope-btn visible" onClick={() => { onSelectVisible(); onClose(); }}>
+              Select&nbsp;Visible&nbsp;({visibleCount})
+            </button>
+            <button className="scope-btn all" onClick={() => { onSelectAll(); onClose(); }}>
+              Select&nbsp;All&nbsp;({totalCount})
+            </button>
+            <button className="scope-btn cancel" onClick={onClose}>Cancel</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  /* <<< SelectScopeModal component END <<< */
+
   /* ── RENDER ─────────────────────────────────────────── */
   if (!ready) return <div className="loading">Authenticating…</div>;
 
@@ -326,7 +416,13 @@ export default function ExistingDrafts() {
           )}
 
           <button onClick={clearFilters}>Reset</button>
-          <button onClick={handleGeneratePDF}>Generate PDF(s)</button>
+          <button
+            className={`generate-btn ${selectedIds.size ? 'active' : ''}`}
+            disabled={!selectedIds.size}
+            onClick={handleGeneratePDF}
+          >
+            Generate PDF{selectedIds.size === 1 ? '' : 's'} ({selectedIds.size || 0})
+          </button>
         </div>
 
         <input
@@ -348,6 +444,13 @@ export default function ExistingDrafts() {
             expandableRowsComponent={Expandable}
           />
         </div>
+        <SelectScopeModal
+          visibleCount={filteredRows.length}
+          totalCount={rows.length}
+          onSelectVisible={() => toggleMany(filteredRows.map(r => r.DRAFTFEEIDX))}
+          onSelectAll  ={() => toggleMany(rows.map(r => r.DRAFTFEEIDX))}
+          onClose={() => setShowScopeModal(false)}
+        /> 
       </main>
     </div>
   );

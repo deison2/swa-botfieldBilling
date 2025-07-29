@@ -135,8 +135,8 @@
 .chip.more:hover { background:#a6e1dd; color:#fff; }
 
 .open-link-icon {
-  width: 80px;          /* tweak to taste */
-  height: 25px;
+  width: 100px;          /* tweak to taste */
+  height: 40px;
   display: block;
 }
 
@@ -178,3 +178,163 @@
   font: inherit;
   padding: 6px 8px;
 }
+
+/* >>> selection-ui (NEW) >>> */
+:root {
+  --bmss-blue: #0469d9;
+}
+
+/* modern row checkbox */
+.row-cb {
+  appearance: none;
+  width: 18px; height: 18px;
+  border: 2px solid #8fa1b2;
+  border-radius: 4px;
+  display: grid; place-content: center;
+  cursor: pointer;
+  transition: all .15s;
+}
+.row-cb::before {
+  content: '';
+  width: 10px; height: 10px;
+  transform: scale(0);
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 25%, 80% 0, 43% 62%);
+  background: var(--bmss-blue);
+  transition: transform .15s ease-in-out;
+}
+.row-cb:checked { border-color: var(--bmss-blue); }
+.row-cb:checked::before { transform: scale(1); }
+
+/* ---------- Generate PDF button ---------- */
+.generate-btn {
+  /* layout */
+  padding: 8px 18px;
+  border: none;
+  border-radius: 8px;
+  font: 600 0.95rem/1 var(--sans, system-ui, sans-serif);
+
+  /* modern neutral look (disabled state) */
+  background: linear-gradient(145deg, #f1f3f5 0%, #e0e3e7 100%);
+  box-shadow:
+    inset 0 1px 2px rgba(255,255,255,.65),
+    inset 0 -1px 2px rgba(0,0,0,.08);
+  color: #8a8f97;
+  cursor: not-allowed;
+  transition: all .3s ease;
+}
+
+.generate-btn:disabled {          /* extra clarity if you use the disabled attr */
+  filter: grayscale(60%);
+  opacity: .30;
+}
+
+/* ——— active / hovered ——— */
+.generate-btn.active,
+.generate-btn:not(:disabled).active {
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(270deg, #2c93ff, #006dff, #2c93ff);
+  background-size: 400% 400%;
+  box-shadow: 0 3px 10px rgba(0,0,0,.25);
+  animation: gradientMove 5.5s ease infinite;
+}
+
+.generate-btn.active:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,.3);
+}
+
+@keyframes gradientMove {
+  0%,100% { background-position: 0% 50%; }
+  50%     { background-position: 100% 50%; }
+}
+
+/* >>> select-scope modal >>> */
+.scope-modal-backdrop{
+  position:fixed; inset:0; z-index:1100;
+  backdrop-filter:blur(4px);
+  background:rgba(0,0,0,.45);
+  display:flex; align-items:center; justify-content:center;
+}
+
+.scope-modal{
+  width:clamp(300px, 38vw, 420px);
+  background:#fff;
+  border-radius:14px;
+  padding:2rem 2.25rem 2.5rem;
+  box-shadow:0 8px 24px rgba(0,0,0,.25);
+  text-align:center;
+  animation:modalPop .35s cubic-bezier(.2,1.4,.4,1);
+}
+
+@keyframes modalPop{
+  0%{transform:scale(.65);opacity:0}
+  100%{transform:scale(1);opacity:1}
+}
+
+.scope-modal h3{
+  margin:1rem 0 .5rem;
+  font-size:1.25rem;
+  color:#063941;
+}
+.scope-hint{margin-bottom:1.5rem;color:#4e5b66;font-size:.9rem;}
+
+/* — mascot wrapper -------------------------------------------------- */
+.modal-bot{  margin-inline:auto;
+  margin-top:-70px;      /* less-negative => pushes it *down* */
+  margin-bottom:.75rem;
+}
+
+/* enlarge the circle & give it a teal border */
+.modal-bot.botfield-container {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+
+  /* pretty teal ring */
+  box-shadow: 0 3px 8px rgba(0,0,0,.15);
+
+  /* soft teal gradient fill */
+  background: linear-gradient(135deg, #dff0ed 0%, #b2d7d0 100%);
+
+  /* center the video */
+  display:flex;align-items:center;justify-content:center;
+}
+
+.modal-bot.botfield-container .keith-bot-icon{
+  width:72px;height:72px;
+}
+
+.scope-btn-row{display:flex;flex-direction:column;gap:.75rem;}
+@media(min-width:480px){.scope-btn-row{flex-direction:row;justify-content:center}}
+
+.scope-btn{
+  flex: 1 1 auto;
+  padding: .55rem 1.2rem;
+  border: none;
+  border-radius: 8px;
+
+  /* weight   size   line-height   font-family */
+  font: 600 0.95rem/1 var(--sans, system-ui, sans-serif);
+
+  cursor: pointer;
+  transition: background .3s, box-shadow .3s;
+}
+
+/* individual styles */
+.scope-btn.visible{
+  background:#e4f0ef;color:#063941;
+}
+.scope-btn.visible:hover{background:#d1e8e4;}
+
+.scope-btn.all{
+  background:linear-gradient(135deg,#2c93ff 0%,#006dff 100%);
+  color:#fff;
+}
+.scope-btn.all:hover{box-shadow:0 4px 12px rgba(0,0,0,.25);}
+
+.scope-btn.cancel{
+  background:#eef0f2;color:#5f6b78;
+}
+.scope-btn.cancel:hover{background:#e0e3e7;}
+/* <<< select-scope modal END <<< */
+
