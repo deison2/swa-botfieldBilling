@@ -216,7 +216,7 @@ function handleChange(e) {
           <MultiSelect
             options={filteredJobOptions}
             value={selectedOptions}
-            onChange={handleChange}
+            onChange={handleJobChange}
             labelledBy="Select jobs"
             hasSelectAll={false}
             ClearSelectedIcon={null} //Hides 'x' token
