@@ -6,7 +6,7 @@ export default function TopBar() {
   return (
     <header className="topbar">
       <div className="topbar-left">
-        <span className="app-name">Automated Billing</span>
+        <span className="app-name"></span>
       </div>
 
       <div className="topbar-right">

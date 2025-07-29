@@ -30,7 +30,7 @@ export default function Sidebar() {
             playsInline
           />
         </div>
-        <div className="logo">Keith Botfield</div>
+        <div className="logo">Botfield Billing</div>
       </div>
 
       <nav className="nav">

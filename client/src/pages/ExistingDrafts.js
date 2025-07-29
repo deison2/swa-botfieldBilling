@@ -532,9 +532,9 @@ export default function ExistingDrafts() {
         </div>
         <SelectScopeModal
           visibleCount={pageRows.length}
-          totalCount={rows.length}
+          totalCount={filteredRows.length}
           onSelectVisible={() => toggleMany(pageRows.map(r => r.DRAFTFEEIDX))}
-          onSelectAll  ={() => toggleMany(rows.map(r => r.DRAFTFEEIDX))}
+          onSelectAll  ={() => toggleMany(filteredRows.map(r => r.DRAFTFEEIDX))}
           onClose={() => {
           setShowScopeModal(false);
           /* reset the header checkbox visual state */
