@@ -2,7 +2,7 @@
  * ExistingDrafts.js  – 2025-07-25
  *************************************************************************/
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 
 import Sidebar          from '../components/Sidebar';
 import TopBar           from '../components/TopBar';
@@ -60,6 +60,9 @@ export default function ExistingDrafts() {
 
   /* >>> select-all logic (REPLACED) >>> */
   const handleSelectAll = () => {
+    if (headerCbRef.current) {
+      headerCbRef.current.checked = false;        // undo the auto-tick
+    }
     setShowScopeModal(true);           // just open the modal
   };
   /* <<< select-all logic END <<< */
@@ -118,6 +121,19 @@ export default function ExistingDrafts() {
     console.log(`GROUP ▶ ${visibleRawRows.length} raw → ${map.size} grouped`);
     return [...map.values()];
   }, [visibleRawRows]);
+
+  
+  /* >>> keep header checkbox in sync (NEW) >>> */
+  useEffect(() => {
+    if (!headerCbRef.current) return;
+
+    const total = rows.length;
+    const sel   = selectedIds.size;
+
+    headerCbRef.current.checked       = sel > 0 && sel === total;
+    headerCbRef.current.indeterminate = sel > 0 && sel < total;
+  }, [selectedIds, rows]);          // runs on every change
+  /* <<< keep header checkbox in sync END <<< */
 
   /* ── FILTER STATE ──────────────────────────────────────────── */
   const [originatorFilter, setOriginatorFilter] = useState('');
@@ -188,7 +204,7 @@ export default function ExistingDrafts() {
       ),
     },
     /* <<< checkbox-column END <<< */
-    { name : 'Code',      width:'150px', grow:2, sortable:true,
+    { name : 'Code',      width:'125px', grow:2, sortable:true,
       cell : r => <ChipSet items={r.CLIENTS} field="code" /> },
     { name : 'Name',      grow:3, sortable:true,
       cell : r => <ChipSet items={r.CLIENTS} field="name" /> },
@@ -209,21 +225,37 @@ export default function ExistingDrafts() {
           />
         </a>
       )},
-    { name : 'Actions',   width:'60px', ignoreRowClick:true, button:true,
+    { name : 'Actions',   width:'80px', ignoreRowClick:true, button:true,
       cell : r => (
+      <div className="action-btns">
+        {/* red “Abandon” */}
         <button
           className="abandon-icon"
           title="Abandon draft"
           onClick={() => console.log('TODO – abandon draft', r.DRAFTFEEIDX)}
         >
           <svg viewBox="0 0 24 24" width="14" height="14"
-               stroke="#fff" strokeWidth="2" strokeLinecap="round"
-               strokeLinejoin="round" fill="none">
+              stroke="#fff" strokeWidth="2" strokeLinecap="round"
+              strokeLinejoin="round" fill="none">
             <line x1="18" y1="6" x2="6" y2="18" />
             <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </button>
-      )},
+
+        {/* green “Confirm” */}
+        <button
+          className="confirm-icon"
+          title="Confirm draft"
+          onClick={() => console.log('TODO – confirm draft', r.DRAFTFEEIDX)}
+        >
+          <svg viewBox="0 0 24 24" width="16" height="16"
+              stroke="#fff" strokeWidth="2" strokeLinecap="round"
+              strokeLinejoin="round" fill="none">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </button>
+      </div>
+    )},
   ];
 
   /* ── EXPANDABLE row render ────────────────────────────────── */
@@ -488,7 +520,14 @@ export default function ExistingDrafts() {
           totalCount={rows.length}
           onSelectVisible={() => toggleMany(pageRows.map(r => r.DRAFTFEEIDX))}
           onSelectAll  ={() => toggleMany(rows.map(r => r.DRAFTFEEIDX))}
-          onClose={() => setShowScopeModal(false)}
+          onClose={() => {
+          setShowScopeModal(false);
+          /* reset the header checkbox visual state */
+          if (headerCbRef.current) {
+            headerCbRef.current.checked       = false;
+            headerCbRef.current.indeterminate = false;
+          }
+        }}
         /> 
       </main>
     </div>
