@@ -122,6 +122,11 @@ export default function ExistingDrafts() {
   const [realVal1,        setRealVal1]          = useState('');
   const [realVal2,        setRealVal2]          = useState('');
 
+  /* >>> pagination-state (NEW) >>> */
+  const [currentPage, setCurrentPage]       = useState(1);   // 1-based index
+  const [rowsPerPage, setRowsPerPage]       = useState(10);
+  /* <<< pagination-state END <<< */
+
   /* ── options for dropdowns (derived) ───────────────────────── */
   const originatorOptions = useMemo(
     () => [...new Set(rows.map(r => r.ORIGINATOR))].sort(), [rows]);
@@ -317,6 +322,13 @@ export default function ExistingDrafts() {
     realVal2,
   ]);
 
+  /* >>> pageRows (NEW) >>> */
+  const pageRows = useMemo(() => {
+    const start = (currentPage - 1) * rowsPerPage;   // 1-based page index
+    return filteredRows.slice(start, start + rowsPerPage);
+  }, [filteredRows, currentPage, rowsPerPage]);
+  /* <<< pageRows END <<< */
+
   /* ── events ─────────────────────────────────────────── */
   const clearFilters = () => {
     setOriginatorFilter('');
@@ -438,6 +450,12 @@ export default function ExistingDrafts() {
             columns={columns}
             progressPending={loading}
             pagination
+            paginationPerPage={rowsPerPage}
+            onChangePage={page => setCurrentPage(page)}
+            onChangeRowsPerPage={(num, page) => {
+              setRowsPerPage(num);
+              setCurrentPage(page);
+            }}
             highlightOnHover
             striped
             expandableRows
@@ -445,9 +463,9 @@ export default function ExistingDrafts() {
           />
         </div>
         <SelectScopeModal
-          visibleCount={filteredRows.length}
+          visibleCount={pageRows.length}
           totalCount={rows.length}
-          onSelectVisible={() => toggleMany(filteredRows.map(r => r.DRAFTFEEIDX))}
+          onSelectVisible={() => toggleMany(pageRows.map(r => r.DRAFTFEEIDX))}
           onSelectAll  ={() => toggleMany(rows.map(r => r.DRAFTFEEIDX))}
           onClose={() => setShowScopeModal(false)}
         /> 
