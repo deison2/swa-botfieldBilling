@@ -144,6 +144,15 @@ export default function ExistingDrafts() {
   const [realVal1,        setRealVal1]          = useState('');
   const [realVal2,        setRealVal2]          = useState('');
 
+  /* >>> hasChanges (NEW) – any filters OR any selections >>> */
+  const hasChanges =
+    selectedIds.size > 0 ||
+    searchText            ||
+    originatorFilter      ||
+    partnerFilter         ||
+    managerFilter         ||
+    realOp;               // if realOp is set, at least one real% filter box is active
+  /* <<< hasChanges END <<< */
   /* >>> pagination-state (NEW) >>> */
   const [currentPage, setCurrentPage]       = useState(1);   // 1-based index
   const [rowsPerPage, setRowsPerPage]       = useState(10);
@@ -466,7 +475,13 @@ export default function ExistingDrafts() {
           )}
 
           {/* RESET (filters + selections) */}
-          <button onClick={resetFiltersAndSelections}>Reset</button>
+          <button
+            className={`reset-btn ${hasChanges ? 'active' : ''}`}
+            disabled={!hasChanges}
+            onClick={resetFiltersAndSelections}
+          >
+            Reset
+          </button>
 
           {/* GENERATE with tiny “X” when active */}
           <span className="generate-wrap">

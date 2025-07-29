@@ -205,48 +205,35 @@
 .row-cb:checked { border-color: var(--bmss-blue); }
 .row-cb:checked::before { transform: scale(1); }
 
-/* ---------- Generate PDF button ---------- */
-.generate-btn {
-  /* layout */
+/* ---------- Generate PDF button (mirrors Reset) ---------- */
+.filter-bar .generate-btn{
   padding: 8px 18px;
-  border: none;
-  border-radius: 8px;
-  font: 600 0.95rem/1 var(--sans, system-ui, sans-serif);
+  border:none; border-radius:8px;
+  font:600 0.95rem/1 var(--sans,system-ui,sans-serif);
 
-  /* modern neutral look (disabled state) */
-  background: linear-gradient(145deg, #f1f3f5 0%, #e0e3e7 100%);
+  /* inactive gray */
+  background:linear-gradient(145deg,#f1f3f5 0%,#e0e3e7 100%) !important;
   box-shadow:
     inset 0 1px 2px rgba(255,255,255,.65),
     inset 0 -1px 2px rgba(0,0,0,.08);
-  color: #8a8f97;
-  cursor: not-allowed;
-  transition: all .3s ease;
+  color:#8a8f97 !important;
+
+  cursor:not-allowed;
+  transition:all .3s ease;
 }
 
-.generate-btn:disabled {          /* extra clarity if you use the disabled attr */
-  filter: grayscale(60%);
-  opacity: .30;
+.filter-bar .generate-btn.active{
+  cursor:pointer;
+  color:#fff !important;
+  background:linear-gradient(270deg,#2c93ff,#006dff,#2c93ff) !important;
+  background-size:400% 400%;
+  box-shadow:0 3px 10px rgba(0,0,0,.25);
 }
 
-/* ——— active / hovered ——— */
-.generate-btn.active,
-.generate-btn:not(:disabled).active {
-  cursor: pointer;
-  color: #fff;
-  background: linear-gradient(270deg, #2c93ff, #006dff, #2c93ff);
-  background-size: 400% 400%;
-  box-shadow: 0 3px 10px rgba(0,0,0,.25);
-  animation: gradientMove 5.5s ease infinite;
+.filter-bar .generate-btn.active:hover{
+  box-shadow:0 4px 12px rgba(0,0,0,.3);
 }
 
-.generate-btn.active:hover {
-  box-shadow: 0 4px 12px rgba(0,0,0,.3);
-}
-
-@keyframes gradientMove {
-  0%,100% { background-position: 0% 50%; }
-  50%     { background-position: 100% 50%; }
-}
 
 /* >>> select-scope modal >>> */
 .scope-modal-backdrop{
@@ -401,3 +388,33 @@
   transform:scale(.96);
   box-shadow:0 1px 3px rgba(0,0,0,.2);
 }
+/* >>> Reset button (neutral when idle, blue when active) >>> */
+.filter-bar .reset-btn{
+  padding: 8px 18px;
+  border:none; border-radius:8px;
+  font:600 0.95rem/1 var(--sans,system-ui,sans-serif);
+
+  /* inactive gray */
+  background:linear-gradient(145deg,#f1f3f5 0%,#e0e3e7 100%) !important;
+  box-shadow:
+    inset 0 1px 2px rgba(255,255,255,.65),
+    inset 0 -1px 2px rgba(0,0,0,.08);
+  color:#8a8f97 !important;
+
+  cursor:not-allowed;
+  transition:all .3s ease;
+}
+
+.filter-bar .reset-btn.active{
+  cursor:pointer;
+  color:#fff !important;
+  background:linear-gradient(270deg,#2c93ff,#006dff,#2c93ff) !important;
+  background-size:400% 400%;
+  box-shadow:0 3px 10px rgba(0,0,0,.25);
+}
+
+.filter-bar .reset-btn.active:hover{
+  box-shadow:0 4px 12px rgba(0,0,0,.3);
+}
+/* <<< Reset button END <<< */
+
