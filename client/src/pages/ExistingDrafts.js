@@ -44,6 +44,12 @@ export default function ExistingDrafts() {
   const clearAll = () => setSelectedIds(new Set());
   /* <<< selection-state END <<< */
 
+  /* >>> clearFiltersAndSelections (NEW) >>> */
+  const resetFiltersAndSelections = () => {
+    clearFilters();   // existing function, leave as-is
+    clearAll();       // wipe checkboxes
+  };
+  /* <<< clearFiltersAndSelections END <<< */
   /* >>> header-checkbox-ref (NEW) >>> */
   const headerCbRef = useRef(null);
   /* <<< header-checkbox-ref END <<< */
@@ -427,14 +433,29 @@ export default function ExistingDrafts() {
             />
           )}
 
-          <button onClick={clearFilters}>Reset</button>
-          <button
-            className={`generate-btn ${selectedIds.size ? 'active' : ''}`}
-            disabled={!selectedIds.size}
-            onClick={handleGeneratePDF}
-          >
-            Generate PDF{selectedIds.size === 1 ? '' : 's'} ({selectedIds.size || 0})
-          </button>
+          {/* RESET (filters + selections) */}
+          <button onClick={resetFiltersAndSelections}>Reset</button>
+
+          {/* GENERATE with tiny “X” when active */}
+          <span className="generate-wrap">
+            <button
+              className={`generate-btn ${selectedIds.size ? 'active' : ''}`}
+              disabled={!selectedIds.size}
+              onClick={handleGeneratePDF}
+            >
+              Generate PDF{selectedIds.size === 1 ? '' : 's'} ({selectedIds.size || 0})
+            </button>
+
+            {selectedIds.size > 0 && (
+              <button
+                className="clear-sel-btn"
+                aria-label="Clear selections"
+                onClick={clearAll}
+              >
+                ×
+              </button>
+            )}
+          </span>
         </div>
 
         <input
