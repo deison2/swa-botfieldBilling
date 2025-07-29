@@ -36,20 +36,35 @@ export async function deleteNarrative(uuid) {
   if (!res.ok && res.status !== 204) throw new Error("Delete failed");
 }
 
-export async function loadJobMapping() {
-  const res = await fetch(`${loadJobAndServ}/jobMapping`);
-  if (!res.ok) {
-    const text = await res.text(); // capture error payload
-    throw new Error(`Load failed: ${res.status} ${text}`);
+async function fetchWithErrors(url, name) {
+  try {
+    const res = await fetch(url);
+    // HTTP-level failures still resolve; check .ok
+    if (!res.ok) {
+      const payload = await res.text();
+      if (res.status === 504) {
+        throw new Error(`Gateway timeout (504) when loading ${name}`);
+      }
+      throw new Error(`Load ${name} failed: ${res.status} ${payload}`);
+    }
+    return res.json();
+  } catch (err) {
+    // This will catch network/proxy failures (TypeError) as well
+    console.error(`Error fetching ${name}:`, err);
+    throw err; 
   }
-  return res.json();
 }
 
-export async function loadServiceMapping() {
-  const res = await fetch(`${loadJobAndServ}/serviceMapping`);
-  if (!res.ok) {
-    const text = await res.text(); // capture error payload
-    throw new Error(`Load failed: ${res.status} ${text}`);
-  }
-  return res.json();
+export function loadJobMapping() {
+  return fetchWithErrors(
+    `${loadJobAndServ}/jobMapping`,
+    'job mapping'
+  );
+}
+
+export function loadServiceMapping() {
+  return fetchWithErrors(
+    `${loadJobAndServ}/serviceMapping`,
+    'service mapping'
+  );
 }

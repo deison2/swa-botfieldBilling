@@ -4,13 +4,14 @@ import GeneralDataTable from '../../components/DataTable';
 import TopBar from '../../components/TopBar';
 import EditNarrativeModal from '../../components/EditNarrativeModal.js';
 import './NarrativeStandards.css';
-import jobMappingDev from '../../data/jobMapping.json';
+import jobMappingDev from '../../devSampleData/jobMapping.json';
+import narrativeDataDev from '../../devSampleData/sampleNarrativeStandards.json';
 import AddNarrativeModal from '../../components/AddNarrativeModal';
 import DeleteNarrativeModal from '../../components/DeleteNarrativeModal.js';
 import { v4 as uuidv4 } from 'uuid';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { dataType } from '../../config.js'; // import dataType from config
+// import { dataType } from '../../config.js'; // import dataType from config
 
 import {
   loadNarratives,
@@ -20,8 +21,14 @@ import {
   loadJobMapping
 } from '../../services/NarrativeService.js';
 
-// Dynamically create job names based off the Idx array
-const jobMapping = dataType === 'PROD' ? await loadJobMapping() : jobMappingDev;
+const jobMapping = await loadJobMapping()
+  .catch(err => {
+    console.error(err);
+    return jobMappingDev;
+  });
+
+console.log(jobMapping, narrativeDataDev);
+
 const jobLookup = jobMapping.reduce((acc, { Idx, JobName }) => {
   acc[Idx] = JobName;
   return acc;
@@ -81,16 +88,18 @@ const conditionalRowStyles = Object.entries(SERVICE_COLORS).map(
 useEffect(() => {
   (async () => {
     try {
-      const data = await loadNarratives();
+      const data = await loadNarratives();            // ← CHANGED: now in try
       setRows(data);
-    } catch (e) {
-      console.error(e);
-      toast.error(e.message);
-    } finally {
       setLoading(false);
-    }
+    } catch (e) {
+      console.error('loadNarratives error:', e);      // ← CHANGED
+      toast.error(e.message || 'Failed to load narratives dynamically - reverting to sample data');  // ← CHANGED
+      setRows(narrativeDataDev); 
+      setLoading(false);
+    } 
   })();
 }, []);
+
 
   // inside NarrativeStandards(), before the return:
 const levelOptions = useMemo(
@@ -123,18 +132,36 @@ const serviceOptions = useMemo(
   async function openAddModal(item) {
     setIsAddOpen(true);
   }
- async function handleCreate(item) {
-  console.log('handleCreate called');
-   const newItem = { uuid: uuidv4(), ...item };
-   await addNarrative(newItem);
-   setRows(r => [...r, newItem]);
- }
-  async function handleUpdate(item) {
+
+  async function handleCreate(item) {
+  try {                                              // ← CHANGED
+    const newItem = { uuid: uuidv4(), ...item };
+    await addNarrative(newItem);
+    setRows(r => [...r, newItem]);
+    toast.success('Narrative added');                // ← CHANGED: user feedback
+    setIsAddOpen(false);                             // ← CHANGED: close modal on success
+  } catch (e) {
+    console.error('addNarrative error:', e);         // ← CHANGED
+    toast.error(e.message || 'Failed to add narrative - please contact the Data Analytics Team'); // ← CHANGED
+    const newItemFail = { uuid: uuidv4(), ...item };
+    setRows(r => [...r, newItemFail]);
+  }
+}
+
+
+async function handleUpdate(item) {
+  try {                                              // ← CHANGED
     await updateNarrative(item.uuid, item);
     setRows(r => r.map(rw => (rw.uuid === item.uuid ? item : rw)));
-    console.log(item);
-    closeEditModal();
+    toast.success('Narrative updated');              // ← CHANGED
+    closeEditModal();                                // ← CHANGED
+  } catch (e) {
+    console.error('updateNarrative error:', e);      // ← CHANGED
+    toast.error(e.message || 'Failed to update narrative in cloud - please contact the Data Analytics Team'); // ← CHANGED
+    setRows(r => r.map(rw => (rw.uuid === item.uuid ? item : rw)));
   }
+}
+
 
   function openEditModal(row) {
     setSelectedRow(row);
@@ -160,12 +187,20 @@ const serviceOptions = useMemo(
     setIsDeleteOpen(false);
   }
 
-  function handleConfirmDelete(uuid) {
-    // 1) remove from local state
+async function handleConfirmDelete(uuid) {
+  try {                                              // ← CHANGED
+    await deleteNarrative(uuid);
     setRows(rs => rs.filter(r => r.uuid !== uuid));
-    deleteNarrative(uuid)
-    closeDeleteModal();
+    toast.success('Narrative deleted');              // ← CHANGED
+    closeDeleteModal();                              // ← CHANGED
+  } catch (e) {
+    console.error('deleteNarrative error:', e);      // ← CHANGED
+    toast.error(e.message || 'Failed to delete narrative - please contact the Data Analytics Team'); // ← CHANGED
+    setRows(rs => rs.filter(r => r.uuid !== uuid));
   }
+}
+
+
   const filteredRows = useMemo(() => {
   return rows
     .filter(r => {
