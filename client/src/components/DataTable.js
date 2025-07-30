@@ -18,6 +18,7 @@ export default function DataTable({
   ...rest
 }) {
   return (
+    <div className="data-table-container">
     <DataTableComponent
       className={'data-table'}
       title={title}
@@ -33,7 +34,10 @@ export default function DataTable({
       onRowDelete={onRowDelete}
       onRowClicked={onRowClicked}
       conditionalRowStyles={conditionalRowStyles}
+      fixedHeader
+      fixedHeaderScrollHeight="100%"
       {...rest}
     />
+    </div>
   );
 }

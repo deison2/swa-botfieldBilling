@@ -8,10 +8,34 @@
   font-size: 1em;
   font-weight: bold;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  flex-direction: column;
+}
+
+.data-table-container {
+  height: 90%;           /* or use 70vh, or 100% if parent is sized */
+  overflow: hidden;      /* clip the header in place */
+  display: flex;
+  flex-direction: column;
+}
+
+.data-table .rdt_TableWrapper {
+  margin-top: 0 !important;
+  flex: 1 1 auto;        /* allow the body to grow/shrink */
+  overflow-y: auto;      /* vertical scroll on the rows */
+}
+
+/* optional: force the header to stay above the scrollbar */
+.data-table .rdt_TableHead {
+  margin-top: 0 !important;
+  position: sticky;
+  top: 0 !important;
+  z-index: 1;
+  padding: 0;
 }
 
 .data-table th,
 .data-table td {
+  position: sticky;
   text-align: left;
   padding: 8px 12px;
   border-bottom: 1px solid #ddd;
