@@ -1,7 +1,7 @@
 
 
 export async function getToken() {
-    const res = await fetch(getToken);
+    const res = await fetch('/api/getToken');
   if (!res.ok) {
     const text = await res.text(); // capture error payload
     throw new Error(`Load failed: ${res.status} ${text}`);
@@ -9,7 +9,7 @@ export async function getToken() {
 }
 
 export async function CreateBulkPrintList(draftIndexes) {
-  const res = await fetch('/CreateBulkPrintList', {
+  const res = await fetch('/api/CreateBulkPrintList', {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: draftIndexes
@@ -19,7 +19,7 @@ export async function CreateBulkPrintList(draftIndexes) {
 }
 
 export async function DownloadBulkList(listId) {
-  const res = await fetch('/DownloadBulkList', {
+  const res = await fetch('/api/DownloadBulkList', {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: listId

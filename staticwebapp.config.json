@@ -1,23 +1,25 @@
 {
-  "platform": {
-    "apiRuntime": "node:20"
-  },
+  "platform": { "apiRuntime": "node:20" },
   "routes": [
     {
+      "route": "/api/*",
+      "rewrite": "/api/*"
+    },
+    {
       "route": "/getToken",
-      "rewrite": "https://bmss.pehosted.com/auth/connect/token"
+      "rewrite": "/api/getToken"
+    },
+    {
+      "route": "/CreateBulkPrintList",
+      "rewrite": "/api/CreateBulkPrintList"
     },
     {
       "route": "/GetDetails/*",
-      "rewrite": "https://bmss.pehosted.com/PE/api/Jobs/GetDetails/*"
+      "rewrite": "/api/GetDetails/{*rest}"
     },
     {
-      "route": "/CreateBulkPrintList/*",
-      "rewrite": "https://bmss.pehosted.com/PE/api/Reports/CreateBulkPrintList/BulkDraftPrint"
-    },
-    {
-      "route": "/DownloadBulkList/*",
-      "rewrite": "https://bmss.pehosted.com/PE/api/Reports/DownloadBulkList/*"
+      "route": "/DownloadBulkList/{listId}",
+      "rewrite": "/api/DownloadBulkList/{listId}"
     }
   ]
 }
