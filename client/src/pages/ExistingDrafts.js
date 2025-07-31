@@ -13,7 +13,7 @@ import { useAuth }      from '../auth/AuthContext';
 import './ExistingDrafts.css';
 //import { getJobDetails } from '../services/PE - Get Job Details'; // Used for PE API config testing purposes
 import { CreateBulkPrintList } from '../services/PE - Create Bulk Print List';
-import { DownloadBulkList } from '../services/PE - Process Bulk List';
+import { DownloadBulkList } from '../services/PE - Download Bulk List';
 
 
 /* ─── helpers ─────────────────────────────────────────────────────── */

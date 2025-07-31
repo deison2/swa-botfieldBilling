@@ -3,9 +3,25 @@
     "apiRuntime": "node:20"
   },
   "routes": [
+      {
+      "route": "/api/*",
+      "rewrite": "http://localhost:7071/api/*"
+    },
     {
       "route": "/token",
       "rewrite": "https://bmss.pehosted.com/auth/connect/token"
+    },
+    {
+      "route": "/GetDetails/*",
+      "rewrite": "https://bmss.pehosted.com/PE/api/Jobs/GetDetails/*"
+    },
+    {
+      "route": "/CreateBulkPrintList/*",
+      "rewrite": "https://bmss.pehosted.com/PE/api/Reports/CreateBulkPrintList/BulkDraftPrint"
+    },
+    {
+      "route": "/DownloadBulkList/*",
+      "rewrite": "https://bmss.pehosted.com/PE/api/Reports/DownloadBulkList/*"
     }
   ]
 }
