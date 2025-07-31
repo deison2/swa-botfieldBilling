@@ -1,10 +1,11 @@
 
 
 export async function getToken() {
-  return fetchWithErrors(
-    '/getToken',
-    'Get Token'
-  );
+    const res = await fetch(getToken);
+  if (!res.ok) {
+    const text = await res.text(); // capture error payload
+    throw new Error(`Load failed: ${res.status} ${text}`);
+  }
 }
 
 export async function CreateBulkPrintList(draftIndexes) {
