@@ -1,6 +1,7 @@
 
 
 export async function getToken() {
+    console.log('calling getToken');
     const res = await fetch('/api/getToken');
   if (!res.ok) {
     const text = await res.text(); // capture error payload
