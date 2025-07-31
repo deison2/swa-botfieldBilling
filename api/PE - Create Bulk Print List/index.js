@@ -3,6 +3,8 @@
 const fetch = require('node-fetch');
 
 module.exports = async function (context, req) {
+  console.log('Context', context);
+  console.log('req', req);
   const draftIndexes = req.body;
 
   if (!Array.isArray(draftIndexes)) {
