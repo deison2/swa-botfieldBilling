@@ -1,25 +1,3 @@
 {
-  "platform": { "apiRuntime": "node:20" },
-  "routes": [
-    {
-      "route": "/api/*",
-      "rewrite": "/api/*"
-    },
-    {
-      "route": "/getToken",
-      "rewrite": "/api/getToken"
-    },
-    {
-      "route": "/CreateBulkPrintList",
-      "rewrite": "/api/CreateBulkPrintList"
-    },
-    {
-      "route": "/GetDetails/*",
-      "rewrite": "/api/GetDetails/{*rest}"
-    },
-    {
-      "route": "/DownloadBulkList/{listId}",
-      "rewrite": "/api/DownloadBulkList/{listId}"
-    }
-  ]
+  "platform": { "apiRuntime": "node:20" }
 }
