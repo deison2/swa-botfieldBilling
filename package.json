@@ -9,6 +9,7 @@
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^13.5.0",
+    "http-proxy-middleware": "^3.0.5",
     "react": "^18.3.1",
     "react-data-table-component": "^7.7.0",
     "react-dom": "^18.3.1",
@@ -44,5 +45,5 @@
       "last 1 safari version"
     ]
   },
-  "proxy": "http://localhost:3001"
+  "proxy": "https://bmss.pehosted.com"
 }

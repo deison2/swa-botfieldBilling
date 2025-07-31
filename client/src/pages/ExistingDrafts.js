@@ -11,6 +11,10 @@ import GeneralDataTable from '../components/DataTable';
 import sampleDrafts     from '../devSampleData/sampleExistingDrafts.json';
 import { useAuth }      from '../auth/AuthContext';
 import './ExistingDrafts.css';
+//import { getJobDetails } from '../services/PE - Get Job Details'; // Used for PE API config testing purposes
+import { CreateBulkPrintList } from '../services/PE - Create Bulk Print List';
+import { DownloadBulkList } from '../services/PE - Process Bulk List';
+
 
 /* ─── helpers ─────────────────────────────────────────────────────── */
 const currency = n =>
@@ -19,6 +23,9 @@ const currency = n =>
 
 /* ─── page ────────────────────────────────────────────────────────── */
 export default function ExistingDrafts() {
+
+ // const sampleDraftIndexes = [94520, 94713]
+
   /* ── AUTH ───────────────────────────────────────────────────── */
   const { ready, principal, isSuperUser } = useAuth();
   const email = principal?.userDetails?.toLowerCase() || '';
@@ -386,8 +393,50 @@ export default function ExistingDrafts() {
     setRealVal1('');
     setRealVal2('');
   };
-  const handleGeneratePDF = () =>
-    console.log('TODO – merge PDFs & email to billing@bmss.com');
+
+async function handleGeneratePDF(selectedIds) {
+
+  //console.log('typeof draftindexes:', typeof selectedIds);
+
+  //console.log(!Array.isArray(selectedIds) ? 'Array of draft indexes' : 'Not an array');
+
+  try {
+    // const stringifiedIds = JSON.stringify({selectedIds});
+    console.log('Draft Indexes:', selectedIds);
+    const details = await CreateBulkPrintList(selectedIds);
+    console.log('List ID:', details);
+    const download = await DownloadBulkList(details);
+    try {
+
+      // ➊ Create a temporary URL for the blob
+      const url = window.URL.createObjectURL(download);
+
+      const now = new Date();
+      const mm = String(now.getMonth() + 1).padStart(2, '0');  // months are 0-based
+      const dd = String(now.getDate()).padStart(2, '0');
+      const yyyy = now.getFullYear(); 
+
+      // ➋ Create and click a hidden link
+      const a = document.createElement('a');
+      a.href = url;
+      const filename = `Draft Bills ${mm}-${dd}-${yyyy}.pdf`;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+
+      // ➌ Cleanup
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download failed:', err);
+    }
+    // …do something with it…
+  } catch (err) {
+    console.error(err);
+    // …show an error message…
+  }
+
+}
 
   /* >>> SelectScopeModal component (NEW) >>> */
   function SelectScopeModal({ visibleCount, totalCount, onSelectVisible, onSelectAll, onClose }) {
@@ -487,8 +536,8 @@ export default function ExistingDrafts() {
           <span className="generate-wrap">
             <button
               className={`generate-btn ${selectedIds.size ? 'active' : ''}`}
-              disabled={!selectedIds.size}
-              onClick={handleGeneratePDF}
+              //disabled={!selectedIds.size}
+              onClick={() => handleGeneratePDF(selectedIds)}
             >
               Generate PDF{selectedIds.size === 1 ? '' : 's'} ({selectedIds.size || 0})
             </button>
