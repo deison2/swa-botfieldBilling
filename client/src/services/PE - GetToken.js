@@ -10,7 +10,10 @@ export async function getToken() {
   params.append('client_secret', clientSecret);
 
   // 2) Send POST via fetch
-  const res = await fetch('/token', {
+
+  const url = '/token';
+
+  const res = await fetch(url, {
     method:  'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded'
