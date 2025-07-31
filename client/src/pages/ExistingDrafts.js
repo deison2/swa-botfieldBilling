@@ -12,8 +12,8 @@ import sampleDrafts     from '../devSampleData/sampleExistingDrafts.json';
 import { useAuth }      from '../auth/AuthContext';
 import './ExistingDrafts.css';
 //import { getJobDetails } from '../services/PE - Get Job Details'; // Used for PE API config testing purposes
-import { CreateBulkPrintList } from '../services/PE - Create Bulk Print List';
-import { DownloadBulkList } from '../services/PE - Download Bulk List';
+import { CreateBulkPrintList } from '../../../api/PE - Create Bulk Print List';
+import { DownloadBulkList } from '../../../api/PE - Download Bulk List';
 
 
 /* ─── helpers ─────────────────────────────────────────────────────── */

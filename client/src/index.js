@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
-import { getToken } from './services/PE - GetToken';
+import { getToken } from '../../api/getToken';
 import { setAuthToken } from './services/runtimeConfig';
 
 import { AuthProvider } from './auth/AuthContext';   // ← NEW import

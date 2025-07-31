@@ -4,7 +4,7 @@
   },
   "routes": [
     {
-      "route": "/token",
+      "route": "/getToken",
       "rewrite": "https://bmss.pehosted.com/auth/connect/token"
     },
     {
@@ -18,10 +18,6 @@
     {
       "route": "/DownloadBulkList/*",
       "rewrite": "https://bmss.pehosted.com/PE/api/Reports/DownloadBulkList/*"
-    },
-      {
-      "route": "/api/*",
-      "rewrite": "http://localhost:7071/api/*"
     }
   ]
 }
