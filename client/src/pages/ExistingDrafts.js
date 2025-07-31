@@ -536,7 +536,7 @@ async function handleGeneratePDF(selectedIds) {
           <span className="generate-wrap">
             <button
               className={`generate-btn ${selectedIds.size ? 'active' : ''}`}
-              //disabled={!selectedIds.size}
+              disabled={!selectedIds.size}
               onClick={() => handleGeneratePDF(selectedIds)}
             >
               Generate PDF{selectedIds.size === 1 ? '' : 's'} ({selectedIds.size || 0})
