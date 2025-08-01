@@ -4,7 +4,7 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { getToken } from './services/ExistingDraftsService';
-import { setAuthToken } from './services/runtimeConfig';
+import { setAuthToken, getAuthToken } from './services/runtimeConfig';
 
 import { AuthProvider } from './auth/AuthContext';   // ← NEW import
 
@@ -16,7 +16,9 @@ console.log(
 async function bootstrap() {
   try {
         const token = await getToken();
+        console.log('Get Token Returns - ', token);
     setAuthToken(token);
+    console.log(getAuthToken());
   } catch (err) {
     console.error('Failed to get auth token:', err);
     // decide whether to render a fallback UI or still boot the app

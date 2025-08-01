@@ -16,6 +16,7 @@ import {
   CreateBulkPrintList,
   DownloadBulkList
 } from '../services/ExistingDraftsService';
+import { replace } from 'react-router-dom';
 
 
 /* ─── helpers ─────────────────────────────────────────────────────── */
@@ -26,7 +27,7 @@ const currency = n =>
 /* ─── page ────────────────────────────────────────────────────────── */
 export default function ExistingDrafts() {
 
- // const sampleDraftIndexes = [94520, 94713]
+// const sampleDraftIndexes = [94929]
 
   /* ── AUTH ───────────────────────────────────────────────────── */
   const { ready, principal, isSuperUser } = useAuth();
@@ -407,7 +408,8 @@ async function handleGeneratePDF(selectedIds) {
     console.log('Draft Indexes:', selectedIds);
     const details = await CreateBulkPrintList(selectedIds);
     console.log('List ID:', details);
-    const download = await DownloadBulkList(details);
+    const stripQuotes = details.replaceAll('"', '');
+    const download = await DownloadBulkList(stripQuotes);
     try {
 
       // ➊ Create a temporary URL for the blob

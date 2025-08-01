@@ -1,8 +1,11 @@
 // /api/token/index.js
 
 module.exports = async function (context, req) {
-  const clientId     = process.env.PE_CLIENT_ID;
-  const clientSecret = process.env.PE_CLIENT_SECRET;
+  //const clientId     = process.env.PE_CLIENT_ID;
+  //const clientSecret = process.env.PE_CLIENT_SECRET;
+const clientId     = '3ba8024cd6f34e83b642f1d287791ff3';
+const clientSecret     = 'H8a/mwfnQ4F0Tm5pxMimapah9KgzidMuaVD5Dga3fhI=';
+
 
   // Build URL-encoded form body
   const params = new URLSearchParams({
@@ -32,8 +35,10 @@ module.exports = async function (context, req) {
 
   // Proxy the JSON back to the client
   const json = await tokenRes.json();
-  context.res = {
+  console.log(json.access_token);
+    context.res = {
     status: 200,
-    body:   json
+    body: json.access_token
   };
+  return;
 };

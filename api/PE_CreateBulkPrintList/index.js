@@ -1,11 +1,10 @@
 // /api/CreateBulkPrintList/index.js
 
-// const fetch = require('node-fetch');
-
 module.exports = async function (context, req) {
-  console.log('Context', context);
-  console.log('req', req);
-  const draftIndexes = req.body;
+  const draftIndexes = req.body.indexArray;
+  const token = req.body.token;
+  console.log(draftIndexes);
+console.log('Type of each element:', draftIndexes.map(x => typeof x));
 
   if (!Array.isArray(draftIndexes)) {
     context.res = {
@@ -15,31 +14,6 @@ module.exports = async function (context, req) {
     return;
   }
 
-  // 1) Grab a token
-  const tokenRes = await fetch(
-    'https://bmss.pehosted.com/auth/connect/token',
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type:    'client_credentials',
-        client_id:     process.env.PE_CLIENT_ID,
-        client_secret: process.env.PE_CLIENT_SECRET
-      })
-    }
-  );
-
-  if (!tokenRes.ok) {
-    const text = await tokenRes.text();
-    context.res = {
-      status: tokenRes.status,
-      body:   `Failed to get auth token: ${text}`
-    };
-    return;
-  }
-
-  const { access_token } = await tokenRes.json();
-
   // 2) Call the external CreateBulkPrintList endpoint
   const apiRes = await fetch(
     'https://bmss.pehosted.com/PE/api/Reports/CreateBulkPrintList/BulkDraftPrint',
@@ -47,13 +21,14 @@ module.exports = async function (context, req) {
       method:  'POST',
       headers: {
         'Content-Type':  'application/json',
-        'Authorization': `Bearer ${access_token}`
+        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify(draftIndexes)
     }
   );
 
   const result = await apiRes.text();
+  console.log(result);
 
   if (!apiRes.ok) {
     context.res = {
@@ -64,5 +39,6 @@ module.exports = async function (context, req) {
   }
 
   // 3) Proxy the text response back to the client
-return result
+context.res = { status: 200, body: result };
+return;
 };
