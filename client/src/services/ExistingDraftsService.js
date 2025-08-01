@@ -24,10 +24,9 @@ export async function CreateBulkPrintList(draftIndexes) {
 }
 
 export async function DownloadBulkList(listId) {
-  const res = await fetch('/api/DownloadBulkList', {
+  const res = await fetch(`api/DownloadBulkList/${listId}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: listId
+    headers: { "Content-Type": "application/json" }
   });
   if (!res.ok) throw new Error("Create failed");
   return res.blob();
