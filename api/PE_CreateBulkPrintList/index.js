@@ -53,19 +53,20 @@ module.exports = async function (context, req) {
     }
   );
 
+  const result = await apiRes.text();
+
   if (!apiRes.ok) {
-    const text = await apiRes.text();
     context.res = {
       status: apiRes.status,
-      body:   `Error creating bulk print list: ${apiRes.status} ${text}`
+      body:   `Error creating bulk print list: ${apiRes.status} ${result}`
     };
     return;
   }
 
-  // 3) Proxy the JSON response back to the client
-  const result = await apiRes.text();
+  // 3) Proxy the text response back to the client
   context.res = {
     status: 200,
+    headers: { 'Content-Type': 'text/plain' },
     body:   result
   };
 };
