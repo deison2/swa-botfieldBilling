@@ -1,5 +1,5 @@
 // /api/DownloadBulkList/index.js
-const fetch = require('node-fetch');
+// const fetch = require('node-fetch');
 
 module.exports = async function (context, req) {
   const listId = req.params.listId;

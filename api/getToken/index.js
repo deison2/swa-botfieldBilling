@@ -1,7 +1,5 @@
 // /api/token/index.js
 
-const fetch = require('node-fetch');
-
 module.exports = async function (context, req) {
   const clientId     = process.env.PE_CLIENT_ID;
   const clientSecret = process.env.PE_CLIENT_SECRET;

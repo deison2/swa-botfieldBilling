@@ -1,6 +1,6 @@
 // /api/CreateBulkPrintList/index.js
 
-const fetch = require('node-fetch');
+// const fetch = require('node-fetch');
 
 module.exports = async function (context, req) {
   console.log('Context', context);
