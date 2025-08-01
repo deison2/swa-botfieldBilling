@@ -24,6 +24,7 @@ export async function CreateBulkPrintList(draftIndexes) {
 }
 
 export async function DownloadBulkList(listId) {
+  console.log('List ID as seen by DownloadBulkList - ', listId);
   const res = await fetch(`api/DownloadBulkList/${listId}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" }

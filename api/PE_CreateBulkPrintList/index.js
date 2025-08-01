@@ -63,7 +63,7 @@ module.exports = async function (context, req) {
   }
 
   // 3) Proxy the JSON response back to the client
-  const result = await apiRes.json();
+  const result = await apiRes.text();
   context.res = {
     status: 200,
     body:   result
