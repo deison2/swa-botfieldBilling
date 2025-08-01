@@ -2,7 +2,10 @@
 
 export async function getToken() {
     console.log('calling getToken');
-    const res = await fetch('/api/getToken');
+    const res = await fetch('/api/getToken', {
+    method: "POST"
+    })
+    ;
   if (!res.ok) {
     const text = await res.text(); // capture error payload
     throw new Error(`Load failed: ${res.status} ${text}`);
