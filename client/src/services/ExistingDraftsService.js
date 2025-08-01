@@ -20,7 +20,7 @@ export async function CreateBulkPrintList(draftIndexes) {
     body: JSON.stringify(draftIndexes)
   });
   if (!res.ok) throw new Error("Create failed");
-  return res.json();
+  return res;
 }
 
 export async function DownloadBulkList(listId) {
