@@ -53,7 +53,7 @@ module.exports = async function (context, req) {
     }
   );
 
-  const result = await apiRes;
+  const result = await apiRes.text();
 
   if (!apiRes.ok) {
     context.res = {
@@ -64,8 +64,5 @@ module.exports = async function (context, req) {
   }
 
   // 3) Proxy the text response back to the client
-  context.res = {
-    status: 200,
-    body: result
-  };
+return result
 };
