@@ -27,7 +27,7 @@ const currency = n =>
 /* ─── page ────────────────────────────────────────────────────────── */
 export default function ExistingDrafts() {
 
-// const sampleDraftIndexes = [94929]
+ //const sampleDraftIndexes = [94929]
 
   /* ── AUTH ───────────────────────────────────────────────────── */
   const { ready, principal, isSuperUser } = useAuth();
@@ -411,10 +411,14 @@ async function handleGeneratePDF(selectedIds) {
     const stripQuotes = details.replaceAll('"', '');
     const download = await DownloadBulkList(stripQuotes);
     try {
-
+const buffer = await download.arrayBuffer();
+const bytes  = new Uint8Array(buffer);
+console.log(bytes);
+const header = new TextDecoder().decode(bytes.slice(0, 8));
+console.log('PDF header:', header);
       // ➊ Create a temporary URL for the blob
       const url = window.URL.createObjectURL(download);
-
+      window.open(url);
       const now = new Date();
       const mm = String(now.getMonth() + 1).padStart(2, '0');  // months are 0-based
       const dd = String(now.getDate()).padStart(2, '0');

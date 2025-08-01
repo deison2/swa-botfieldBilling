@@ -9,18 +9,16 @@ module.exports = async function (context, req) {
     context.res = { status: 400, body: 'Missing listId parameter' };
     return;
   }
-  // 2) Call the downstream DownloadBulkList endpoint
+  
   const apiRes = await fetch(
-    `https://bmss.pehosted.com/PE/api/Reports/DownloadBulkList/${listId}`,
+    `https://bmss.pehosted.com/PE/api/Reports/ProcessBulkList/${listId}`,
     {
-      method:  'POST',
+      method:  'GET',
       headers: {
         'Authorization': `Bearer ${token}`
       }
     }
   );
-
-  console.log(apiRes);
 
   if (!apiRes.ok) {
     const txt = await apiRes.text();
@@ -31,15 +29,16 @@ module.exports = async function (context, req) {
     return;
   }
 
+  
+
   // 3) Stream the binary back to the client
   const arrayBuf = await apiRes.arrayBuffer();
   // wrap them in a Node Buffer
   const buffer   = Buffer.from(arrayBuf);
 
-  context.res = {
+   context.res = {
     headers : {
-      'Content-Type':        'application/pdf',
-      'Content-Disposition': `attachment; filename="${listId}.pdf"`
+      'Content-Type':        'application/pdf'
     },
     status: 200,
     isRaw:  true, 
