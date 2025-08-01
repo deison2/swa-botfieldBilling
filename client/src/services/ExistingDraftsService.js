@@ -13,10 +13,11 @@ export async function getToken() {
 }
 
 export async function CreateBulkPrintList(draftIndexes) {
+  console.log('Draft Indexes - ', draftIndexes);
   const res = await fetch('/api/CreateBulkPrintList', {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: draftIndexes
+    body: JSON.stringify(draftIndexes)
   });
   if (!res.ok) throw new Error("Create failed");
   return res.json();
