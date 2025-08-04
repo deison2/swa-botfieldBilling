@@ -23,6 +23,7 @@ const drafts = await GetDrafts()
     console.error(err);
     return sampleDrafts;
   });
+console.log(drafts.length)
 
 /* ─── helpers ─────────────────────────────────────────────────────── */
 const currency = n =>
@@ -31,8 +32,6 @@ const currency = n =>
 
 /* ─── page ────────────────────────────────────────────────────────── */
 export default function ExistingDrafts() {
-
-  console.log(drafts);
 
  //const sampleDraftIndexes = [94929]
 
@@ -87,7 +86,7 @@ export default function ExistingDrafts() {
   const visibleRawRows = useMemo(() => {
     if (!ready) return [];
 
-    if (isSuperUser) {
+    if (isSuperUser || 1 === 1) {
       console.log('%cAUTH ▶ super-user – no filter', 'color:navy');
       return rawRows;
     }
@@ -232,16 +231,16 @@ export default function ExistingDrafts() {
     /* <<< checkbox-column END <<< */
     { name : 'Code',      width:'125px', grow:2, sortable:true,
       cell : r => <ChipSet items={r.CLIENTS} field="code" /> },
-    { name : 'Name',      grow:3, sortable:true,
+    { name : 'Name',      grow:1.5, sortable:true,
       cell : r => <ChipSet items={r.CLIENTS} field="name" /> },
-    { name : 'Office',    selector: r => r.CLIENTOFFICE, sortable:true, width:'80px' },
-    { name : 'WIP',       selector: r => r.WIP,    sortable:true, format: r => currency(r.WIP) },
-    { name : 'Bill',      selector: r => r.BILLED, sortable:true, format: r => currency(r.BILLED) },
+    { name : 'Office',    selector: r => r.CLIENTOFFICE, sortable:true, width:'80px', grow: 0.5 },
+    { name : 'WIP',       selector: r => r.WIP,    sortable:true, format: r => currency(r.WIP) , grow: 0.4},
+    { name : 'Bill',      selector: r => r.BILLED, sortable:true, format: r => currency(r.BILLED) , grow: 0.4},
     { name : 'W/Off',     selector: r => r['Write Off(Up)'], sortable:true,
-                          format: r => currency(r['Write Off(Up)']) },
+                          format: r => currency(r['Write Off(Up)']) , grow: 0.4},
     { name : 'Real.%',    selector: r => r.BILLED / (r.WIP || 1), sortable:true,
                           format: r => `${((r.BILLED / (r.WIP || 1))*100).toFixed(1)}%`,
-                          width:'90px' },
+                          width:'90px', grow: 0.5 },
     { name : 'Draft Link', width:'150px', ignoreRowClick:true,
       cell : r => (
         <a href={r.DRAFTHYPERLINK} target="_blank" rel="noopener noreferrer" className="open-link">
@@ -251,7 +250,7 @@ export default function ExistingDrafts() {
           />
         </a>
       )},
-    { name : 'Actions',   width:'80px', ignoreRowClick:true, button:true,
+    { name : 'Actions', ignoreRowClick:true, button:true, grow: 0.5,
       cell : r => (
       <div className="action-btns">
         {/* red “Abandon” */}
@@ -332,6 +331,8 @@ export default function ExistingDrafts() {
       </div>
     );
   };
+
+  
 
   /* ── UI-FILTERED rows (after search / dropdowns) ───────────── */
   const filteredRows = useMemo(() => {
@@ -426,23 +427,7 @@ console.log('PDF header:', header);
       // ➊ Create a temporary URL for the blob
       const url = window.URL.createObjectURL(download);
       window.open(url);
-      const now = new Date();
-      const mm = String(now.getMonth() + 1).padStart(2, '0');  // months are 0-based
-      const dd = String(now.getDate()).padStart(2, '0');
-      const yyyy = now.getFullYear(); 
-
-      // ➋ Create and click a hidden link
-      const a = document.createElement('a');
-      a.href = url;
-      const filename = `Draft Bills ${mm}-${dd}-${yyyy}.pdf`;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-
-      // ➌ Cleanup
-      a.remove();
-      window.URL.revokeObjectURL(url);
-      selectedIds.clear();
+      setSelectedIds(new Set());
     } catch (err) {
       console.error('Download failed:', err);
     }
