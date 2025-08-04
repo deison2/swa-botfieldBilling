@@ -11,6 +11,7 @@ import GeneralDataTable from '../components/DataTable';
 import sampleDrafts     from '../devSampleData/sampleExistingDrafts.json';
 import { useAuth }      from '../auth/AuthContext';
 import './ExistingDrafts.css';
+import './ExistingDraftsHelper.js';
 
 /* ─── helpers ─────────────────────────────────────────────────────── */
 const currency = n =>
