@@ -17,6 +17,7 @@ import {
   DownloadBulkList,
   GetDrafts
 } from '../services/ExistingDraftsService';
+import Loader           from '../components/Loader';
 
 const drafts = await GetDrafts()
   .catch(err => {
@@ -40,8 +41,9 @@ export default function ExistingDrafts() {
   const email = principal?.userDetails?.toLowerCase() || '';
 
   /* ── RAW DATA  (dev stub) ───────────────────────────────────── */
-  const [rawRows] = useState(drafts);
-  const [loading] = useState(false);
+  const [rawRows]      = useState(drafts);
+  // global loader state
+  const [loading, setLoading] = useState(false);
 
   /* >>> selection-state (NEW) >>> */
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -412,6 +414,8 @@ async function handleGeneratePDF(selectedIds) {
   //console.log(!Array.isArray(selectedIds) ? 'Array of draft indexes' : 'Not an array');
 
   try {
+      // show global loader
+      setLoading(true);
     // const stringifiedIds = JSON.stringify({selectedIds});
     console.log('Draft Indexes:', selectedIds);
     const details = await CreateBulkPrintList(selectedIds);
@@ -435,7 +439,10 @@ console.log('PDF header:', header);
   } catch (err) {
     console.error(err);
     // …show an error message…
-  }
+  } finally {
+      // hide loader once done (success or fail)
+      setLoading(false);
+    }
 
 }
 
@@ -480,6 +487,8 @@ console.log('PDF header:', header);
 
   return (
     <div className="app-container">
+      {/* show loader overlay when loading */}
+      {loading && <Loader />}
       <Sidebar />
       <TopBar />
 

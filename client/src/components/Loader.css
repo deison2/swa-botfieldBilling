@@ -1,0 +1,109 @@
+/* full-screen semi-opaque overlay */
+.global-loader-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+/* override color with brand gradient */
+.push-pop.loader > div:nth-of-type(1):after,
+.push-pop.loader > div:nth-of-type(2),
+.push-pop.loader:before,
+.push-pop.loader:after {
+  background: linear-gradient(135deg, #003D4C 0%, #6CC24A 100%);
+}
+
+/* push-pop loader container */
+.push-pop.loader {
+  --duration: .85;
+  height: 100px;
+  width: 100px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* moving block */
+.push-pop.loader > div:nth-of-type(1) {
+  height: 20px;
+  width: 20px;
+  position: absolute;
+  animation: push-pop-slide calc(var(--duration) * 1s) infinite alternate ease-in-out;
+  transform: translate(0, -100%);
+  top: 100%;
+  left: 0;
+}
+
+/* flipping block */
+.push-pop.loader > div:nth-of-type(1):after {
+  animation: push-pop-flip calc(var(--duration) * 1s) infinite alternate ease-in-out;
+  content: '';
+  height: 100%;
+  position: absolute;
+  width: 100%;
+}
+
+/* stationary pillar */
+.push-pop.loader > div:nth-of-type(2) {
+  height: 30px;
+  width: 20px;
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translate(-50%, -100%);
+}
+
+/* pseudo-elements as shifting pillars */
+.push-pop.loader:before,
+.push-pop.loader:after {
+  animation: push-pop-pushed calc(var(--duration) * 1s) alternate infinite ease;
+  content: '';
+  bottom: 0;
+  position: absolute;
+  width: 20px;
+  height: 40px;
+}
+
+.push-pop.loader:before {
+  animation-name: push-pop-pushed;
+  animation-direction: alternate-reverse;
+  left: 0;
+}
+
+.push-pop.loader:after {
+  animation-name: push-pop-pushed;
+  right: 0;
+}
+
+@keyframes push-pop-pushed {
+  0%, 72.5% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(0, 100%);
+  }
+}
+
+@keyframes push-pop-flip {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate(0, -80px) rotate(90deg);
+  }
+  100% {
+    transform: translate(0, 0) rotate(180deg);
+  }
+}
+
+@keyframes push-pop-slide {
+  to {
+    transform: translate(0, -100%) translate(80px, 0);
+  }
+}
