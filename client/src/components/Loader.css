@@ -1,8 +1,9 @@
-/* full-screen semi-opaque overlay */
+/* ───────────────────────────────
+   Full-screen overlay
+   ─────────────────────────────── */
 .global-loader-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
+  inset: 0;                /* top/right/bottom/left = 0 */
   width: 100vw;
   height: 100vh;
   background: rgba(0,0,0,0.25);
@@ -12,25 +13,29 @@
   z-index: 9999;
 }
 
-/* override color with brand gradient */
-.push-pop.loader > div:nth-of-type(1):after,
-.push-pop.loader > div:nth-of-type(2),
-.push-pop.loader:before,
-.push-pop.loader:after {
-  background: linear-gradient(135deg, #003D4C 0%, #6CC24A 100%);
+/* group container for both loaders */
+.loader-boxes {
+  display: flex;
+  gap: 32px;
 }
 
-/* push-pop loader container */
-.push-pop.loader {
+/* ───────────────────────────────
+   COMMON SIZE & VARS
+   ─────────────────────────────── */
+.push-pop,
+.push-out {
   --duration: .85;
+  --brand-grad: linear-gradient(135deg, #003D4C 0%, #6CC24A 100%);
   height: 100px;
   width: 100px;
   position: relative;
   overflow: hidden;
 }
 
-/* moving block */
-.push-pop.loader > div:nth-of-type(1) {
+/* ───────────────────────────────
+   PUSH-POP
+   ─────────────────────────────── */
+.push-pop > div:nth-of-type(1) {
   height: 20px;
   width: 20px;
   position: absolute;
@@ -39,71 +44,105 @@
   top: 100%;
   left: 0;
 }
-
-/* flipping block */
-.push-pop.loader > div:nth-of-type(1):after {
-  animation: push-pop-flip calc(var(--duration) * 1s) infinite alternate ease-in-out;
+.push-pop > div:nth-of-type(1)::after {
   content: '';
-  height: 100%;
   position: absolute;
-  width: 100%;
+  inset: 0;
+  background: var(--brand-grad);
+  animation: push-pop-flip calc(var(--duration) * 1s) infinite alternate ease-in-out;
 }
-
-/* stationary pillar */
-.push-pop.loader > div:nth-of-type(2) {
+.push-pop > div:nth-of-type(2) {
   height: 30px;
   width: 20px;
   position: absolute;
   top: 100%;
   left: 50%;
   transform: translate(-50%, -100%);
+  background: var(--brand-grad);
 }
-
-/* pseudo-elements as shifting pillars */
-.push-pop.loader:before,
-.push-pop.loader:after {
-  animation: push-pop-pushed calc(var(--duration) * 1s) alternate infinite ease;
+.push-pop::before,
+.push-pop::after {
   content: '';
-  bottom: 0;
   position: absolute;
+  bottom: 0;
   width: 20px;
   height: 40px;
+  background: var(--brand-grad);
+  animation: push-pop-pushed calc(var(--duration) * 1s) infinite alternate ease;
 }
+.push-pop::before { animation-direction: alternate-reverse; left: 0; }
+.push-pop::after  { right: 0; }
 
-.push-pop.loader:before {
-  animation-name: push-pop-pushed;
-  animation-direction: alternate-reverse;
+/* ───────────────────────────────
+   PUSH-OUT
+   ─────────────────────────────── */
+.push-out > div:nth-of-type(1) {
+  height: 20px;
+  width: 20px;
+  position: absolute;
+  animation: push-out-slide calc(var(--duration) * 1s) infinite alternate ease-in-out;
+  transform: translate(0, -100%);
+  top: 100%;
   left: 0;
 }
-
-.push-pop.loader:after {
-  animation-name: push-pop-pushed;
-  right: 0;
+.push-out > div:nth-of-type(1)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--brand-grad);
+  animation: push-out-flip calc(var(--duration) * 1s) infinite alternate ease-in-out;
 }
+.push-out > div:nth-of-type(2) {
+  height: 30px;
+  width: 20px;
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translate(-50%, -100%);
+  background: var(--brand-grad);
+}
+.push-out::before,
+.push-out::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  width: 20px;
+  height: 40px;
+  background: var(--brand-grad);
+  animation-duration: calc(var(--duration) * 4s);
+  animation-iteration-count: infinite;
+  animation-timing-function: ease;
+}
+.push-out::after { animation-name: push-out-pushed-1; right: 0; }
+.push-out::before{ animation-name: push-out-pushed-2; left: 0; }
 
+/* ───────────────────────────────
+   KEYFRAMES
+   ─────────────────────────────── */
+/* push-pop frames */
+@keyframes push-pop-slide { to { transform: translate(0, -100%) translate(80px, 0); } }
+@keyframes push-pop-flip  {
+  0% { transform: translate(0,0) rotate(0); }
+  50%{ transform: translate(0,-80px) rotate(90deg); }
+  100%{transform: translate(0,0) rotate(180deg);}
+}
 @keyframes push-pop-pushed {
-  0%, 72.5% {
-    transform: translate(0, 0);
-  }
-  100% {
-    transform: translate(0, 100%);
-  }
+  0%,72.5%{transform:translate(0,0);}
+  100%    {transform:translate(0,100%);}
 }
 
-@keyframes push-pop-flip {
-  0% {
-    transform: translate(0, 0) rotate(0deg);
-  }
-  50% {
-    transform: translate(0, -80px) rotate(90deg);
-  }
-  100% {
-    transform: translate(0, 0) rotate(180deg);
-  }
+/* push-out frames */
+@keyframes push-out-slide { to { transform: translate(0, -100%) translate(80px, 0); } }
+@keyframes push-out-flip  {
+  0% { transform: translate(0,0) rotate(0); }
+  50%{ transform: translate(0,-80px) rotate(90deg); }
+  100%{transform: translate(0,0) rotate(180deg);}
 }
-
-@keyframes push-pop-slide {
-  to {
-    transform: translate(0, -100%) translate(80px, 0);
-  }
+@keyframes push-out-pushed-1 {
+  0%,18.125%,50%,68.125%,100% { transform: translate(0,0); }
+  25%,43.125%,75%,93.125%    { transform: translate(0,100%); }
+}
+@keyframes push-out-pushed-2 {
+  0%,18.125%,50%,68.125%,100% { transform: translate(0,100%); }
+  25%,43.125%,75%,93.125%    { transform: translate(0,0); }
 }
