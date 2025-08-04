@@ -43,3 +43,26 @@ export async function DownloadBulkList(listId) {
   const response = await res.blob();
   return response;
 }
+
+async function fetchWithErrors(url) {
+  try {
+    const res = await fetch(url);
+    // HTTP-level failures still resolve; check .ok
+    if (!res.ok) {
+      const payload = await res.text();
+      if (res.status === 504) {
+        throw new Error(`Gateway timeout (504) when loading ${url}`);
+      }
+      throw new Error(`Load failed: ${res.status} ${payload}`);
+    }
+    return res.json();
+  } catch (err) {
+    // This will catch network/proxy failures (TypeError) as well
+    console.error('Error fetching - ', err);
+    throw err; 
+  }
+}
+
+export function GetDrafts() {
+  return fetchWithErrors('/api/GetDrafts');
+}

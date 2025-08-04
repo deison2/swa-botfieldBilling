@@ -14,10 +14,15 @@ import './ExistingDrafts.css';
 //import { getJobDetails } from '../services/PE - Get Job Details'; // Used for PE API config testing purposes
 import {
   CreateBulkPrintList,
-  DownloadBulkList
+  DownloadBulkList,
+  GetDrafts
 } from '../services/ExistingDraftsService';
-import { replace } from 'react-router-dom';
 
+const drafts = await GetDrafts()
+  .catch(err => {
+    console.error(err);
+    return sampleDrafts;
+  });
 
 /* ─── helpers ─────────────────────────────────────────────────────── */
 const currency = n =>
@@ -27,6 +32,8 @@ const currency = n =>
 /* ─── page ────────────────────────────────────────────────────────── */
 export default function ExistingDrafts() {
 
+  console.log(drafts);
+
  //const sampleDraftIndexes = [94929]
 
   /* ── AUTH ───────────────────────────────────────────────────── */
@@ -34,7 +41,7 @@ export default function ExistingDrafts() {
   const email = principal?.userDetails?.toLowerCase() || '';
 
   /* ── RAW DATA  (dev stub) ───────────────────────────────────── */
-  const [rawRows] = useState(sampleDrafts);
+  const [rawRows] = useState(drafts);
   const [loading] = useState(false);
 
   /* >>> selection-state (NEW) >>> */
@@ -435,6 +442,7 @@ console.log('PDF header:', header);
       // ➌ Cleanup
       a.remove();
       window.URL.revokeObjectURL(url);
+      selectedIds.clear();
     } catch (err) {
       console.error('Download failed:', err);
     }
