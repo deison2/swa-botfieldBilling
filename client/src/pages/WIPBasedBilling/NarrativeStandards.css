@@ -19,7 +19,6 @@
 }
 
 .table-section {
-  height: 90%;
   overflow: hidden;      /* clip the header in place */
   display: flex;
   flex-direction: column;
