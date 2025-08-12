@@ -3,8 +3,6 @@
 module.exports = async function (context, req) {
 const clientId     = process.env.PE_CLIENT_ID;
 const clientSecret = process.env.PE_CLIENT_SECRET;
-//const clientId     = '3ba8024cd6f34e83b642f1d287791ff3';
-//const clientSecret     = 'H8a/mwfnQ4F0Tm5pxMimapah9KgzidMuaVD5Dga3fhI=';
 
 
   // Build URL-encoded form body
