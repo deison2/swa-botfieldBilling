@@ -1,16 +1,15 @@
 {
+  "name": "api",
   "version": "1.0.0",
-  "scripts": {
-    "start": "func start",
-    "test": "echo \"No tests yet...\""
-  },
+  "scripts": { "start": "func start", "test": "echo \"No tests yet...\"" },
+  "engines": { "node": ">=20 <23" },
   "dependencies": {
-    "@azure/functions": "^4.0.0",
-    "@azure/storage-blob": "^12.27.0"
+    "@azure/identity": "^4.11.1",
+    "@azure/storage-blob": "^12.27.0",
+    "mssql": "^11.0.1"
   },
   "devDependencies": {
     "@types/node": "^24.1.0",
     "azure-functions-core-tools": "^4.x"
-  },
-    "proxy": "https://bmss.pehosted.com"
+  }
 }

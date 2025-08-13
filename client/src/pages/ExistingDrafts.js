@@ -2,7 +2,7 @@
  * ExistingDrafts.js  – 2025-07-25
  *************************************************************************/
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 
 import Sidebar          from '../components/Sidebar';
 import TopBar           from '../components/TopBar';
@@ -15,16 +15,25 @@ import './ExistingDrafts.css';
 import {
   CreateBulkPrintList,
   DownloadBulkList,
-  GetDrafts
+  GetDrafts,
+  GetGranularJobData
 } from '../services/ExistingDraftsService';
 import Loader           from '../components/Loader';
+import { createPortal } from "react-dom";
+
+export function PopoverPortal({ open, children }) {
+  if (!open) return null;
+  return createPortal(children, document.body);
+}
 
 const drafts = await GetDrafts()
   .catch(err => {
     console.error(err);
     return sampleDrafts;
   });
-console.log(drafts.length)
+
+const granularData = await GetGranularJobData();
+console.log(granularData);
 
 /* ─── helpers ─────────────────────────────────────────────────────── */
 const currency = n =>
@@ -238,8 +247,8 @@ export default function ExistingDrafts() {
     { name : 'Office',    selector: r => r.CLIENTOFFICE, sortable:true, width:'80px', grow: 0.5 },
     { name : 'WIP',       selector: r => r.WIP,    sortable:true, format: r => currency(r.WIP) , grow: 0.4},
     { name : 'Bill',      selector: r => r.BILLED, sortable:true, format: r => currency(r.BILLED) , grow: 0.4},
-    { name : 'W/Off',     selector: r => r['Write Off(Up)'], sortable:true,
-                          format: r => currency(r['Write Off(Up)']) , grow: 0.4},
+    { name : 'W/Off',     selector: r => r.WRITEOFFUP, sortable:true,
+                          format: r => currency(r.WRITEOFFUP) , grow: 0.4},
     { name : 'Real.%',    selector: r => r.BILLED / (r.WIP || 1), sortable:true,
                           format: r => `${((r.BILLED / (r.WIP || 1))*100).toFixed(1)}%`,
                           width:'90px', grow: 0.5 },
@@ -285,11 +294,141 @@ export default function ExistingDrafts() {
     )},
   ];
 
+const money = v => v == null ? "–" :
+  Number(v).toLocaleString("en-US", { style: "currency", currency: "USD" });
+const num = v => v == null ? "–" : Number(v).toLocaleString("en-US");
+
+// Renders a compact key/value card
+function JobHoverMatrix({ job }) {
+  return (
+    <div className="job-hover">
+      {/* top summary */}
+      <div className="job-top">
+        <div className="kv"><span className="k">Office - </span><span className="v">{job.ClientOffice}</span></div>
+        <div className="kv"><span className="k">Originator - </span><span className="v">{job.ClientOriginator}</span></div>
+        <div className="kv"><span className="k">Partner - </span><span className="v">{job.JobPartner}</span></div>
+        <div className="kv"><span className="k">Manager - </span><span className="v">{job.JobManager}</span></div>
+      </div>
+
+      {/* matrix */}
+      <table className="hover-matrix" role="table" aria-label={`Job ${job.Job_Idx} summary`}>
+        <thead>
+          <tr>
+            <th />         {/* row labels */}
+            <th>PY</th>
+            <th>CY</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><th>Hours</th>            <td>{num(job.PYHours)}</td>           <td>{num(job.CYHours)}</td></tr>
+          <tr><th>WIP Time</th>         <td>{money(job.PYWIPTime)}</td>       <td>{money(job.CYWIPTime)}</td></tr>
+          <tr><th>WIP Exp</th>          <td>{money(job.PYWIPExp)}</td>        <td>{money(job.CYWIPExp)}</td></tr>
+          <tr><th>Billed</th>           <td>{money(job.PYBilled)}</td>        <td>{money(job.CYBilled)}</td></tr>
+          <tr><th>Realization</th>      <td>{job.PYRealization ?? "–"}</td>   <td>{job.CYRealization ?? "–"}</td></tr>
+          <tr><th>WIP Outstanding</th>  <td>{money(job.PYWIPOutstanding)}</td><td>{money(job.CYWIPOutstanding)}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function DraftRow({ d, client, granData }) {
+  const iconRef = React.useRef(null);
+  const [open, setOpen] = React.useState(false);
+  const [pos, setPos] = React.useState({ top: 0, left: 0 });
+
+  const handleEnter = () => {
+    const r = iconRef.current?.getBoundingClientRect();
+    if (!r) return;
+    setPos({ top: r.top + window.scrollY, left: r.right + window.scrollX + 12 });
+    setOpen(true);
+  };
+  const handleLeave = () => setOpen(false);
+
+  return (
+    <tr key={`${d.DRAFTFEEIDX}-${d.SERVPERIOD}-${d.CONTINDEX}`}>
+      <td className="icon-cell">
+        <span
+          ref={iconRef}
+          className="magnify"
+          aria-label="Preview"
+          onMouseEnter={handleEnter}
+          onMouseLeave={handleLeave}
+          tabIndex={0}
+          onFocus={handleEnter}
+          onBlur={handleLeave}
+        >
+          🔍
+        </span>
+
+        <PopoverPortal open={open}>
+          <div
+            className="hover-modal-fixed"
+            style={{ top: pos.top, left: pos.left }}
+            onMouseEnter={() => setOpen(true)}
+            onMouseLeave={handleLeave}
+            role="dialog"
+            aria-modal="false"
+          >
+            <strong>Job Data</strong>
+            {granData.length ? (
+              <div className="hover-list">
+                {granData.map(g => <JobHoverMatrix key={g.Job_Idx} job={g} />)}
+              </div>
+            ) : (
+              <em>No job data</em>
+            )}
+          </div>
+        </PopoverPortal>
+      </td>
+
+      <td>{client.code}</td>
+      <td>{client.name}</td>
+      <td>{d.SERVINDEX}</td>
+      <td>{d.WIPTYPE}</td>
+      <td>{d.JOBTITLE}</td>
+      <td>{currency(d.DRAFTWIP)}</td>
+      <td>{currency(d.DRAFTAMOUNT)}</td>
+      <td>{currency(d.WRITE_OFF_UP)}</td>
+    </tr>
+  );
+}
+
   /* ── EXPANDABLE row render ────────────────────────────────── */
   const Expandable = ({ data }) => {
     const uniqueNarratives = Array.from(
       new Map(data.NARRATIVEDETAIL.map(n => [n.DEBTNARRINDEX, n])).values()
     );
+
+const rows = (data.DRAFTDETAIL ?? []).toSorted((a, b) => {
+  const ac = (data.codeMap[a.CONTINDEX]?.code ?? "").toString().trim();
+  const bc = (data.codeMap[b.CONTINDEX]?.code ?? "").toString().trim();
+
+  // 1) sort by Client Code (blank codes last)
+  if (ac !== bc) {
+    if (!ac) return 1;
+    if (!bc) return -1;
+    return ac.localeCompare(bc, undefined, { numeric: true, sensitivity: "base" });
+  }
+
+  // 2) then by Job Name (JOBTITLE) (blank titles last)
+  const aj = (a.JOBTITLE ?? "").toString().trim();
+  const bj = (b.JOBTITLE ?? "").toString().trim();
+
+  if (aj !== bj) {
+    if (!aj) return 1;
+    if (!bj) return -1;
+    return aj.localeCompare(bj, undefined, { numeric: true, sensitivity: "base" });
+  }
+
+  // 3) stable tiebreaker (optional)
+  return String(a.SERVPERIOD ?? "").localeCompare(
+    String(b.SERVPERIOD ?? ""),
+    undefined,
+    { numeric: true, sensitivity: "base" }
+  );
+});
+
 
     return (
       <div className="expanded-content">
@@ -297,21 +436,28 @@ export default function ExistingDrafts() {
         <table className="mini-table">
           <thead>
             <tr>
-              <th>Client Code</th><th>Client Name</th><th>Job</th>
-              <th>Draft WIP</th><th>Draft Amt</th><th>Write-Off</th>
+              <th /><th>Client Code</th><th>Client Name</th><th>Service</th><th>Type</th>
+              <th>Job</th><th>Draft WIP</th><th>Draft Amt</th><th>Write-Off</th>
             </tr>
           </thead>
           <tbody>
-            {data.DRAFTDETAIL.map(d => {
-              const client = data.codeMap[d.CONTINDEX] || {};
-              return (
-                <tr key={`${d.DRAFTFEEIDX}-${d.SERVPERIOD}-${d.CONTINDEX}`}>
-                  <td>{client.code}</td><td>{client.name}</td><td>{d.JOBTITLE}</td>
-                  <td>{currency(d.DRAFTWIP)}</td><td>{currency(d.DRAFTAMOUNT)}</td>
-                  <td>{currency(d.WRITE_OFF_UP)}</td>
-                </tr>
-              );
-            })}
+
+
+
+              {rows.map(d => {
+    const client = data.codeMap[d.CONTINDEX] || {};
+    const granData = granularData.filter(x => Number(x.Job_Idx) === Number(d.SERVPERIOD));
+    return (
+      <DraftRow
+        key={`${d.DRAFTFEEIDX}-${d.SERVPERIOD}-${d.CONTINDEX}`}
+        d={d}
+        client={client}
+        granData={granData}
+      />
+    );
+  })}
+
+
           </tbody>
         </table>
 
