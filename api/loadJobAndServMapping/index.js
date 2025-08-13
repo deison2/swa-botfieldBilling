@@ -16,7 +16,6 @@ module.exports = async function (context, req) {
 
   try {
     const list = await readAll(blobClient);
-    console.log(list);
     context.res = list
       ? { status: 200, body: list }
       : { status: 404, body: `type ${type} not found` };

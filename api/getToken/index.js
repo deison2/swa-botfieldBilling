@@ -33,7 +33,6 @@ const clientSecret = process.env.PE_CLIENT_SECRET;
 
   // Proxy the JSON back to the client
   const json = await tokenRes.json();
-  console.log(json.access_token);
     context.res = {
     status: 200,
     body: json.access_token

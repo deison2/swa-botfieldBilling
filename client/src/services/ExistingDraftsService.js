@@ -10,7 +10,6 @@ export async function getToken() {
   if (!res.ok) { // capture error payload
     throw new Error(`Load failed: ${res.status} ${token}`);
   }
-  console.log(token);
   return token;
 }
 
@@ -64,5 +63,9 @@ async function fetchWithErrors(url) {
 }
 
 export function GetDrafts() {
-  return fetchWithErrors('/api/GetDrafts');
+  return fetchWithErrors('/api/getDraftPopulation');
+}
+
+export function GetGranularJobData() {
+  return fetchWithErrors('/api/getGranularJobData');
 }

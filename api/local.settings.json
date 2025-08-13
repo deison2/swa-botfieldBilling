@@ -6,7 +6,11 @@
     "AzureWebJobsStorage": "DefaultEndpointsProtocol=https;AccountName=storageacctbmssprod001;AccountKey=KIGQ23HFXL1LxgCuu8BNPgUn4wQ7Hl6wFRWbelUALQo/Bwo+faQNp9VM74WGy/oWm6fsXarapzxz+AStHJuiJw==;EndpointSuffix=core.windows.net",
     "AZURE_STORAGE_CONNECTION_STRING": "DefaultEndpointsProtocol=https;AccountName=storageacctbmssprod001;AccountKey=KIGQ23HFXL1LxgCuu8BNPgUn4wQ7Hl6wFRWbelUALQo/Bwo+faQNp9VM74WGy/oWm6fsXarapzxz+AStHJuiJw==;EndpointSuffix=core.windows.net",
     "PE_CLIENT_ID": "3ba8024cd6f34e83b642f1d287791ff3",
-    "PE_CLIENT_SECRET": "H8a/mwfnQ4F0Tm5pxMimapah9KgzidMuaVD5Dga3fhI="
-    
+    "PE_CLIENT_SECRET": "H8a/mwfnQ4F0Tm5pxMimapah9KgzidMuaVD5Dga3fhI=",
+    "AZURE_SQL_SERVER": "eastussqleclp.database.windows.net",
+    "AZURE_SQL_DATABASE": "Engine_BMSS",
+    "AZURE_SQL_PORT": "1433",
+    "AZURE_SQL_USER": "SQL_BMSS_PE@eastussqleclp",
+    "AZURE_SQL_PASSWORD":"EhWRa297NwPGvH4mzDpw"
   }
 }

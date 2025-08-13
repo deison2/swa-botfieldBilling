@@ -418,3 +418,90 @@
 }
 /* <<< Reset button END <<< */
 
+.mini-table .icon-cell {
+  width: 36px;
+  padding-right: 0.25rem;
+  position: relative;
+}
+
+.icon-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.magnify { cursor: zoom-in; user-select: none; }
+
+.hover-modal-fixed {
+  min-width: 260px;
+  font-size: 0.9rem;
+  color: #063941;
+  font-weight: bold;
+  text-align: center; 
+  position: fixed;           /* <- escapes parent containers */
+  z-index: 9999;
+  min-width: 260px;
+  max-width: 420px;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 12px 30px rgba(0,0,0,.15);
+  transform: translate(-120%, -50%);
+}
+
+.icon-wrapper:hover .hover-modal {
+  display: block;             /* show on hover */
+}
+
+/* Optional: keep modal visible when moving from icon into the modal box */
+.icon-wrapper .hover-modal:hover {
+  display: block;
+}
+.job-hover-card { padding: 8px 0; border-top: 1px solid #eee; }
+.job-hover-card:first-child { border-top: 0; }
+.job-hover-card .section { margin-top: 6px; font-weight: 600; font-size: .9rem; color: #374151; }
+.job-hover-card .kv { display: grid; grid-template-columns: 110px 1fr; gap: 6px; font-size: .9rem; }
+.job-hover-card .k { color: #6b7280; }
+.job-hover-card .v { color: #111827; }
+
+.hover-list { height: 100%; overflow: auto; padding-right: 6px; }
+
+.hover-table th { 
+  text-align: left;
+  white-space: nowrap;
+  padding: 4px 8px 4px 0;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+/* center just the section titles */
+.hover-table .section > th {
+  text-align: center;              /* center text */
+  padding: 8px 0 6px;              /* even padding left/right */
+  border-top: 1px solid #e5e7eb;
+  color: #374151;
+}
+.job-hover { max-width: 480px; }
+
+.job-top {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px 10px;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #e5e7eb; /* gray-200 */
+}
+.job-top .kv .k { color: #063941; font-weight: 600; }
+.job-top .kv .v { color: #063941; }
+
+.hover-matrix {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.hover-matrix th,
+.hover-matrix td { padding: 4px 6px; }
+.hover-matrix thead th { text-align: center; }
+.hover-matrix tbody th { text-align: left; white-space: nowrap; color: #063941; }
+.hover-matrix td { text-align: right; color: #111827; }
+.hover-matrix thead th:first-child { text-align: left; } /* row labels header cell */
