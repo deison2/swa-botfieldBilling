@@ -7,7 +7,11 @@ export async function loadNarratives() {
     const text = await res.text(); // capture error payload
     throw new Error(`Load failed: ${res.status} ${text}`);
   }
-  return res.json();
+  const tempBody = await res.json();
+  const returnbodyNarr = tempBody.sort((a, b) => a.Narrative.localeCompare(b.Narrative));
+  const returnbodyLevel = returnbodyNarr.sort((a, b) => (b.Level === 'SERV') - (a.Level === 'SERV') || a.Level.localeCompare(b.Level));
+  const returnbodyServ = returnbodyLevel.sort((a, b) => (b.Serv === 'ALL') - (a.Serv === 'ALL') || a.Serv.localeCompare(b.Serv));
+  return returnbodyServ;
 }
 
 

@@ -153,3 +153,7 @@
 .filter-bar button:hover {
   opacity: 0.85;
 }
+
+.data-table {
+  height: 95% !important;
+}

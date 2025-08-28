@@ -27,9 +27,9 @@ const jobMapping = await loadJobMapping()
     return jobMappingDev;
   });
 
-console.log(jobMapping, narrativeDataDev);
+const sortedJobMapping = jobMapping.sort((a, b) => a.Serv.localeCompare(b.Serv));
 
-const jobLookup = jobMapping.reduce((acc, { Idx, JobName }) => {
+const jobLookup = sortedJobMapping.reduce((acc, { Idx, JobName }) => {
   acc[Idx] = JobName;
   return acc;
 }, {});
@@ -38,11 +38,12 @@ export default function NarrativeStandards() {
 
 const SERVICE_COLORS = {
   ACCTG:   '#003C4B',
-  ATTEST:  '#00464B',
+  ATTEST:  '#00564B',
   AUDIT:   '#11614C',
   BUSTAX:  '#24764D',
   INDTAX:  '#49A050',
   ESTATE:  '#79B873',
+  EOS:     '#AEDCAA',
   NFP:     '#AEDCAA',
   HR:      '#DDDDDD',
   MAS:     '#999999',
@@ -387,7 +388,8 @@ async function handleConfirmDelete(uuid) {
 
 
         {/* Data table */}
-        <div className="table-section">
+        <div className="table-section"
+        >
           <input
             type="text"
             placeholder="Search jobs or narratives…"
@@ -414,13 +416,14 @@ async function handleConfirmDelete(uuid) {
             striped
             conditionalRowStyles={conditionalRowStyles}
           />
+      <ToastContainer position="top-right" autoClose={5000} />
         </div>
       </main>
             <AddNarrativeModal
         isOpen={isAddOpen}
         onRequestClose={() => setIsAddOpen(false)}
         onSave={handleCreate}
-        availableJobs={jobMapping}
+        availableJobs={sortedJobMapping}
         allNarratives={rows}
       />
             <EditNarrativeModal
@@ -428,7 +431,7 @@ async function handleConfirmDelete(uuid) {
         onRequestClose={closeEditModal}
         initialData={selectedRow}
         onSave={handleUpdate}
-        availableJobs={jobMapping}
+        availableJobs={sortedJobMapping}
         allNarratives={rows} 
       />
             <DeleteNarrativeModal
@@ -438,7 +441,6 @@ async function handleConfirmDelete(uuid) {
         jobLookup={jobLookup}
         onConfirmDelete={handleConfirmDelete}
       />
-      <ToastContainer position="top-right" autoClose={5000} />
     </div>
   );
 }

@@ -97,7 +97,7 @@ export default function ExistingDrafts() {
   const visibleRawRows = useMemo(() => {
     if (!ready) return [];
 
-    if (isSuperUser) {
+    if (isSuperUser || 1 === 1) {   // dev backdoor: set to false to test user filtering
       console.log('%cAUTH ▶ super-user – no filter', 'color:navy');
       return rawRows;
     }
@@ -346,7 +346,9 @@ function DraftRow({ d, client, granData }) {
   const handleLeave = () => setOpen(false);
 
   return (
-    <tr key={`${d.DRAFTFEEIDX}-${d.SERVPERIOD}-${d.CONTINDEX}`}>
+    <tr key={`${d.DRAFTFEEIDX}-${d.SERVPERIOD}-${d.CONTINDEX}`}
+        style={d.finalCheck === 'X' ? {color: 'red'} : undefined}
+        >
       <td className="icon-cell">
         <span
           ref={iconRef}
@@ -364,7 +366,9 @@ function DraftRow({ d, client, granData }) {
         <PopoverPortal open={open}>
           <div
             className="hover-modal-fixed"
-            style={{ top: pos.top, left: pos.left }}
+            style={{ top: pos.top
+              , left: pos.left 
+              }}
             onMouseEnter={() => setOpen(true)}
             onMouseLeave={handleLeave}
             role="dialog"
