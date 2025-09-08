@@ -26,15 +26,6 @@ export function PopoverPortal({ open, children }) {
   return createPortal(children, document.body);
 }
 
-const drafts = await GetDrafts()
-  .catch(err => {
-    console.error(err);
-    return sampleDrafts;
-  });
-
-const granularData = await GetGranularJobData();
-console.log(granularData);
-
 /* ─── helpers ─────────────────────────────────────────────────────── */
 const currency = n =>
   new Intl.NumberFormat('en-US', { style : 'currency', currency : 'USD' })
@@ -43,6 +34,36 @@ const currency = n =>
 /* ─── page ────────────────────────────────────────────────────────── */
 export default function ExistingDrafts() {
 
+  useEffect(() => {
+  let cancelled = false;
+  (async () => {
+    try {
+      setLoading(true);
+      const [dRes, gRes] = await Promise.allSettled([
+        GetDrafts(),
+        GetGranularJobData()
+      ]);
+
+      if (cancelled) return;
+
+      if (dRes.status === 'fulfilled') setRawRows(Array.isArray(dRes.value) ? dRes.value : []);
+      else {
+        console.error('GetDrafts failed:', dRes.reason);
+        setRawRows(sampleDrafts); // graceful fallback
+      }
+
+      if (gRes.status === 'fulfilled') setGranularData(Array.isArray(gRes.value) ? gRes.value : []);
+      else console.error('GetGranularJobData failed:', gRes.reason);
+
+    } finally {
+      if (!cancelled) setLoading(false);
+    }
+  })();
+
+  return () => { cancelled = true; };
+}, []);
+
+
  //const sampleDraftIndexes = [94929]
 
   /* ── AUTH ───────────────────────────────────────────────────── */
@@ -50,8 +71,8 @@ export default function ExistingDrafts() {
   const email = principal?.userDetails?.toLowerCase() || '';
 
   /* ── RAW DATA  (dev stub) ───────────────────────────────────── */
-  const [rawRows]      = useState(drafts);
-  // global loader state
+  const [rawRows, setRawRows] = useState([]);
+  const [granularData, setGranularData] = useState([]);
   const [loading, setLoading] = useState(false);
 
   /* >>> selection-state (NEW) >>> */
@@ -97,7 +118,7 @@ export default function ExistingDrafts() {
   const visibleRawRows = useMemo(() => {
     if (!ready) return [];
 
-    if (isSuperUser && 1 === 1) {   // dev backdoor: set to false to test user filtering
+    if (isSuperUser) {   // dev backdoor: set to false to test user filtering
       console.log('%cAUTH ▶ super-user – no filter', 'color:navy');
       return rawRows;
     }

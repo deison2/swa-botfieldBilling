@@ -12,6 +12,7 @@ import ExistingDrafts from "./pages/ExistingDrafts";
 // WIP-Based-Billing nested pages
 import GeneralInformation   from './pages/GeneralInformation';
 import NarrativeStandards   from './pages/WIPBasedBilling/NarrativeStandards';
+import BillingGroups from "./pages/BillingGroups";
 //import OfficeStandards      from './pages/WIPBasedBilling/OfficeStandards';
 //import PartnerStandards     from './pages/WIPBasedBilling/PartnerStandards';
 //import ClientStandards      from './pages/WIPBasedBilling/ClientStandards';
@@ -53,7 +54,7 @@ export default function App() {
           <Route path="Existing-Drafts" element={<ExistingDrafts />} />
           <Route path="Recurring-Retainers" element={<UnderConstructionPage />} />
           <Route path="Tech-Fees" element={<UnderConstructionPage />} />
-          <Route path="Billing-Groups" element={<UnderConstructionPage />} />
+          <Route path="Billing-Groups" element={<BillingGroups />} />
           <Route path="Misc-Reports" element={<UnderConstructionPage />} />
 
           {/* 404 fallback */}
