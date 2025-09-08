@@ -32,7 +32,7 @@ export default function GeneralInformation() {
               <strong>Tech Fees:</strong> Track technology fee allocations. <em>(Under Construction)</em>
             </li>
             <li>
-              <strong>Billing Groups:</strong> Organize and manage client billing into billing groups to determine who should receive a given client's bill. <em>(Under Construction)</em>
+              <strong>Billing Groups:</strong> Organize and manage client billing into billing groups to determine who should receive a given client's bill. 
             </li>
           </ul>
         </section>

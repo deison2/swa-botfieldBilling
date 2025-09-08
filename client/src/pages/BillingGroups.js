@@ -680,7 +680,7 @@ const tableData = useMemo(() => {
     return {
       ...r,
       _instructions:  e.instructions ?? '',
-      _grouping:      e.grouping ?? (r.ClientGrouping ?? ''),
+      _grouping:      r.ClientGrouping ?? '',
       _billingClient: e.billingClient ?? parentForThisClient ?? r.ClientCode,
     };
   });
