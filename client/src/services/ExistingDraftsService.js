@@ -66,26 +66,29 @@ export async function GetBillThroughBlob() {
 // Update bill-through date (super users only)
 export async function SetBillThroughBlob({ billThroughDate, updatedBy }) {
   const token = await getAuthToken(); // reuse existing mechanism
-  return fetchWithErrors('/api/billingDate', {
+  const res = await fetch('/api/billingDate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ billThroughDate, updatedBy, token }),
   });
+  return res.json();
 }
 
 
-export function GetDrafts(billThroughDate) {
-  return fetchWithErrors('/api/getDraftPopulation', {
+export async function GetDrafts(billThroughDate) {
+  const res = await fetch('/api/getDraftPopulation', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ billThroughDate }),
   });
+  return res.json();
 }
 
-export function GetGranularJobData(billThroughDate) {
-  return fetchWithErrors('/api/getGranularJobData', {
+export async function GetGranularJobData(billThroughDate) {
+  const res = await fetch('/api/getGranularJobData', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ billThroughDate }),
   });
+  return res.json();
 }
