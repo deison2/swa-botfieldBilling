@@ -20,6 +20,24 @@ const draftNarr = "https://prod-43.eastus.logic.azure.com/workflows/22d673f179c3
 
 module.exports = async function (context, req) {
 
+  // Read date from POST body; fallback to EOM-1
+  const bodyDate = req.body?.billThroughDate;
+  const endOfPrevMonthISO = () => {
+    const d = new Date();
+    const eom1 = new Date(d.getFullYear(), d.getMonth(), 0);
+    const y = eom1.getFullYear(), m = String(eom1.getMonth() + 1).padStart(2, '0'), day = String(eom1.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+  const billThroughDate =
+    /^\d{4}-\d{2}-\d{2}$/.test(bodyDate) ? bodyDate : endOfPrevMonthISO();
+
+  const postInit = (payload) => ({
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const payload = { billThroughDate };
+
 function attachDetailMatches(
   mainArray,
   subArray,
@@ -96,26 +114,10 @@ function toRolesArray(arr) {
   });
 }
 
-    const mainBody = await fetch(
-    draftAnalysis,
-    {
-      method:  'POST'
-    }
-  );
+const mainBody  = await fetch(draftAnalysis, postInit(payload));
+const detailBody= await fetch(draftDetail,  postInit(payload));
+const narrBody  = await fetch(draftNarr,    postInit(payload));
 
-  const detailBody = await fetch(
-    draftDetail,
-    {
-      method:  'POST'
-    }
-  );
-
-  const narrBody = await fetch(
-    draftNarr,
-    {
-      method:  'POST'
-    }
-  );
 
 
 const appendArray0 = toRolesArray(await mainBody.json());

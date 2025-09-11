@@ -507,3 +507,142 @@ max-height: min-content;
 .hover-matrix tbody th { text-align: left; white-space: nowrap; color: #063941; }
 .hover-matrix td { text-align: right; color: #111827; }
 .hover-matrix thead th:first-child { text-align: left; } /* row labels header cell */
+
+/* ── Bill Through control ───────────────────────────────────────── */
+.filter-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+
+.billthrough {
+  margin-left: auto;                 /* push to far-right */
+  position: relative;                /* anchor popover */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bt-label {
+  font-size: 12px;
+  color: #6b7a86;
+}
+
+.bt-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid #d7dee5;
+  background: #fff;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 12px;
+  color: #1f2a34;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+  cursor: pointer;
+}
+
+.bt-display:hover {
+  border-color: #b7c3ce;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+}
+
+.bt-display .bt-cal { opacity: 0.7; }
+
+/* popover calendar */
+.bt-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 292px;                      /* 7 cols * 40px + gaps */
+  background: #fff;
+  border: 1px solid #d7dee5;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+  padding: 10px;
+  z-index: 1000;
+}
+
+.bt-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 2px 8px;
+}
+
+.bt-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: #19313a;
+}
+
+.bt-nav {
+  border: none;
+  background: #f3f6f8;
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 18px; line-height: 1;
+}
+.bt-nav:hover { background: #e8eef3; }
+
+.bt-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  padding: 4px 0 8px;
+}
+
+.bt-dow {
+  text-align: center;
+  font-size: 11px;
+  color: #6b7a86;
+  font-weight: 600;
+  padding: 2px 0;
+}
+
+.bt-day {
+  height: 36px;
+  border: 1px solid #e6edf3;
+  background: #fff;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1f2a34;
+  cursor: default;                   /* becomes pointer when selection is wired */
+}
+.bt-day:hover { background: #f6fafb; }
+.bt-day.muted { color: #99a7b5; background: #fbfcfd; }
+
+.bt-footer {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 4px;
+}
+
+.bt-link {
+  background: none;
+  border: none;
+  color: #4087c9;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 4px;
+  cursor: pointer;
+}
+.bt-link:hover { text-decoration: underline; }
+
+/* Hover/focus: blue numeral on soft blue background */
+.bt-grid .bt-day:hover,
+.bt-grid .bt-day:focus-visible {
+  color: #003D4C;              /* brand dark blue */
+  background: #EAF3F6;         /* gentle blue-ish */
+  border-color: #C9DCE6;
+  outline: none;
+}
+
+/* Keep muted days grey until hovered, then blue too */
+.bt-grid .bt-day.muted { color: #99a7b5; }
+.bt-grid .bt-day.muted:hover,
+.bt-grid .bt-day.muted:focus-visible {
+  color: #003D4C;
+}
+
+.bt-display.readonly { opacity: .7; cursor: not-allowed; }
+.bt-day:disabled { opacity: .55; cursor: not-allowed; }

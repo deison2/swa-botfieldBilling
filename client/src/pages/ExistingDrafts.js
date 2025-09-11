@@ -16,8 +16,11 @@ import {
   CreateBulkPrintList,
   DownloadBulkList,
   GetDrafts,
-  GetGranularJobData
+  GetGranularJobData,
+  GetBillThroughBlob,
+  SetBillThroughBlob
 } from '../services/ExistingDraftsService';
+
 import Loader           from '../components/Loader';
 import { createPortal } from "react-dom";
 
@@ -31,6 +34,34 @@ const currency = n =>
   new Intl.NumberFormat('en-US', { style : 'currency', currency : 'USD' })
     .format(n ?? 0);
 
+/* ─── bill-through helpers (UI only) ─────────────────────────────── */
+const fmtMMDDYYYY = (d) => {
+  const dt = d instanceof Date ? d : parseYmdLocal(d);
+  const mm = String(dt.getMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getDate()).padStart(2, '0');
+  const yyyy = dt.getFullYear();
+  return `${mm}/${dd}/${yyyy}`;
+};
+
+/* ─── bill-through date helpers ───────────────────────────── */
+const toIsoYmd = (d) => {
+  const dt = d instanceof Date ? d : parseYmdLocal(d);
+  const yyyy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+const endOfPrevMonth = (d = new Date()) => new Date(d.getFullYear(), d.getMonth(), 0);
+
+/* ─── date-only helpers (avoid UTC shift) ───────────────────── */
+const parseYmdLocal = (ymd) => {
+  if (ymd instanceof Date) return ymd;
+  const [y, m, d] = String(ymd).split('-').map(n => parseInt(n, 10));
+  return new Date(y, (m || 1) - 1, d || 1); // local midnight, no timezone jump
+};
+
+
 /* ─── page ────────────────────────────────────────────────────────── */
 export default function ExistingDrafts() {
 
@@ -39,11 +70,30 @@ export default function ExistingDrafts() {
   (async () => {
     try {
       setLoading(true);
-      const [dRes, gRes] = await Promise.allSettled([
-        GetDrafts(),
-        GetGranularJobData()
-      ]);
 
+      // 1) Fetch bill-through from blob (or default to EOM-1 if missing)
+      let bt = endOfPrevMonth();
+      try {
+        const blob = await GetBillThroughBlob();
+          if (blob?.billThroughDate) {
+            const parsed = parseYmdLocal(blob.billThroughDate); // <-- local parse
+            if (!isNaN(parsed)) bt = parsed;
+          }
+      } catch (e) {
+        console.warn('Bill-through blob missing/unreadable; defaulting to EOM-1', e);
+      }
+      if (cancelled) return;
+
+      setBillThrough(bt);
+      setBtMonth(new Date(bt.getFullYear(), bt.getMonth(), 1));
+
+      const iso = toIsoYmd(bt);
+
+      // 2) Fetch data with billThroughDate in body
+      const [dRes, gRes] = await Promise.allSettled([
+        GetDrafts(iso),
+        GetGranularJobData(iso),
+      ]);
       if (cancelled) return;
 
       if (dRes.status === 'fulfilled') setRawRows(Array.isArray(dRes.value) ? dRes.value : []);
@@ -54,14 +104,13 @@ export default function ExistingDrafts() {
 
       if (gRes.status === 'fulfilled') setGranularData(Array.isArray(gRes.value) ? gRes.value : []);
       else console.error('GetGranularJobData failed:', gRes.reason);
-
     } finally {
       if (!cancelled) setLoading(false);
     }
   })();
-
   return () => { cancelled = true; };
-}, []);
+}, []); // run once
+
 
 
  //const sampleDraftIndexes = [94929]
@@ -182,6 +231,42 @@ export default function ExistingDrafts() {
     headerCbRef.current.indeterminate = sel > 0 && sel < total;
   }, [selectedIds, rows]);          // runs on every change
   /* <<< keep header checkbox in sync END <<< */
+
+  /* Bill Through (value comes from blob on load; super users can change it) */
+  const [billThrough, setBillThrough] = useState(endOfPrevMonth());
+  const [btOpen, setBtOpen] = useState(false);
+  const [btMonth, setBtMonth] = useState(() =>
+    new Date(billThrough.getFullYear(), billThrough.getMonth(), 1)
+  );
+
+  /* lightweight calendar grid for the current btMonth (no selection yet) */
+  const btGrid = useMemo(() => {
+    const y = btMonth.getFullYear();
+    const m = btMonth.getMonth();
+
+    const firstDow = new Date(y, m, 1).getDay();                     // 0=Sun..6=Sat
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const prevDays = new Date(y, m, 0).getDate();
+
+    const cells = [];
+    // leading previous-month days
+    for (let i = 0; i < firstDow; i++) {
+      const dnum = prevDays - (firstDow - 1 - i);
+      cells.push({ date: new Date(y, m - 1, dnum), muted: true });
+    }
+    // current month days
+    for (let d = 1; d <= daysInMonth; d++) cells.push({ date: new Date(y, m, d), muted: false });
+    // trailing next-month days to fill 6x7
+    while (cells.length < 42) {
+      const last = cells[cells.length - 1].date;
+      cells.push({ date: new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1), muted: true });
+    }
+    return cells;
+  }, [btMonth]);
+
+  const btTitle = useMemo(() => btMonth.toLocaleString('en-US', { month: 'long', year: 'numeric' }), [btMonth]);
+  const btPrev  = () => setBtMonth(d => new Date(d.getFullYear(), d.getMonth() - 1, 1));
+  const btNext  = () => setBtMonth(d => new Date(d.getFullYear(), d.getMonth() + 1, 1));
 
   /* ── FILTER STATE ──────────────────────────────────────────── */
   const [originatorFilter, setOriginatorFilter] = useState('');
@@ -733,6 +818,84 @@ console.log('PDF header:', header);
               </button>
             )}
           </span>
+        {/* ── Bill Through (UI-only) ───────────────────────────── */}
+      <div className="billthrough ml-auto">
+        <span className="bt-label">Bill Through:</span>
+        <button
+          type="button"
+          className={`bt-display ${!isSuperUser ? 'readonly' : ''}`}
+          onClick={() => isSuperUser && setBtOpen(v => !v)}
+          aria-haspopup="dialog"
+          aria-expanded={btOpen && isSuperUser}
+          title={isSuperUser ? 'Choose bill-through date' : 'Bill-through date (read-only)'}
+        >
+
+          {fmtMMDDYYYY(billThrough)}
+          <svg className="bt-cal" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="17" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5"/>
+            <line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" strokeWidth="1.5"/>
+            <line x1="8" y1="2.5" x2="8" y2="5.5" stroke="currentColor" strokeWidth="1.5" />
+            <line x1="16" y1="2.5" x2="16" y2="5.5" stroke="currentColor" strokeWidth="1.5" />
+          </svg>
+        </button>
+
+        {btOpen && (
+          <div className="bt-popover" role="dialog" aria-label="Choose bill-through date">
+            <div className="bt-head">
+              <button type="button" className="bt-nav" onClick={btPrev} aria-label="Previous month">‹</button>
+              <div className="bt-title">{btTitle}</div>
+              <button type="button" className="bt-nav" onClick={btNext} aria-label="Next month">›</button>
+            </div>
+
+            <div className="bt-grid">
+              {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (
+                <div key={d} className="bt-dow">{d}</div>
+              ))}
+              {btGrid.map((cell, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  className={`bt-day ${cell.muted ? 'muted' : ''}`}
+                  disabled={!isSuperUser}
+                  onClick={async () => {
+                    if (!isSuperUser) return;  // extra guard
+                    const picked = cell.date;
+                    const iso = toIsoYmd(picked);
+                    try {
+                      setLoading(true);
+                      // (a) write blob
+                      await SetBillThroughBlob({ billThroughDate: iso, updatedBy: email });
+                      // (b) update UI + close popover
+                      setBillThrough(picked);
+                      setBtMonth(new Date(picked.getFullYear(), picked.getMonth(), 1));
+                      setBtOpen(false);
+                      // (c) refresh data using the new ISO date
+                      const [dRes, gRes] = await Promise.allSettled([
+                        GetDrafts(iso),
+                        GetGranularJobData(iso),
+                      ]);
+                      if (dRes.status === 'fulfilled') setRawRows(Array.isArray(dRes.value) ? dRes.value : []);
+                      else console.error('GetDrafts failed after bill-through change:', dRes.reason);
+                      if (gRes.status === 'fulfilled') setGranularData(Array.isArray(gRes.value) ? gRes.value : []);
+                      else console.error('GetGranularJobData failed after bill-through change:', gRes.reason);
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                >
+                  {cell.date.getDate()}
+                </button>
+              ))}
+            </div>
+
+            <div className="bt-footer">
+              <button type="button" className="bt-link" onClick={() => setBtMonth(new Date())}>Jump to Today</button>
+              <button type="button" className="bt-link" onClick={() => setBtOpen(false)}>Close</button>
+            </div>
+          </div>
+        )}
+      </div>
+  
         </div>
 
         <input

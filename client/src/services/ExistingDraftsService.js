@@ -43,29 +43,49 @@ export async function DownloadBulkList(listId) {
   return response;
 }
 
-async function fetchWithErrors(url) {
+async function fetchWithErrors(url, init = {}) {
   try {
-    const res = await fetch(url);
-    // HTTP-level failures still resolve; check .ok
+    const res = await fetch(url, init);
     if (!res.ok) {
       const payload = await res.text();
-      if (res.status === 504) {
-        throw new Error(`Gateway timeout (504) when loading ${url}`);
-      }
+      if (res.status === 504) throw new Error(`Gateway timeout (504) when loading ${url}`);
       throw new Error(`Load failed: ${res.status} ${payload}`);
     }
     return res.json();
   } catch (err) {
-    // This will catch network/proxy failures (TypeError) as well
     console.error('Error fetching - ', err);
-    throw err; 
+    throw err;
   }
 }
 
-export function GetDrafts() {
-  return fetchWithErrors('/api/getDraftPopulation');
+// Read current bill-through date (or server will return default)
+export async function GetBillThroughBlob() {
+  return fetchWithErrors('/api/billingDate'); // GET
 }
 
-export function GetGranularJobData() {
-  return fetchWithErrors('/api/getGranularJobData');
+// Update bill-through date (super users only)
+export async function SetBillThroughBlob({ billThroughDate, updatedBy }) {
+  const token = await getAuthToken(); // reuse existing mechanism
+  return fetchWithErrors('/api/billingDate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ billThroughDate, updatedBy, token }),
+  });
+}
+
+
+export function GetDrafts(billThroughDate) {
+  return fetchWithErrors('/api/getDraftPopulation', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ billThroughDate }),
+  });
+}
+
+export function GetGranularJobData(billThroughDate) {
+  return fetchWithErrors('/api/getGranularJobData', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ billThroughDate }),
+  });
 }
