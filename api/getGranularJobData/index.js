@@ -5,12 +5,25 @@ const granularJobData = "https://prod-43.eastus.logic.azure.com/workflows/22d673
 
 
 module.exports = async function (context, req) {
-    const mainBody = await fetch(
-    granularJobData,
-    {
-      method:  'POST'
-    }
-  );
+
+  const bodyDate = req.body?.billThroughDate;
+  const endOfPrevMonthISO = () => {
+    const d = new Date();
+    const eom1 = new Date(d.getFullYear(), d.getMonth(), 0);
+    const y = eom1.getFullYear(), m = String(eom1.getMonth() + 1).padStart(2, '0'), day = String(eom1.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+  const billThroughDate =
+    /^\d{4}-\d{2}-\d{2}$/.test(bodyDate) ? bodyDate : endOfPrevMonthISO();
+
+  const postInit = (payload) => ({
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const payload = { billThroughDate };
+
+  const mainBody = await fetch(granularJobData, postInit(payload));
 
   const sampleGranularJobData = await mainBody.json();
 

@@ -1,12 +1,12 @@
 {
   "bindings": [
     {
-      "authLevel": "anonymous",
+      "authLevel": "function",
       "type": "httpTrigger",
       "direction": "in",
       "name": "req",
-      "methods": [ "post" ],
-      "route": "getGranularJobData"
+      "methods": [ "get", "post"],
+      "route": "billingDate"
     },
     {
       "type": "http",
