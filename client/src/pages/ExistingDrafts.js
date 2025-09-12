@@ -374,7 +374,7 @@ export default function ExistingDrafts() {
       />
     ),
     selector : r => r.DRAFTFEEIDX,   // any stub selector – required by the lib
-    width : '50px',
+    width : '55px',
     ignoreRowClick : true,
     sortable : false,
       cell : r => (
