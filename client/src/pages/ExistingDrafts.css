@@ -56,8 +56,8 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
                Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
                sans-serif;
-height: 90%;
-max-height: min-content;
+  height: 90%;
+  max-height: min-content;
 }
 
 /* ---------- expandable content ---------- */
@@ -106,16 +106,11 @@ max-height: min-content;
   flex-direction: row;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 3px 0;   /* <— gives a little breathing room */
+  padding: 3px 0;
 }
-
 
 /* (chip styles copied from NarrativeStandards if you don't @import) */
-.chip-container {
-  display: flex;
-  flex-direction: row;
-  gap: 6px;
-}
+.chip-container { display: flex; flex-direction: row; gap: 6px; }
 .chip {
   display: inline-flex;
   align-items: center;
@@ -128,7 +123,9 @@ max-height: min-content;
   box-shadow: 0 1px 2px rgba(0,0,0,0.08);
   cursor: default;
 }
-.chip:hover { background:#d1e8e4; }
+/* Do NOT override role chips on hover */
+.chip:not(.role):hover { background:#d1e8e4; }
+
 .chip.more {
   background: transparent;
   border: 1px solid #a6e1dd;
@@ -137,54 +134,30 @@ max-height: min-content;
 .chip.more:hover { background:#a6e1dd; color:#fff; }
 
 .open-link-icon {
-  width: 100px;          /* tweak to taste */
+  width: 100px;
   height: 40px;
   display: block;
 }
-
-.open-link:hover .open-link-icon {
-  opacity: 0.8;         /* subtle hover feedback */
-}
+.open-link:hover .open-link-icon { opacity: 0.8; }
 
 /* circular red “X” icon */
 .abandon-icon {
-  width: 30px;
-  height: 30px;
-  border: none;
-  border-radius: 50%;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 30px; height: 30px;
+  border: none; border-radius: 50%; padding: 0;
+  display: flex; align-items: center; justify-content: center;
   cursor: pointer;
-
-  /* red gradient + soft shadow */
   background: linear-gradient(135deg, #ff5f6d 0%, #d62e33 100%);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
-
-.abandon-icon:hover {
-  transform: scale(1.05);
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.25);
-}
-
-.abandon-icon:active {
-  transform: scale(0.96);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-}
+.abandon-icon:hover { transform: scale(1.05); box-shadow: 0 3px 6px rgba(0,0,0,0.25); }
+.abandon-icon:active { transform: scale(0.96); box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
 
 .filter-bar select,
-.filter-bar input {
-  font: inherit;
-  padding: 6px 8px;
-}
+.filter-bar input { font: inherit; padding: 6px 8px; }
 
 /* >>> selection-ui (NEW) >>> */
-:root {
-  --bmss-blue: #0469d9;
-}
+:root { --bmss-blue: #0469d9; }
 
 /* modern row checkbox */
 .row-cb {
@@ -212,30 +185,23 @@ max-height: min-content;
   padding: 8px 18px;
   border:none; border-radius:8px;
   font:600 0.95rem/1 var(--sans,system-ui,sans-serif);
-
-  /* inactive gray */
   background:linear-gradient(145deg,#f1f3f5 0%,#e0e3e7 100%) !important;
   box-shadow:
     inset 0 1px 2px rgba(255,255,255,.65),
     inset 0 -1px 2px rgba(0,0,0,.08);
   color:#8a8f97 !important;
-
   cursor:not-allowed;
   transition:all .3s ease;
 }
-
 .filter-bar .generate-btn.active{
-  cursor:pointer;
-  color:#fff !important;
+  cursor:pointer; color:#fff !important;
   background:linear-gradient(270deg,#2c93ff,#006dff,#2c93ff) !important;
   background-size:400% 400%;
   box-shadow:0 3px 10px rgba(0,0,0,.25);
 }
-
 .filter-bar .generate-btn.active:hover{
   box-shadow:0 4px 12px rgba(0,0,0,.3);
 }
-
 
 /* >>> select-scope modal >>> */
 .scope-modal-backdrop{
@@ -244,7 +210,6 @@ max-height: min-content;
   background:rgba(0,0,0,.45);
   display:flex; align-items:center; justify-content:center;
 }
-
 .scope-modal{
   width:clamp(300px, 38vw, 420px);
   background:#fff;
@@ -254,116 +219,56 @@ max-height: min-content;
   text-align:center;
   animation:modalPop .35s cubic-bezier(.2,1.4,.4,1);
 }
-
-@keyframes modalPop{
-  0%{transform:scale(.65);opacity:0}
-  100%{transform:scale(1);opacity:1}
-}
-
-.scope-modal h3{
-  margin:1rem 0 .5rem;
-  font-size:1.25rem;
-  color:#063941;
-}
+@keyframes modalPop{ 0%{transform:scale(.65);opacity:0} 100%{transform:scale(1);opacity:1} }
+.scope-modal h3{ margin:1rem 0 .5rem; font-size:1.25rem; color:#063941; }
 .scope-hint{margin-bottom:1.5rem;color:#4e5b66;font-size:.9rem;}
 
 /* — mascot wrapper -------------------------------------------------- */
-.modal-bot{  margin-inline:auto;
-  margin-top:-70px;      /* less-negative => pushes it *down* */
-  margin-bottom:.75rem;
-}
-
-/* enlarge the circle & give it a teal border */
+.modal-bot{  margin-inline:auto; margin-top:-70px; margin-bottom:.75rem; }
 .modal-bot.botfield-container {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-
-  /* pretty teal ring */
+  width: 80px; height: 80px; border-radius: 50%;
   box-shadow: 0 3px 8px rgba(0,0,0,.15);
-
-  /* soft teal gradient fill */
   background: linear-gradient(135deg, #dff0ed 0%, #b2d7d0 100%);
-
-  /* center the video */
   display:flex;align-items:center;justify-content:center;
 }
-
-.modal-bot.botfield-container .keith-bot-icon{
-  width:72px;height:72px;
-}
+.modal-bot.botfield-container .keith-bot-icon{ width:72px;height:72px; }
 
 .scope-btn-row{display:flex;flex-direction:column;gap:.75rem;}
 @media(min-width:480px){.scope-btn-row{flex-direction:row;justify-content:center}}
-
 .scope-btn{
   flex: 1 1 auto;
   padding: .55rem 1.2rem;
-  border: none;
-  border-radius: 8px;
-
-  /* weight   size   line-height   font-family */
+  border: none; border-radius: 8px;
   font: 600 0.95rem/1 var(--sans, system-ui, sans-serif);
-
   cursor: pointer;
   transition: background .3s, box-shadow .3s;
 }
-
-/* individual styles */
-.scope-btn.visible{
-  background:#e4f0ef;color:#063941;
-}
+.scope-btn.visible{ background:#e4f0ef;color:#063941; }
 .scope-btn.visible:hover{background:#d1e8e4;}
-
-.scope-btn.all{
-  background:linear-gradient(135deg,#2c93ff 0%,#006dff 100%);
-  color:#fff;
-}
+.scope-btn.all{ background:linear-gradient(135deg,#2c93ff 0%,#006dff 100%); color:#fff; }
 .scope-btn.all:hover{box-shadow:0 4px 12px rgba(0,0,0,.25);}
-
-.scope-btn.cancel{
-  background:#eef0f2;color:#5f6b78;
-}
+.scope-btn.cancel{ background:#eef0f2;color:#5f6b78; }
 .scope-btn.cancel:hover{background:#e0e3e7;}
 /* <<< select-scope modal END <<< */
 
 /* >>> tiny clear-selection “X” >>> */
-.generate-wrap{
-  position:relative;display:inline-block;
-}
-
-/* --- tiny “clear selections” circle --------------------------- */
+.generate-wrap{ position:relative;display:inline-block; }
 .clear-sel-btn{
   position:absolute; top:-8px; right:-8px;
-
-  width:12px; height:16px;
-  border-radius:50%; border:none; padding:0;
-
-  /* grayscale gradient + subtle bevel  – override global button bg */
+  width:12px; height:16px; border-radius:50%; border:none; padding:0;
   background: linear-gradient(145deg, #f2f2f2 0%, #c9c9c9 100%) !important;
-  box-shadow:
-    0 1px 2px rgba(0,0,0,.25),
-    inset 0 1px 1px rgba(255,255,255,.65);
-
-  /* keep the “×” centered and gray  – override global button color */
-  color:#444 !important;
-  display:flex; align-items:center; justify-content:center;
+  box-shadow: 0 1px 2px rgba(0,0,0,.25), inset 0 1px 1px rgba(255,255,255,.65);
+  color:#444 !important; display:flex; align-items:center; justify-content:center;
   font:700 0.9rem/1 "Inter",system-ui,sans-serif;
-
-  cursor:pointer;
-  transition: transform .15s ease, box-shadow .15s ease;
+  cursor:pointer; transition: transform .15s ease, box-shadow .15s ease;
 }
-
 .clear-sel-btn:hover{
   transform:scale(1.08);
-  box-shadow:
-    0 2px 5px rgba(0,0,0,.35),
-    inset 0 1px 1px rgba(255,255,255,.8);
+  box-shadow: 0 2px 5px rgba(0,0,0,.35), inset 0 1px 1px rgba(255,255,255,.8);
 }
 .clear-sel-btn:active{
   transform:scale(.9);
-  box-shadow:
-    0 1px 3px rgba(0,0,0,.25) inset;
+  box-shadow: 0 1px 3px rgba(0,0,0,.25) inset;
 }
 
 /* group container – tiny gap so circles don’t touch */
@@ -371,53 +276,33 @@ max-height: min-content;
 
 /* —— green “Confirm” circle —— */
 .confirm-icon{
-  width:30px;height:30px;
-  border:none;border-radius:50%;padding:0;
-  display:flex;align-items:center;justify-content:center;
-  cursor:pointer;
-
-  /* green gradient + shadow */
+  width:30px;height:30px; border:none;border-radius:50%;padding:0;
+  display:flex;align-items:center;justify-content:center; cursor:pointer;
   background:linear-gradient(135deg,#3ad29f 0%,#0f996e 100%);
   box-shadow:0 2px 4px rgba(0,0,0,.2);
-
   transition:transform .15s ease, box-shadow .15s ease;
 }
-.confirm-icon:hover{
-  transform:scale(1.05);
-  box-shadow:0 3px 6px rgba(0,0,0,.25);
-}
-.confirm-icon:active{
-  transform:scale(.96);
-  box-shadow:0 1px 3px rgba(0,0,0,.2);
-}
+.confirm-icon:hover{ transform:scale(1.05); box-shadow:0 3px 6px rgba(0,0,0,.25); }
+.confirm-icon:active{ transform:scale(.96); box-shadow:0 1px 3px rgba(0,0,0,.2); }
+
 /* >>> Reset button (neutral when idle, blue when active) >>> */
 .filter-bar .reset-btn{
-  padding: 8px 18px;
-  border:none; border-radius:8px;
+  padding: 8px 18px; border:none; border-radius:8px;
   font:600 0.95rem/1 var(--sans,system-ui,sans-serif);
-
-  /* inactive gray */
   background:linear-gradient(145deg,#f1f3f5 0%,#e0e3e7 100%) !important;
   box-shadow:
     inset 0 1px 2px rgba(255,255,255,.65),
     inset 0 -1px 2px rgba(0,0,0,.08);
-  color:#8a8f97 !important;
-
-  cursor:not-allowed;
+  color:#8a8f97 !important; cursor:not-allowed;
   transition:all .3s ease;
 }
-
 .filter-bar .reset-btn.active{
-  cursor:pointer;
-  color:#fff !important;
+  cursor:pointer; color:#fff !important;
   background:linear-gradient(270deg,#2c93ff,#006dff,#2c93ff) !important;
   background-size:400% 400%;
   box-shadow:0 3px 10px rgba(0,0,0,.25);
 }
-
-.filter-bar .reset-btn.active:hover{
-  box-shadow:0 4px 12px rgba(0,0,0,.3);
-}
+.filter-bar .reset-btn.active:hover{ box-shadow:0 4px 12px rgba(0,0,0,.3); }
 /* <<< Reset button END <<< */
 
 .mini-table .icon-cell {
@@ -425,12 +310,7 @@ max-height: min-content;
   padding-right: 0.25rem;
   position: relative;
 }
-
-.icon-wrapper {
-  position: relative;
-  display: inline-block;
-}
-
+.icon-wrapper { position: relative; display: inline-block; }
 .magnify { cursor: zoom-in; user-select: none; }
 
 .hover-modal-fixed {
@@ -439,7 +319,7 @@ max-height: min-content;
   color: #063941;
   font-weight: bold;
   text-align: center; 
-  position: fixed;           /* <- escapes parent containers */
+  position: fixed;
   z-index: 9999;
   min-width: 260px;
   max-width: 420px;
@@ -450,15 +330,9 @@ max-height: min-content;
   box-shadow: 0 12px 30px rgba(0,0,0,.15);
   transform: translate(-110%, -50%);
 }
+.icon-wrapper:hover .hover-modal { display: block; }
+.icon-wrapper .hover-modal:hover { display: block; }
 
-.icon-wrapper:hover .hover-modal {
-  display: block;             /* show on hover */
-}
-
-/* Optional: keep modal visible when moving from icon into the modal box */
-.icon-wrapper .hover-modal:hover {
-  display: block;
-}
 .job-hover-card { padding: 8px 0; border-top: 1px solid #eee; }
 .job-hover-card:first-child { border-top: 0; }
 .job-hover-card .section { margin-top: 6px; font-weight: 600; font-size: .9rem; color: #374151; }
@@ -467,182 +341,338 @@ max-height: min-content;
 .job-hover-card .v { color: #111827; }
 
 .hover-list { height: 100%; overflow: auto; padding-right: 6px; }
-
-.hover-table th { 
-  text-align: left;
-  white-space: nowrap;
-  padding: 4px 8px 4px 0;
-  color: #6b7280;
-  font-weight: 600;
-}
-
-/* center just the section titles */
+.hover-table th { text-align: left; white-space: nowrap; padding: 4px 8px 4px 0; color: #6b7280; font-weight: 600; }
 .hover-table .section > th {
-  text-align: center;              /* center text */
-  padding: 8px 0 6px;              /* even padding left/right */
-  border-top: 1px solid #e5e7eb;
-  color: #374151;
+  text-align: center; padding: 8px 0 6px; border-top: 1px solid #e5e7eb; color: #374151;
 }
-.job-hover { max-width: 480px; }
 
+.job-hover { max-width: 480px; }
 .job-top {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 6px 10px;
-  padding-bottom: 8px;
-  margin-bottom: 8px;
-  border-bottom: 1px solid #e5e7eb; /* gray-200 */
+  display: grid; grid-template-columns: 1fr; gap: 6px 10px;
+  padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid #e5e7eb;
 }
 .job-top .kv .k { color: #063941; font-weight: 600; }
 .job-top .kv .v { color: #063941; }
 
-.hover-matrix {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-.hover-matrix th,
-.hover-matrix td { padding: 4px 6px; }
+.hover-matrix { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.hover-matrix th, .hover-matrix td { padding: 4px 6px; }
 .hover-matrix thead th { text-align: center; }
 .hover-matrix tbody th { text-align: left; white-space: nowrap; color: #063941; }
 .hover-matrix td { text-align: right; color: #111827; }
-.hover-matrix thead th:first-child { text-align: left; } /* row labels header cell */
+.hover-matrix thead th:first-child { text-align: left; }
 
 /* ── Bill Through control ───────────────────────────────────────── */
 .filter-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
-
 .billthrough {
-  margin-left: auto;                 /* push to far-right */
-  position: relative;                /* anchor popover */
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  margin-left: auto; position: relative; display: flex; align-items: center; gap: 8px;
 }
-
-.bt-label {
-  font-size: 12px;
-  color: #6b7a86;
-}
-
+.bt-label { font-size: 12px; color: #6b7a86; }
 .bt-display {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border: 1px solid #d7dee5;
-  background: #fff;
-  border-radius: 10px;
-  font-weight: 600;
-  font-size: 12px;
-  color: #1f2a34;
-  box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px;
+  border: 1px solid #d7dee5; background: #fff; border-radius: 10px;
+  font-weight: 600; font-size: 12px; color: #1f2a34; box-shadow: 0 1px 0 rgba(0,0,0,0.02);
   cursor: pointer;
 }
-
-.bt-display:hover {
-  border-color: #b7c3ce;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
-}
-
+.bt-display:hover { border-color: #b7c3ce; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
 .bt-display .bt-cal { opacity: 0.7; }
 
-/* popover calendar */
 .bt-popover {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 8px);
-  width: 292px;                      /* 7 cols * 40px + gaps */
-  background: #fff;
-  border: 1px solid #d7dee5;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.12);
-  padding: 10px;
-  z-index: 1000;
+  position: absolute; right: 0; top: calc(100% + 8px);
+  width: 292px; background: #fff; border: 1px solid #d7dee5;
+  border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.12); padding: 10px; z-index: 1000;
 }
-
 .bt-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 4px 2px 8px;
+  display: flex; align-items: center; justify-content: space-between; padding: 4px 2px 8px;
 }
-
-.bt-title {
-  font-weight: 700;
-  font-size: 14px;
-  color: #19313a;
-}
-
+.bt-title { font-weight: 700; font-size: 14px; color: #19313a; }
 .bt-nav {
-  border: none;
-  background: #f3f6f8;
-  width: 28px; height: 28px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 18px; line-height: 1;
+  border: none; background: #f3f6f8; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 18px; line-height: 1;
 }
 .bt-nav:hover { background: #e8eef3; }
-
-.bt-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 6px;
-  padding: 4px 0 8px;
-}
-
-.bt-dow {
-  text-align: center;
-  font-size: 11px;
-  color: #6b7a86;
-  font-weight: 600;
-  padding: 2px 0;
-}
-
+.bt-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; padding: 4px 0 8px; }
+.bt-dow { text-align: center; font-size: 11px; color: #6b7a86; font-weight: 600; padding: 2px 0; }
 .bt-day {
-  height: 36px;
-  border: 1px solid #e6edf3;
-  background: #fff;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #1f2a34;
-  cursor: default;                   /* becomes pointer when selection is wired */
+  height: 36px; border: 1px solid #e6edf3; background: #fff; border-radius: 8px;
+  font-size: 12px; font-weight: 600; color: #1f2a34; cursor: default;
 }
 .bt-day:hover { background: #f6fafb; }
 .bt-day.muted { color: #99a7b5; background: #fbfcfd; }
-
-.bt-footer {
-  display: flex;
-  justify-content: space-between;
-  padding-top: 4px;
-}
-
+.bt-footer { display: flex; justify-content: space-between; padding-top: 4px; }
 .bt-link {
-  background: none;
-  border: none;
-  color: #4087c9;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 6px 4px;
-  cursor: pointer;
+  background: none; border: none; color: #4087c9; font-size: 12px; font-weight: 600; padding: 6px 4px; cursor: pointer;
 }
 .bt-link:hover { text-decoration: underline; }
-
-/* Hover/focus: blue numeral on soft blue background */
-.bt-grid .bt-day:hover,
-.bt-grid .bt-day:focus-visible {
-  color: #003D4C;              /* brand dark blue */
-  background: #EAF3F6;         /* gentle blue-ish */
-  border-color: #C9DCE6;
-  outline: none;
+.bt-grid .bt-day:hover, .bt-grid .bt-day:focus-visible {
+  color: #003D4C; background: #EAF3F6; border-color: #C9DCE6; outline: none;
 }
-
-/* Keep muted days grey until hovered, then blue too */
 .bt-grid .bt-day.muted { color: #99a7b5; }
-.bt-grid .bt-day.muted:hover,
-.bt-grid .bt-day.muted:focus-visible {
-  color: #003D4C;
-}
-
+.bt-grid .bt-day.muted:hover, .bt-grid .bt-day.muted:focus-visible { color: #003D4C; }
 .bt-display.readonly { opacity: .7; cursor: not-allowed; }
 .bt-day:disabled { opacity: .55; cursor: not-allowed; }
+
+/* role color tokens – Set A (Cool brandy) */
+:root{
+  --role-originator:#0E7490; /* teal */
+  --role-partner:#059669;    /* emerald */
+  --role-manager:#4F46E5;    /* indigo */
+}
+
+/* stack the role chips vertically */
+.role-chip-stack{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  align-items:flex-start;
+}
+
+/* reuse chip shape; add role variants */
+.chip.role{ color:#fff !important; font-weight:600; line-height:1.25;
+  padding:2px 10px; border-radius:9999px; box-shadow:0 1px 0 rgba(0,0,0,.08);
+  max-width: 220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+
+/* keep role colors across states */
+.chip.role.originator,
+.chip.role.originator:hover,
+.chip.role.originator:focus,
+.chip.role.originator:active { background-color: var(--role-originator); }
+
+.chip.role.partner,
+.chip.role.partner:hover,
+.chip.role.partner:focus,
+.chip.role.partner:active { background-color: var(--role-partner); }
+
+.chip.role.manager,
+.chip.role.manager:hover,
+.chip.role.manager:focus,
+.chip.role.manager:active { background-color: var(--role-manager); }
+
+/* lightweight tooltip using data-tooltip */
+.chip.role[data-tooltip]{ position:relative; }
+.chip.role[data-tooltip]:hover::after,
+.chip.role[data-tooltip]:focus::after{
+  content:attr(data-tooltip);
+  position:absolute; top:-30px; left:0; transform:translateY(-2px);
+  background:#111; color:#fff; padding:4px 8px; font-size:12px; border-radius:6px;
+  white-space:nowrap; pointer-events:none; z-index:20; box-shadow:0 2px 8px rgba(0,0,0,.2);
+}
+
+/* optional: color the three role selects to match */
+.role-select{ border:1px solid #d1d5db; border-radius:8px; padding:6px 10px; }
+.role-select.originator{ border-color:var(--role-originator); }
+.role-select.partner{    border-color:var(--role-partner); }
+.role-select.manager{    border-color:var(--role-manager); }
+.role-select:focus{ outline:none; box-shadow:0 0 0 3px rgba(99,102,241,.15); }
+
+/* ================= Existing Drafts page scope ================= */
+.existing-drafts{
+  /* Set A colors */
+  --role-originator:#0E7490;  /* teal */
+  --role-partner:#059669;     /* emerald */
+  --role-manager:#4F46E5;     /* indigo */
+}
+
+/* Role chips: stack + lock colors across states */
+.existing-drafts .role-chip-stack{
+  display:flex; flex-direction:column; gap:4px; align-items:flex-start;
+}
+
+.existing-drafts .chip.role{
+  color:#fff !important;               /* beat base .chip color */
+  font-weight:600; line-height:1.25;
+  padding:2px 10px; border-radius:9999px;
+  box-shadow:0 1px 0 rgba(0,0,0,.08);
+  max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+
+/* keep the three role backgrounds on all interactive states */
+.existing-drafts .chip.role.originator,
+.existing-drafts .chip.role.originator:hover,
+.existing-drafts .chip.role.originator:focus,
+.existing-drafts .chip.role.originator:active{ background-color:var(--role-originator) !important; }
+
+.existing-drafts .chip.role.partner,
+.existing-drafts .chip.role.partner:hover,
+.existing-drafts .chip.role.partner:focus,
+.existing-drafts .chip.role.partner:active{ background-color:var(--role-partner) !important; }
+
+.existing-drafts .chip.role.manager,
+.existing-drafts .chip.role.manager:hover,
+.existing-drafts .chip.role.manager:focus,
+.existing-drafts .chip.role.manager:active{ background-color:var(--role-manager) !important; }
+
+/* tooltip */
+.existing-drafts .chip.role[data-tooltip]{ position:relative; }
+.existing-drafts .chip.role[data-tooltip]:hover::after,
+.existing-drafts .chip.role[data-tooltip]:focus::after{
+  content:attr(data-tooltip);
+  position:absolute; top:-30px; left:0; transform:translateY(-2px);
+  background:#111; color:#fff; padding:4px 8px; font-size:12px; border-radius:6px;
+  white-space:nowrap; pointer-events:none; z-index:20; box-shadow:0 2px 8px rgba(0,0,0,.2);
+}
+
+/* Prevent generic .chip:hover from other pages affecting role chips */
+.existing-drafts .chip.role:hover{ background-color:inherit; } /* background is already pinned above */
+
+/* Role filter pills: beat broad .filter-bar select rules */
+.existing-drafts .filter-bar .role-select{
+  border:2px solid #d1d5db; border-radius:8px; padding:6px 10px;
+  background:#fff; /* prevent any inherited gradient */
+}
+
+.existing-drafts .filter-bar .role-select.originator{ border-color:var(--role-originator) !important; }
+.existing-drafts .filter-bar .role-select.partner{    border-color:var(--role-partner) !important; }
+.existing-drafts .filter-bar .role-select.manager{    border-color:var(--role-manager) !important; }
+
+.existing-drafts .filter-bar .role-select:focus{
+  outline:none; box-shadow:0 0 0 3px rgba(79,70,229,.15); /* subtle */
+}
+
+/* === Fix role filter selects only on Existing Drafts === */
+.existing-drafts .filter-bar .role-select{
+  /* restore native select (another file likely sets appearance:none) */
+  -webkit-appearance: menulist;
+  -moz-appearance: menulist;
+  appearance: auto;
+
+  /* readable text + neutral background (other files set white-on-dark) */
+  background: #fff !important;
+  color: #1f2a34 !important;
+
+  /* sizing to look like your other inputs */
+  height: 36px;
+  min-width: 220px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 2px solid #d1d5db;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+}
+
+/* make sure the dropdown list items are readable too */
+.existing-drafts .filter-bar .role-select option{
+  color: #1f2a34;
+}
+
+/* keep your role-colored borders */
+.existing-drafts .filter-bar .role-select.originator{ border-color: var(--role-originator) !important; }
+.existing-drafts .filter-bar .role-select.partner{    border-color: var(--role-partner) !important; }
+.existing-drafts .filter-bar .role-select.manager{    border-color: var(--role-manager) !important; }
+
+.existing-drafts .filter-bar .role-select:focus{
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(79,70,229,.15);
+}
+
+.existing-drafts .role-chip-stack{
+  padding-block: 6px; /* 2–4px looks nice */
+}
+
+/* how “solid” the chip background is (0–100%). Lower = more transparent */
+.existing-drafts{ --role-alpha-pct: 75%; }  /* try 60–85% */
+
+/* use the alpha on each role color */
+.existing-drafts .chip.role.originator,
+.existing-drafts .chip.role.originator:hover,
+.existing-drafts .chip.role.originator:focus,
+.existing-drafts .chip.role.originator:active{
+  background: color-mix(in srgb, var(--role-originator) var(--role-alpha-pct), transparent) !important;
+}
+
+.existing-drafts .chip.role.partner,
+.existing-drafts .chip.role.partner:hover,
+.existing-drafts .chip.role.partner:focus,
+.existing-drafts .chip.role.partner:active{
+  background: color-mix(in srgb, var(--role-partner) var(--role-alpha-pct), transparent) !important;
+}
+
+.existing-drafts .chip.role.manager,
+.existing-drafts .chip.role.manager:hover,
+.existing-drafts .chip.role.manager:focus,
+.existing-drafts .chip.role.manager:active{
+  background: color-mix(in srgb, var(--role-manager) var(--role-alpha-pct), transparent) !important;
+}
+
+/* Fixed width for role chips */
+.existing-drafts .chip.role{
+  box-sizing: border-box;   /* include padding in the width */
+  width: 150px;
+  min-width: 150px;
+  max-width: 150px;         /* lock it in */
+  /* keeps your ellipsis working */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* (optional) center the label; remove if you prefer left-aligned */
+.existing-drafts .chip.role { justify-content: center; }
+
+/* ensure center alignment sticks for the selected columns */
+.existing-drafts .rdt_TableCol.center,
+.existing-drafts .rdt_TableCell.center{
+  justify-content: center !important;
+}
+
+/* Fixed size + ellipsis for Name chips */
+.existing-drafts .chip.name-chip{
+  box-sizing: border-box;
+  width: 200px;
+  min-width: 200px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;   /* renders “…” automatically */
+  white-space: nowrap;
+  justify-content: center;   /* tidy stacking in centered column */
+}
+
+/* Tooltip for any chip that sets data-tooltip (Name chips included) */
+.existing-drafts .chip[data-tooltip]{ position: relative; }
+.existing-drafts .chip[data-tooltip]:hover::after,
+.existing-drafts .chip[data-tooltip]:focus::after{
+  content: attr(data-tooltip);
+  position: absolute;
+  top: -30px; left: 0;
+  transform: translateY(-2px);
+  background: #111;
+  color: #fff;
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 20;
+  box-shadow: 0 2px 8px rgba(0,0,0,.2);
+}
+
+/* === Name chip ellipsis (scoped, no impact on Code chips) === */
+
+/* let the flex cell & wrapper shrink so the chip can clip */
+.existing-drafts .row-chip      { min-width: 0; }
+
+/* the chip itself must not be flex; make it inline-block */
+.existing-drafts .chip.name-chip{
+  display: inline-block !important;   /* override .chip { inline-flex } */
+  box-sizing: border-box;
+  width: 200px;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;            /* shows “…” */
+  text-align: center;                 /* keep it neat in the centered column */
+  vertical-align: middle;
+}
+
+.existing-drafts .row-chip.name-col{
+  display: flex;
+  flex-direction: column;
+  align-items: center;  /* since the Name column is centered */
+  gap: 6px;
+  padding-block: 4px;   /* tiny breathing room top/bottom */
+}
+
+.existing-drafts .chip.code-chip{
+  display: inline-block;        /* avoid flex shrink quirks */
+  white-space: nowrap;          /* keep “01576-000” on one line */
+  word-break: keep-all;         /* no breaking between digits */
+  overflow-wrap: normal;        /* don't wrap at hyphen */
+}

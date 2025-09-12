@@ -301,24 +301,56 @@ export default function ExistingDrafts() {
 
   /* ── CHIP helper ───────────────────────────────────────────── */
   const ChipSet = ({ items, field }) => {
-    const visible = items.slice(0, 3);
-    const hidden  = items.slice(3);
+  const visible = items.slice(0, 3);
+  const hidden  = items.slice(3);
+  const isName  = field === 'name';
+  const isCode  = field === 'code';
+
+  return (
+    <div className={`chip-container row-chip ${isName ? 'name-col' : ''}`}>
+      {visible.map(c => (
+        <span
+          key={c.code + field}
+          className={`chip ${isName ? 'name-chip' : ''} ${isCode ? 'code-chip' : ''}`}
+          data-tooltip={isName ? c[field] : undefined}
+          title={isName ? c[field] : undefined}   // native fallback
+        >
+          {c[field]}
+        </span>
+      ))}
+      {hidden.length > 0 && (
+        <span
+          className="chip more"
+          data-tooltip={hidden.map(c => c[field]).join('\n')}
+        >
+          +{hidden.length}
+        </span>
+      )}
+    </div>
+  );
+};
+
+
+  function RoleChips({ originator, partner, manager }) {
+    const Item = ({ role, value, className }) => (
+      <span
+        className={`chip role ${className}`}
+        data-tooltip={role}
+        aria-label={role}
+        title={role}
+      >
+        {value || '—'}
+      </span>
+    );
+
     return (
-      <div className="chip-container row-chip">
-        {visible.map(c => (
-          <span key={c.code + field} className="chip">{c[field]}</span>
-        ))}
-        {hidden.length > 0 && (
-          <span
-            className="chip more"
-            data-tooltip={hidden.map(c => c[field]).join('\n')}
-          >
-            +{hidden.length}
-          </span>
-        )}
+      <div className="chip-container role-chip-stack">
+        <Item role="Client Originator" className="originator" value={originator} />
+        <Item role="Client Partner"    className="partner"    value={partner} />
+        <Item role="Client Manager"    className="manager"    value={manager} />
       </div>
     );
-  };
+  }
 
   /* ── columns (uses ChipSet + currency) ─────────────────────── */
   const columns = [
@@ -333,7 +365,7 @@ export default function ExistingDrafts() {
       />
     ),
     selector : r => r.DRAFTFEEIDX,   // any stub selector – required by the lib
-    width : '60px',
+    width : '50px',
     ignoreRowClick : true,
     sortable : false,
       cell : r => (
@@ -346,19 +378,29 @@ export default function ExistingDrafts() {
       ),
     },
     /* <<< checkbox-column END <<< */
-    { name : 'Code',      width:'125px', grow:2, sortable:true,
+    { name : 'Code',      width:'120px', grow:0, sortable:true, center: true,
       cell : r => <ChipSet items={r.CLIENTS} field="code" /> },
-    { name : 'Name',      grow:1.5, sortable:true,
+    { name : 'Name',      grow:2.6, sortable:true, center: true,
+      style: { minWidth: 0 },
       cell : r => <ChipSet items={r.CLIENTS} field="name" /> },
-    { name : 'Office',    selector: r => r.CLIENTOFFICE, sortable:true, width:'80px', grow: 0.5 },
+    { name : 'Client Roles', grow: 1, sortable:false, width:'170px', center: true,
+      cell : r => (
+        <RoleChips
+          originator={r.ORIGINATOR}
+          partner={r.CLIENTPARTNER}
+          manager={r.CLIENTMANAGER}
+        />
+      )
+    }, 
+    { name : 'Office',    selector: r => r.CLIENTOFFICE, sortable:true, width:'80px', grow: 0 },
     { name : 'WIP',       selector: r => r.WIP,    sortable:true, format: r => currency(r.WIP) , grow: 0.4},
     { name : 'Bill',      selector: r => r.BILLED, sortable:true, format: r => currency(r.BILLED) , grow: 0.4},
     { name : 'W/Off',     selector: r => r.WRITEOFFUP, sortable:true,
                           format: r => currency(r.WRITEOFFUP) , grow: 0.4},
     { name : 'Real.%',    selector: r => r.BILLED / (r.WIP || 1), sortable:true,
                           format: r => `${((r.BILLED / (r.WIP || 1))*100).toFixed(1)}%`,
-                          width:'90px', grow: 0.5 },
-    { name : 'Draft Link', width:'150px', ignoreRowClick:true,
+                          width:'84px', grow: 0 },
+    { name : 'Draft Link', width:'150px', ignoreRowClick:true, center: true,
       cell : r => (
         <a href={r.DRAFTHYPERLINK} target="_blank" rel="noopener noreferrer" className="open-link">
           <img
@@ -748,20 +790,20 @@ console.log('PDF header:', header);
       <Sidebar />
       <TopBar />
 
-      <main className="main-content">
+      <main className="main-content existing-drafts">
 
         <div className="filter-bar">
-          <select value={originatorFilter} onChange={e => setOriginatorFilter(e.target.value)}>
+          <select className="role-select originator" value={originatorFilter} onChange={e => setOriginatorFilter(e.target.value)}>
             <option value="">All Originators</option>
             {originatorOptions.map(o => <option key={o} value={o}>{o}</option>)}
           </select>
 
-          <select value={partnerFilter} onChange={e => setPartnerFilter(e.target.value)}>
+          <select className="role-select partner" value={partnerFilter} onChange={e => setPartnerFilter(e.target.value)}>
             <option value="">All Partners</option>
             {partnerOptions.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
 
-          <select value={managerFilter} onChange={e => setManagerFilter(e.target.value)}>
+          <select className="role-select manager" value={managerFilter} onChange={e => setManagerFilter(e.target.value)}>
             <option value="">All Managers</option>
             {managerOptions.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
