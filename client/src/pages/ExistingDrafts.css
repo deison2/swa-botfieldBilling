@@ -796,3 +796,22 @@
 @media (max-width: 1280px){
   .existing-drafts{ --filter-pill-w: 150px; }
 }
+
+/* small, modern icon button that matches the chips/buttons */
+.icon-btn{
+  all: unset;
+  display:inline-flex; align-items:center; justify-content:center;
+  width:28px; height:28px; border-radius:8px;
+  color:#2b5560;                          /* ink */
+  background:#eef5f4;                      /* soft teal-ish */
+  border:1px solid #d7dee5;                /* gray-300 */
+  box-shadow:0 1px 0 rgba(0,0,0,0.02);
+  cursor:pointer;
+  transition:background .2s, box-shadow .2s, transform .05s;
+}
+.icon-btn:hover{ background:#e4f0ef; }
+.icon-btn:active{ transform:translateY(1px); }
+.icon-btn:focus-visible{ outline:2px solid rgba(6,57,65,.2); outline-offset:2px; }
+.icon-btn.zoom-in{ cursor: zoom-in; }
+
+.icon-cell { width: 36px; padding-right: .25rem; position: relative; }

@@ -61,6 +61,15 @@ const parseYmdLocal = (ymd) => {
   return new Date(y, (m || 1) - 1, d || 1); // local midnight, no timezone jump
 };
 
+export const IconSearchOutline = ({ size=18, stroke=1.8 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true"
+       xmlns="http://www.w3.org/2000/svg" stroke="currentColor" strokeWidth={stroke}
+       strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="11" cy="11" r="6" fill="currentColor" opacity="0.12" />
+    <circle cx="11" cy="11" r="6" fill="none" />
+    <line x1="16.5" y1="16.5" x2="21" y2="21" />
+  </svg>
+);
 
 /* ─── page ────────────────────────────────────────────────────────── */
 export default function ExistingDrafts() {
@@ -517,7 +526,7 @@ function DraftRow({ d, client, granData }) {
           onFocus={handleEnter}
           onBlur={handleLeave}
         >
-          🔍
+          <IconSearchOutline size={18} />
         </span>
 
         <PopoverPortal open={open}>
