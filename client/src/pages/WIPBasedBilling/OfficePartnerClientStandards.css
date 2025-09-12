@@ -19,7 +19,6 @@
 }
 
 .table-section {
-  width: 70%;
   margin: auto;
   overflow: hidden;      /* clip the header in place */
   display: flex;

@@ -332,7 +332,6 @@ useEffect(() => {
       );
       setBillingData(fallbackBills);
 
-      setError('Showing sample data due to a load error.');
     } finally {
       if (active && reqId === requestIdRef.current) setLoading(false);
     }
