@@ -601,53 +601,71 @@ const rows = (data.DRAFTDETAIL ?? []).toSorted((a, b) => {
 
 
     return (
-      <div className="expanded-content">
-        <h4>Draft Analysis</h4>
-        <table className="mini-table">
-          <thead>
-            <tr>
-              <th /><th>Client Code</th><th>Client Name</th><th>Service</th><th>Type</th>
-              <th>Job</th><th>Draft WIP</th><th>Draft Amt</th><th>Write-Off</th>
-            </tr>
-          </thead>
-          <tbody>
+    <div className="expanded-content">
+      {/* ---- Draft Analysis panel ---- */}
+      <section className="panel panel--draft">
+        <div className="panel__title">Draft WIP Analysis</div>
 
-
-
-              {rows.map(d => {
-    const client = data.codeMap[d.CONTINDEX] || {};
-    const granData = granularData.filter(x => Number(x.Job_Idx) === Number(d.SERVPERIOD));
-    return (
-      <DraftRow
-        key={`${d.DRAFTFEEIDX}-${d.SERVPERIOD}-${d.CONTINDEX}`}
-        d={d}
-        client={client}
-        granData={granData}
-      />
-    );
-  })}
-
-
-          </tbody>
-        </table>
-
-        <h4>Narrative</h4>
-        <table className="mini-table">
-          <thead>
-            <tr><th>Narrative</th><th>Service</th><th>Amount</th></tr>
-          </thead>
-          <tbody>
-            {uniqueNarratives.map(n => (
-              <tr key={n.DEBTNARRINDEX}>
-                <td dangerouslySetInnerHTML={{ __html:n.FEENARRATIVE }} />
-                <td>{n.SERVINDEX}</td>
-                <td>{currency(n.AMOUNT)}</td>
+        <div className="table-wrap">
+          <table className="mini-table mini-table--tight">
+            <thead>
+              <tr>
+                <th />
+                <th>Client Code</th>
+                <th>Client Name</th>
+                <th>Service</th>
+                <th>Type</th>
+                <th>Job</th>
+                <th>Draft WIP</th>
+                <th>Draft Amt</th>
+                <th>Write-Off</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
+            </thead>
+            <tbody>
+              {rows.map(d => {
+                const client = data.codeMap[d.CONTINDEX] || {};
+                const granData = granularData.filter(x => Number(x.Job_Idx) === Number(d.SERVPERIOD));
+                return (
+                  <DraftRow
+                    key={`${d.DRAFTFEEIDX}-${d.SERVPERIOD}-${d.CONTINDEX}`}
+                    d={d}
+                    client={client}
+                    granData={granData}
+                  />
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* ---- Narrative panel ---- */}
+      <section className="panel panel--narrative">
+        <div className="panel__title">Draft Narratives</div>
+
+        <div className="table-wrap">
+          <table className="mini-table mini-table--tight">
+            <thead>
+              <tr>
+                <th>Narrative</th>
+                <th>Service</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {uniqueNarratives.map(n => (
+                <tr key={n.DEBTNARRINDEX}>
+                  <td dangerouslySetInnerHTML={{ __html: n.FEENARRATIVE }} />
+                  <td>{n.SERVINDEX}</td>
+                  <td>{currency(n.AMOUNT)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
   };
 
   

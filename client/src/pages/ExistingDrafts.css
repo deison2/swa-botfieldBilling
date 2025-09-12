@@ -815,3 +815,83 @@
 .icon-btn.zoom-in{ cursor: zoom-in; }
 
 .icon-cell { width: 36px; padding-right: .25rem; position: relative; }
+
+/* ===== Expanded row panels ===== */
+.existing-drafts .panel{
+  /* shared card look */
+  --panel-bg: #f6fbfa;             /* default soft teal-ish */
+  --panel-ring: #cfe2df;
+  --panel-title: #063941;          /* brand ink */
+  --panel-th: #e8f3f1;
+
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-ring);
+  border-radius: 12px;
+  padding: 14px 16px 16px;
+  box-shadow: 0 8px 18px rgba(0,0,0,.06);
+}
+
+.existing-drafts .panel + .panel{ margin-top: 14px; }
+
+.existing-drafts .panel__title{
+  display:flex; align-items:center; gap:8px;
+  margin: 2px 0 10px;
+  font-weight: 800; font-size: 1rem; letter-spacing:.2px;
+  color: var(--panel-title);
+}
+
+/* tiny dot accent */
+.existing-drafts .panel__title::before{
+  content:"";
+  width:8px; height:8px; border-radius:50%;
+  background: var(--panel-title);
+  opacity:.45;
+}
+
+/* Variant: Draft Analysis (soft teal) */
+.existing-drafts .panel--draft{
+  --panel-bg: #f1f8f6;
+  --panel-ring:#cfe7e3;
+  --panel-title:#0e4b52;
+  --panel-th:#e3f1ee;
+}
+
+/* Variant: Narrative (soft indigo) */
+.existing-drafts .panel--narrative{
+  --panel-bg: #f6f5fb;
+  --panel-ring:#dcd9f3;
+  --panel-title:#3f46a5;
+  --panel-th:#ecebfa;
+}
+
+/* Table shell inside a panel */
+.existing-drafts .table-wrap{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:10px;
+  overflow:hidden;                  /* rounds header corners cleanly */
+}
+
+/* Compact table spacing (optional) */
+.existing-drafts .mini-table--tight th,
+.existing-drafts .mini-table--tight td{
+  padding: 6px 8px;
+}
+
+/* Panel-specific table head */
+.existing-drafts .panel .mini-table thead th{
+  background: var(--panel-th);
+  color:#22323a;
+  font-weight:700;
+  border-color: rgba(0,0,0,.06);
+}
+
+/* Subtle row separators on white body */
+.existing-drafts .panel .mini-table td{
+  border-color:#eef2f4;
+}
+
+/* Hover nudge for rows (optional; comment out if you prefer static) */
+.existing-drafts .panel .mini-table tbody tr:hover td{
+  background:#fafcff;
+}
