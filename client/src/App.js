@@ -13,6 +13,9 @@ import ExistingDrafts from "./pages/ExistingDrafts";
 import GeneralInformation   from './pages/GeneralInformation';
 import NarrativeStandards   from './pages/WIPBasedBilling/NarrativeStandards';
 import BillingGroups from "./pages/BillingGroups";
+import OfficeStandards from "./pages/WIPBasedBilling/OfficeStandards";
+import PartnerStandards from "./pages/WIPBasedBilling/PartnerStandards";
+import ClientStandards from "./pages/WIPBasedBilling/ClientStandards";
 //import OfficeStandards      from './pages/WIPBasedBilling/OfficeStandards';
 //import PartnerStandards     from './pages/WIPBasedBilling/PartnerStandards';
 //import ClientStandards      from './pages/WIPBasedBilling/ClientStandards';
@@ -45,9 +48,9 @@ export default function App() {
           {/* WIP-Based-Billing parent with nested routes */}
           <Route path="WIP-Based-Billing" element={<WIPBasedBillingLayout />}>
             <Route path="Narrative-Standards" element={<NarrativeStandards />} />
-            <Route path="Office-Standards" element={<UnderConstructionPage />} />
-            <Route path="Partner-Standards" element={<UnderConstructionPage />} />
-            <Route path="Client-Standards" element={<UnderConstructionPage />} />
+            <Route path="Office-Standards" element={<OfficeStandards />} />
+            <Route path="Partner-Standards" element={<PartnerStandards />} />
+            <Route path="Client-Standards" element={<ClientStandards />} />
           </Route>
 
           {/* Other top-level routes */}

@@ -1,0 +1,178 @@
+.app-container {
+  display: grid;
+  grid-template-columns: 250px 1fr;    /* sidebar + main */
+  grid-template-rows: 5vh 1fr;         /* topbar + content */
+  height: 100vh;
+}
+
+.main-content {
+  grid-column: 2 / 3;
+  grid-row: 2 / 3;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.kpi-container {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.table-section {
+  width: 70%;
+  margin: auto;
+  overflow: hidden;      /* clip the header in place */
+  display: flex;
+  flex-direction: column;
+  background: white !important;
+  border-radius: 8px !important;
+  padding: 16px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+  font-size: 1em !important;
+  font-weight: bold !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif !important;
+}
+
+.chip-container {
+  display: flex;
+  flex-direction: column;   /* or row if you ever switch back */
+  gap: 6px;                 /* a bit more space */
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;  /* slightly wider for balance */
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #063941;
+  background-color: #e4f0ef; /* very pale teal */
+  border-radius: 16px;       /* softer curve */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); /* light depth */
+  transition: background-color 0.2s, box-shadow 0.2s;
+  cursor: default;
+}
+
+.chip:hover {
+  background-color: #d1e8e4; /* subtle hover lift */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+}
+
+.chip.more {
+  background-color: transparent;
+  border: 1px solid #a6e1dd;
+  color: #4a6b6a;
+  font-style: normal;
+}
+
+.chip.more:hover {
+  background-color: #a6e1dd;
+  color: #fff;
+  border-color: #91c3bf;
+}
+.chip.more {
+  position: relative;           /* for absolutely positioned tooltip */
+}
+
+/* invisible by default */
+.chip.more::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: 100%;                    /* just below the chip */
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  white-space: pre;             /* allow line breaks with \n in your data-tooltip */
+  font-size: 0.75rem;
+  opacity: 0;
+  pointer-events: none;         /* let mouse pass through */
+  transition: opacity 0.1s ease-in-out;
+  z-index: 10;
+}
+
+/* show immediately on hover */
+.chip.more:hover::after {
+  opacity: 1;
+}
+
+/* new narrative button */
+.add-narrative-btn {
+  margin-left: auto;           /* pushes it to the far right */
+  background: #063941;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  font: inherit;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.add-narrative-btn:hover {
+  opacity: 0.8;
+}
+
+.ed-del-btn {
+  margin: auto;           /* pushes it to the far right */
+  background: #063941;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ed-del-btn:hover {
+  opacity: 0.8;
+}
+
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.filter-bar select,
+.filter-bar button {
+  padding: 6px 10px;
+  font: inherit;
+}
+
+.filter-bar select,
+.filter-bar button {
+  background: #063941;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.filter-bar button:hover {
+  opacity: 0.85;
+}
+
+.data-table {
+  height: 95% !important;
+}
+/* OfficePartnerClientStandards.css */
+.pct-input {
+  position: relative;
+}
+.pct-input input {
+  width: 100%;
+  padding-right: 1.25rem; /* room for the % */
+}
+.pct-suffix {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
