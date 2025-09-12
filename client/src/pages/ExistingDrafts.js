@@ -277,6 +277,15 @@ export default function ExistingDrafts() {
   const [realVal1,        setRealVal1]          = useState('');
   const [realVal2,        setRealVal2]          = useState('');
 
+  const onChangeRealOp = (e) => {
+    const op = e.target.value;
+    setRealOp(op);
+    // reset values whenever the operator changes so you don't carry stale numbers
+    setRealVal1('');
+    setRealVal2('');
+  };
+
+
   /* >>> hasChanges (NEW) – any filters OR any selections >>> */
   const hasChanges =
     selectedIds.size > 0 ||
@@ -808,28 +817,55 @@ console.log('PDF header:', header);
             {managerOptions.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
 
-          <select value={realOp} onChange={e => setRealOp(e.target.value)}>
-            <option value="">Real. % Filter</option>
-            <option value="lt">Less&nbsp;Than</option>
-            <option value="lte">≤</option>
-            <option value="eq">Equals</option>
-            <option value="gte">≥</option>
-            <option value="gt">Greater&nbsp;Than</option>
-            <option value="btw">Between</option>
-          </select>
+          {/* Realization % (styled as a pill group) */}
+          <div className="real-filter">
+            <select
+              className="pill-select"
+              value={realOp}
+              onChange={onChangeRealOp}
+            >
+              <option value="">Real. % Filter</option>
+              <option value="lt">Less&nbsp;Than</option>
+              <option value="lte">≤</option>
+              <option value="eq">Equals</option>
+              <option value="gte">≥</option>
+              <option value="gt">Greater&nbsp;Than</option>
+              <option value="btw">Between</option>
+            </select>
 
-          <input
-            type="number" placeholder="%"
-            value={realVal1} onChange={e => setRealVal1(e.target.value)}
-            style={{ width:'80px' }}
-          />
-          {realOp === 'btw' && (
-            <input
-              type="number" placeholder="and…"
-              value={realVal2} onChange={e => setRealVal2(e.target.value)}
-              style={{ width:'80px' }}
-            />
-          )}
+            {/* only show inputs once an operator is chosen */}
+            {realOp && (
+              <>
+                <input
+                  type="number"
+                  className="pill-input pct"
+                  placeholder={realOp === 'btw' ? 'min %' : '%'}
+                  value={realVal1}
+                  onChange={e => setRealVal1(e.target.value)}
+                  min="0"
+                  max="100"
+                  step="1"
+                  inputMode="numeric"
+                />
+
+                {realOp === 'btw' && (
+                  <input
+                    type="number"
+                    className="pill-input pct"
+                    placeholder="max %"
+                    value={realVal2}
+                    onChange={e => setRealVal2(e.target.value)}
+                    min="0"
+                    max="100"
+                    step="1"
+                    inputMode="numeric"
+                  />
+                )}
+              </>
+            )}
+          </div>
+
+
 
           {/* RESET (filters + selections) */}
           <button

@@ -676,3 +676,123 @@
   word-break: keep-all;         /* no breaking between digits */
   overflow-wrap: normal;        /* don't wrap at hyphen */
 }
+
+/* ============ Pill baseline (match your new role selects) ============ */
+.existing-drafts .pill-select,
+.existing-drafts .pill-input,
+.existing-drafts .bt-display{
+  height: 36px;
+  border: 1.5px solid #d7dee5;
+  border-radius: 10px;
+  background: #fff;
+  color: #1f2a34;
+  font-weight: 600;
+  font-size: 12px;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+}
+
+/* keep native select arrow on the pill selects */
+.existing-drafts .pill-select{
+  -webkit-appearance: menulist;
+  -moz-appearance: menulist;
+  appearance: auto;
+  padding: 6px 12px;
+  min-width: 190px;               /* same presence as your role selects */
+}
+
+/* pill inputs look the same height/weight as selects */
+.existing-drafts .pill-input{
+  padding: 6px 12px;
+  min-width: 84px;
+}
+
+/* hover/focus behavior consistent with the new selects */
+.existing-drafts .pill-select:hover,
+.existing-drafts .pill-input:hover,
+.existing-drafts .bt-display:hover{
+  border-color: #b7c3ce;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+}
+
+.existing-drafts .pill-select:focus,
+.existing-drafts .pill-input:focus,
+.existing-drafts .bt-display:focus{
+  outline: none;
+  border-color: #b7c3ce;
+  box-shadow: 0 0 0 3px rgba(79,70,229,.12);
+}
+
+/* group the Real% pieces like a segmented control */
+.existing-drafts .real-filter{
+  display: flex;
+  align-items: center;
+  gap: 8px;                       /* consistent spacing */
+}
+
+/* number inputs for % look tidy and right-aligned */
+.existing-drafts .pill-input.pct{
+  text-align: right;
+}
+
+/* refine Bill Through pill so it matches exactly */
+.existing-drafts .bt-display{
+  padding: 6px 12px;              /* align with pill-select/input */
+  gap: 8px;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+/* ================= Uniform, compact filter pills ================= */
+.existing-drafts{
+  /* one knob to tune all pill widths */
+  --filter-pill-w: 170px;         /* try 160–180px to taste */
+  --filter-gap: 8px;              /* tighter spacing */
+}
+
+/* tighten the filter bar spacing just on this page */
+.existing-drafts .filter-bar{ gap: var(--filter-gap) !important; }
+
+/* base height already set elsewhere; enforce consistency here */
+.existing-drafts .filter-bar .role-select,
+.existing-drafts .filter-bar .pill-select,
+.existing-drafts .filter-bar .pill-input{
+  height: 36px;
+  border-radius: 10px;
+}
+
+/* lock widths for selects (Originator, Partner, Manager, Real.%)
+   NOTE: we beat older min-width rules with !important */
+.existing-drafts .filter-bar .role-select,
+.existing-drafts .filter-bar .pill-select{
+  width: var(--filter-pill-w) !important;
+  min-width: var(--filter-pill-w) !important;
+  max-width: var(--filter-pill-w) !important;
+  padding: 6px 12px;
+  -webkit-appearance: menulist;
+  -moz-appearance: menulist;
+  appearance: auto;
+}
+
+/* compact % inputs (first and 'between' second) */
+.existing-drafts .filter-bar .pill-input.pct{
+  width: 72px;                    /* consistent, small footprint */
+  min-width: 72px;
+  max-width: 72px;
+  padding: 6px 10px;
+  text-align: right;
+}
+
+/* keep Bill Through looking like a pill but width auto (per your request) */
+.existing-drafts .bt-display{
+  height: 36px;
+  border-radius: 10px;
+  padding: 6px 12px;
+}
+
+/* RESPONSIVE: slightly narrower pills on mid screens */
+@media (max-width: 1400px){
+  .existing-drafts{ --filter-pill-w: 160px; }
+}
+@media (max-width: 1280px){
+  .existing-drafts{ --filter-pill-w: 150px; }
+}
