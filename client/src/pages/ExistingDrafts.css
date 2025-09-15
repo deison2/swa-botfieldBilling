@@ -912,6 +912,9 @@
   border-radius: 12px;
   padding: 12px 14px 14px;
   box-shadow: 0 8px 18px rgba(0,0,0,.06);
+
+  /* ensure no extra offset vs right panel */
+  margin-top: 0;
 }
 
 /* header chips */
@@ -1003,4 +1006,112 @@
 /* small screens — optional slight tighten */
 @media (max-width:1280px){
   .existing-drafts .panel--job{ --stat-pill-w: 96px; }
+}
+
+/* ===== Split the panel into two columns (adds the top spacing you want) ===== */
+.existing-drafts .job-details-split{
+  display:grid;
+  grid-template-columns: 1fr 1fr;   /* half | half */
+  gap: 14px;
+
+  /* this creates the consistent space below Draft Narratives */
+  margin-top: 14px;
+}
+@media (max-width:1100px){
+  .existing-drafts .job-details-split{ grid-template-columns: 1fr; }
+}
+
+/* Right-hand tabbed panel container */
+.existing-drafts .panel--jobtabs{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+
+  /* ensure it aligns flush with the left panel top */
+  margin-top: 0;
+}
+
+/* Equal-width tab buttons (inactive = gray) */
+.existing-drafts .panel--jobtabs .tabbar{
+  display:grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-bottom:1px solid #e5e7eb;
+}
+.existing-drafts .panel--jobtabs .tab-btn{
+  appearance:none; border:none; background:#eef1f4; color:#4b5563;
+  font-weight:700; height:42px; cursor:pointer; padding:0 12px;
+  transition: background .15s ease, color .15s ease, box-shadow .15s ease;
+}
+.existing-drafts .panel--jobtabs .tab-btn:first-child{ border-top-left-radius:12px; }
+.existing-drafts .panel--jobtabs .tab-btn:last-child{  border-top-right-radius:12px; }
+.existing-drafts .panel--jobtabs .tab-btn:hover{ background:#e3e7ec; }
+.existing-drafts .panel--jobtabs .tab-btn.is-active{
+  background: var(--bmss-blue, #2c93ff);
+  color:#fff;
+  box-shadow: inset 0 -2px 0 rgba(0,0,0,.06);
+}
+
+/* Tab content area */
+.existing-drafts .panel--jobtabs .tab-body{ padding:12px; }
+.existing-drafts .panel--jobtabs .progress-pane{ display:grid; gap:10px; }
+@media (min-width:680px){
+  .existing-drafts .panel--jobtabs .progress-pane{ grid-template-columns: 1fr 1fr; }
+}
+
+/* Reuse card/viz styles inside the right panel */
+.existing-drafts .panel--jobtabs .vis-card{
+  background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px;
+}
+.existing-drafts .panel--jobtabs .vis-title{ font-weight:800; font-size:12px; color:#42545e; margin-bottom:6px; }
+
+.existing-drafts .panel--jobtabs .donut{ position:relative; width:140px; height:140px; margin:6px auto; }
+.existing-drafts .panel--jobtabs .donut .trk{ fill:none; stroke:#e6eef4; stroke-width:14; stroke-linecap:round; }
+.existing-drafts .panel--jobtabs .donut .val{ fill:none; stroke:#30b39b; stroke-width:14; stroke-linecap:round; }
+.existing-drafts .panel--jobtabs .donut-label{ position:absolute; inset:0; display:grid; place-items:center; font-weight:800; color:#0b5147; }
+
+.existing-drafts .panel--jobtabs .barpair{ display:grid; grid-template-columns:120px 1fr auto; gap:8px; align-items:center; margin:8px 0; }
+.existing-drafts .panel--jobtabs .bar-label{ font-size:12px; color:#33434b; font-weight:700; white-space:nowrap; }
+.existing-drafts .panel--jobtabs .bar-track{ position:relative; height:10px; background:#f1f5f9; border-radius:6px; overflow:hidden; }
+.existing-drafts .panel--jobtabs .bar{ position:absolute; top:0; left:0; height:100%; border-radius:6px; }
+.existing-drafts .panel--jobtabs .bar.py{ background:#cfe0ff; }
+.existing-drafts .panel--jobtabs .bar.cy{ background:#bfeadf; mix-blend-mode:multiply; }
+.existing-drafts .panel--jobtabs .bar-vals{ display:flex; gap:6px; }
+.existing-drafts .panel--jobtabs .mini-pill{
+  font:700 11px/1 var(--sans, system-ui, sans-serif);
+  padding:4px 6px; border-radius:9999px; border:1px solid #e5e7eb; background:#fff; color:#2b3b43;
+}
+.existing-drafts .panel--jobtabs .mini-pill.py{ border-color:#cfe0ff; }
+.existing-drafts .panel--jobtabs .mini-pill.cy{ border-color:#c7eee2; }
+
+.existing-drafts .panel--jobtabs .placeholder-pane .muted{ color:#6b7280; }
+
+/* A11y: hide-only utility if you don't already have one */
+.sr-only{
+  position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); border:0;
+}
+
+/* Brand gradient tokens (reuse sidebar colors) */
+.existing-drafts{
+  --tab-grad-start: #063941;
+  --tab-grad-end:   #547872;
+}
+
+/* Active tab = sidebar gradient */
+.existing-drafts .panel--jobtabs .tab-btn.is-active{
+  background: linear-gradient(135deg, var(--tab-grad-start), var(--tab-grad-end));
+  color:#fff;
+  border: 0;                                  /* cleaner edge on gradient */
+  box-shadow: inset 0 -2px 0 rgba(0,0,0,.06); /* keep subtle pressed feel */
+}
+
+/* Optional: focus/hover polish on active tab */
+.existing-drafts .panel--jobtabs .tab-btn.is-active:hover{
+  filter: brightness(1.02);
+}
+.existing-drafts .panel--jobtabs .tab-btn:focus-visible{
+  outline: 2px solid color-mix(in srgb, var(--tab-grad-end) 65%, #ffffff);
+  outline-offset: 2px;
 }
