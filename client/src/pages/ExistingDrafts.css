@@ -895,3 +895,112 @@
 .existing-drafts .panel .mini-table tbody tr:hover td{
   background:#fafcff;
 }
+/* ======================= Job Details (fixed-left layout) ======================= */
+.existing-drafts .panel--job{
+  /* theme */
+  --panel-bg:   #f2f7fd;
+  --panel-ring: #d7e6fb;
+  --panel-title:#274c77;
+  --panel-th:   #e8f1fd;
+
+  /* layout knobs */
+  --label-col-w: 150px;  /* label column width */
+  --stat-pill-w: 100px;  /* PY/CY pill width */
+
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-ring);
+  border-radius: 12px;
+  padding: 12px 14px 14px;
+  box-shadow: 0 8px 18px rgba(0,0,0,.06);
+}
+
+/* header chips */
+.existing-drafts .panel--job .job-header{
+  display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:4px 0 10px;
+}
+.existing-drafts .panel--job .chip.job-id{
+  background:#eef2f4; border:1px solid #d7dee5; font-weight:700;
+  max-width: clamp(260px, 50vw, 640px);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.existing-drafts .panel--job .chip.job-chip{
+  background:#ecebfa; border:1px solid #dcd9f3; color:#3f46a5;
+  max-width: clamp(220px, 40vw, 520px);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* body: left stats (fixed width) + right viz (flex) */
+.existing-drafts .panel--job .job-body{
+  /* EXACT width the left column needs: label + PY + CY + 2 gaps */
+  --left-min: calc(var(--label-col-w) + (var(--stat-pill-w) * 2) + (8px * 2));
+  display: grid;
+  column-gap: 14px;
+  row-gap: 14px;
+
+  /* 🔒 Fix the LEFT column; let the RIGHT take the rest */
+  grid-template-columns: var(--left-min) minmax(300px, 1fr);
+}
+@media (max-width:1100px){
+  .existing-drafts .panel--job .job-body{ grid-template-columns: 1fr; }
+}
+
+/* LEFT: stat rows — label | PY | CY */
+.existing-drafts .panel--job .stat-list{
+  display:flex; flex-direction:column; gap:4px;
+
+  /* Do not allow growth beyond computed width */
+  width: var(--left-min);
+  max-width: var(--left-min);
+  flex: 0 0 var(--left-min);
+}
+.existing-drafts .panel--job .stat-row{
+  display:grid; align-items:center; column-gap:8px; padding:4px 0;
+
+  /* 🔒 No flexible columns here — all fixed so they sit tight */
+  grid-template-columns: var(--label-col-w) var(--stat-pill-w) var(--stat-pill-w);
+  border-bottom:1px dashed rgba(0,0,0,.06);
+}
+.existing-drafts .panel--job .stat-row:last-child{ border-bottom:0; }
+.existing-drafts .panel--job .k{ font-weight:700; color:#293941; white-space:nowrap; }
+
+/* value pills */
+.existing-drafts .panel--job .pill{
+  box-sizing:border-box;
+  display:inline-flex; align-items:center; justify-content:flex-start; gap:6px;
+  width:var(--stat-pill-w); min-width:var(--stat-pill-w); max-width:var(--stat-pill-w);
+  padding:3px 8px; border-radius:9999px; font-weight:700; font-size:12px;
+  border:1px solid transparent;
+}
+.existing-drafts .panel--job .pill b{ font-size:10px; opacity:.7; letter-spacing:.3px; }
+.existing-drafts .panel--job .pill .v{ font-variant-numeric: tabular-nums; }
+.existing-drafts .panel--job .pill.py{ background:#eef6ff; border-color:#cfe0ff; color:#163e72; }
+.existing-drafts .panel--job .pill.cy{ background:#ecfbf6; border-color:#c7eee2; color:#0b5147; }
+
+/* RIGHT: viz cards */
+.existing-drafts .panel--job .vis-wrap{ display:grid; gap:10px; }
+.existing-drafts .panel--job .vis-card{
+  background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px;
+}
+.existing-drafts .panel--job .vis-title{ font-weight:800; font-size:12px; color:#42545e; margin-bottom:6px; }
+.existing-drafts .panel--job .donut{ position:relative; width:120px; height:120px; margin:6px auto 2px; }
+.existing-drafts .panel--job .donut .trk{ fill:none; stroke:#e6eef4; stroke-width:14; stroke-linecap:round; }
+.existing-drafts .panel--job .donut .val{ fill:none; stroke:#30b39b; stroke-width:14; stroke-linecap:round; transition:stroke-dashoffset .35s ease; }
+.existing-drafts .panel--job .donut-label{ position:absolute; inset:0; display:grid; place-items:center; font-weight:800; color:#0b5147; }
+.existing-drafts .panel--job .barpair{ display:grid; grid-template-columns:120px 1fr auto; gap:8px; align-items:center; margin:6px 0; }
+.existing-drafts .panel--job .bar-label{ font-size:12px; color:#33434b; font-weight:700; white-space:nowrap; }
+.existing-drafts .panel--job .bar-track{ position:relative; height:10px; background:#f1f5f9; border-radius:6px; overflow:hidden; }
+.existing-drafts .panel--job .bar{ position:absolute; top:0; left:0; height:100%; border-radius:6px; }
+.existing-drafts .panel--job .bar.py{ background:#cfe0ff; }
+.existing-drafts .panel--job .bar.cy{ background:#bfeadf; mix-blend-mode:multiply; }
+.existing-drafts .panel--job .bar-vals{ display:flex; gap:6px; }
+.existing-drafts .panel--job .mini-pill{
+  font:700 11px/1 var(--sans, system-ui, sans-serif);
+  padding:4px 6px; border-radius:9999px; border:1px solid #e5e7eb; background:#fff; color:#2b3b43;
+}
+.existing-drafts .panel--job .mini-pill.py{ border-color:#cfe0ff; }
+.existing-drafts .panel--job .mini-pill.cy{ border-color:#c7eee2; }
+
+/* small screens — optional slight tighten */
+@media (max-width:1280px){
+  .existing-drafts .panel--job{ --stat-pill-w: 96px; }
+}

@@ -71,6 +71,132 @@ export const IconSearchOutline = ({ size=18, stroke=1.8 }) => (
   </svg>
 );
 
+function JobDetailsPanel({ details }) {
+  if (!details) return null;
+  const j = details.job || {};
+
+  const num   = v => (v == null ? '–' : Number(v).toLocaleString('en-US'));
+  const money = v => (v == null ? '–' : Number(v).toLocaleString('en-US', { style:'currency', currency:'USD' }));
+  const pct   = v => {
+    if (v == null || v === '') return '–';
+    const n = typeof v === 'string' && v.includes('%')
+      ? parseFloat(v)
+      : (Math.abs(Number(v)) <= 1 ? Number(v) * 100 : Number(v));
+    return isNaN(n) ? '–' : `${n.toFixed(2)}%`;
+  };
+
+  // --- simple helpers for the right-side mini viz ---
+  const clamp01 = n => Math.max(0, Math.min(1, n));
+  const parsePctNum = v => {
+    if (v == null || v === '') return 0;
+    const n = typeof v === 'string' && v.includes('%')
+      ? parseFloat(v) / 100
+      : (Math.abs(Number(v)) <= 1 ? Number(v) : Number(v) / 100);
+    return isNaN(n) ? 0 : clamp01(n);
+  };
+
+  const Donut = ({ value = 0.0, size = 120 }) => {
+    const r = (size - 14) / 2;                   // 7px stroke both sides
+    const C = 2 * Math.PI * r;
+    const p = clamp01(value);
+    const off = C * (1 - p);
+    return (
+      <div className="donut">
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <g transform={`translate(${size/2},${size/2}) rotate(-90)`}>
+            <circle r={r} cx="0" cy="0" className="trk" />
+            <circle r={r} cx="0" cy="0" className="val" strokeDasharray={C} strokeDashoffset={off}/>
+          </g>
+        </svg>
+        <div className="donut-label">{(p*100).toFixed(1)}%</div>
+      </div>
+    );
+  };
+
+  const BarPair = ({ label, py, cy }) => {
+    const PY = Number(py) || 0;
+    const CY = Number(cy) || 0;
+    const max = Math.max(PY, CY, 1);
+    return (
+      <div className="barpair">
+        <div className="bar-label">{label}</div>
+        <div className="bar-track" aria-hidden="true">
+          <span className="bar py" style={{ width: `${(PY/max)*100}%` }} />
+          <span className="bar cy" style={{ width: `${(CY/max)*100}%` }} />
+        </div>
+        <div className="bar-vals">
+          <span className="mini-pill py">{money(PY)}</span>
+          <span className="mini-pill cy">{money(CY)}</span>
+        </div>
+      </div>
+    );
+  };
+
+  const Row = ({ label, py, cy, kind }) => {
+    const fmt = kind === 'money' ? money : kind === 'pct' ? pct : num;
+    return (
+      <div className="stat-row">
+        <div className="k">{label}</div>
+        <span className="pill py"><b>PY</b><span className="v">{fmt(py)}</span></span>
+        <span className="pill cy"><b>CY</b><span className="v">{fmt(cy)}</span></span>
+      </div>
+    );
+  };
+
+  return (
+    <div className="panel panel--job">
+      <div className="panel__title">Job Details</div>
+
+      <div className="job-header">
+        <span
+          className="chip job-id"
+          title={`${details.clientCode} ${details.clientName}`}
+          data-tooltip={`${details.clientCode} ${details.clientName}`}
+        >
+          {details.clientCode} {details.clientName}
+        </span>
+
+        <span
+          className="chip job-chip"
+          title={details.jobTitle}
+          data-tooltip={details.jobTitle}
+        >
+          {details.jobTitle || '—'}
+        </span>
+      </div>
+
+
+      <div className="job-body">
+        {/* LEFT: compact inline rows */}
+        <div className="stat-list">
+          <Row label="Hours"            py={j.PYHours}           cy={j.CYHours}           kind="num" />
+          <Row label="WIP Time"         py={j.PYWIPTime}         cy={j.CYWIPTime}         kind="money" />
+          <Row label="WIP Exp"          py={j.PYWIPExp}          cy={j.CYWIPExp}          kind="money" />
+          <Row label="Billed"           py={j.PYBilled}          cy={j.CYBilled}          kind="money" />
+          <Row label="Realization"      py={j.PYRealization}     cy={j.CYRealization}     kind="pct" />
+          <Row label="WIP Outstanding"  py={j.PYWIPOutstanding}  cy={j.CYWIPOutstanding}  kind="money" />
+        </div>
+
+        {/* RIGHT: tiny viz */}
+        <div className="vis-wrap">
+          <div className="vis-card">
+            <div className="vis-title">CY Realization</div>
+            <Donut value={parsePctNum(j.CYRealization)} />
+          </div>
+
+          <div className="vis-card">
+            <div className="vis-title">Money Snapshot</div>
+            <BarPair label="WIP Time"        py={j.PYWIPTime}        cy={j.CYWIPTime} />
+            <BarPair label="WIP Exp"         py={j.PYWIPExp}         cy={j.CYWIPExp} />
+            <BarPair label="Billed"          py={j.PYBilled}         cy={j.CYBilled} />
+            <BarPair label="WIP Outstanding" py={j.PYWIPOutstanding} cy={j.CYWIPOutstanding} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── page ────────────────────────────────────────────────────────── */
 export default function ExistingDrafts() {
 
@@ -501,58 +627,33 @@ function JobHoverMatrix({ job }) {
   );
 }
 
-function DraftRow({ d, client, granData }) {
-  const iconRef = React.useRef(null);
-  const [open, setOpen] = React.useState(false);
-  const [pos, setPos] = React.useState({ top: 0, left: 0 });
-
-  const handleEnter = () => {
-    const r = iconRef.current?.getBoundingClientRect();
-    if (!r) return;
-    setPos({ top: r.top + window.scrollY, left: r.right + window.scrollX + 12 });
-    setOpen(true);
+function DraftRow({ d, client, granData, onHover, onLeave }) {
+  // assemble payload when user hovers the magnifier
+  const payload = {
+    clientCode : client.code,
+    clientName : client.name,
+    jobTitle   : d.JOBTITLE,
+    job        : Array.isArray(granData) ? granData[0] : undefined
   };
-  const handleLeave = () => setOpen(false);
 
   return (
     <tr key={`${d.DRAFTFEEIDX}-${d.SERVPERIOD}-${d.CONTINDEX}`}
-        style={d.finalCheck === 'X' ? {color: 'red'} : undefined}
-        >
+        style={d.finalCheck === 'X' ? {color: 'red'} : undefined}>
       <td className="icon-cell">
-        <span
-          ref={iconRef}
-          className="magnify"
-          aria-label="Preview"
-          onMouseEnter={handleEnter}
-          onMouseLeave={handleLeave}
-          tabIndex={0}
-          onFocus={handleEnter}
-          onBlur={handleLeave}
+        <button
+          type="button"
+          className="icon-btn zoom-in"
+          title="View job details"
+          onMouseEnter={() => onHover && onHover(payload)}
+          onMouseLeave={() => onLeave && onLeave()}
+          aria-label="View job details"
         >
-          <IconSearchOutline size={18} />
-        </span>
-
-        <PopoverPortal open={open}>
-          <div
-            className="hover-modal-fixed"
-            style={{ top: pos.top
-              , left: pos.left 
-              }}
-            onMouseEnter={() => setOpen(true)}
-            onMouseLeave={handleLeave}
-            role="dialog"
-            aria-modal="false"
-          >
-            <strong>Job Data</strong>
-            {granData.length ? (
-              <div className="hover-list">
-                {granData.map(g => <JobHoverMatrix key={g.Job_Idx} job={g} />)}
-              </div>
-            ) : (
-              <em>No job data</em>
-            )}
-          </div>
-        </PopoverPortal>
+          {/* simple magnifier SVG that matches your UI */}
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="7"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+        </button>
       </td>
 
       <td>{client.code}</td>
@@ -569,106 +670,117 @@ function DraftRow({ d, client, granData }) {
 
   /* ── EXPANDABLE row render ────────────────────────────────── */
   const Expandable = ({ data }) => {
+    // NEW: manage which row’s job details are shown
+    const [activeDetails, setActiveDetails] = React.useState(null);
+    const hideTimer = React.useRef(null);
+
+    const showDetails = (p) => {
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+      setActiveDetails(p);
+    };
+    const delayHide = () => {
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+      hideTimer.current = setTimeout(() => setActiveDetails(null), 160); // small grace to move cursor
+    };
+
     const uniqueNarratives = Array.from(
       new Map(data.NARRATIVEDETAIL.map(n => [n.DEBTNARRINDEX, n])).values()
     );
 
-const rows = (data.DRAFTDETAIL ?? []).toSorted((a, b) => {
-  const ac = (data.codeMap[a.CONTINDEX]?.code ?? "").toString().trim();
-  const bc = (data.codeMap[b.CONTINDEX]?.code ?? "").toString().trim();
+    const rows = (data.DRAFTDETAIL ?? []).toSorted((a, b) => {
+      const ac = (data.codeMap[a.CONTINDEX]?.code ?? "").toString().trim();
+      const bc = (data.codeMap[b.CONTINDEX]?.code ?? "").toString().trim();
 
-  // 1) sort by Client Code (blank codes last)
-  if (ac !== bc) {
-    if (!ac) return 1;
-    if (!bc) return -1;
-    return ac.localeCompare(bc, undefined, { numeric: true, sensitivity: "base" });
-  }
-
-  // 2) then by Job Name (JOBTITLE) (blank titles last)
-  const aj = (a.JOBTITLE ?? "").toString().trim();
-  const bj = (b.JOBTITLE ?? "").toString().trim();
-
-  if (aj !== bj) {
-    if (!aj) return 1;
-    if (!bj) return -1;
-    return aj.localeCompare(bj, undefined, { numeric: true, sensitivity: "base" });
-  }
-
-  // 3) stable tiebreaker (optional)
-  return String(a.SERVPERIOD ?? "").localeCompare(
-    String(b.SERVPERIOD ?? ""),
-    undefined,
-    { numeric: true, sensitivity: "base" }
-  );
-});
-
+      if (ac !== bc) {
+        if (!ac) return 1;
+        if (!bc) return -1;
+        return ac.localeCompare(bc, undefined, { numeric: true, sensitivity: "base" });
+      }
+      const aj = (a.JOBTITLE ?? "").toString().trim();
+      const bj = (b.JOBTITLE ?? "").toString().trim();
+      if (aj !== bj) {
+        if (!aj) return 1;
+        if (!bj) return -1;
+        return aj.localeCompare(bj, undefined, { numeric: true, sensitivity: "base" });
+      }
+      return String(a.SERVPERIOD ?? "").localeCompare(
+        String(b.SERVPERIOD ?? ""), undefined, { numeric: true, sensitivity: "base" }
+      );
+    });
 
     return (
-    <div className="expanded-content">
-      {/* ---- Draft Analysis panel ---- */}
-      <section className="panel panel--draft">
-        <div className="panel__title">Draft WIP Analysis</div>
+      <div className="expanded-content">
 
-        <div className="table-wrap">
-          <table className="mini-table mini-table--tight">
-            <thead>
-              <tr>
-                <th />
-                <th>Client Code</th>
-                <th>Client Name</th>
-                <th>Service</th>
-                <th>Type</th>
-                <th>Job</th>
-                <th>Draft WIP</th>
-                <th>Draft Amt</th>
-                <th>Write-Off</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(d => {
-                const client = data.codeMap[d.CONTINDEX] || {};
-                const granData = granularData.filter(x => Number(x.Job_Idx) === Number(d.SERVPERIOD));
-                return (
-                  <DraftRow
-                    key={`${d.DRAFTFEEIDX}-${d.SERVPERIOD}-${d.CONTINDEX}`}
-                    d={d}
-                    client={client}
-                    granData={granData}
-                  />
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* ---- Narrative panel ---- */}
-      <section className="panel panel--narrative">
-        <div className="panel__title">Draft Narratives</div>
-
-        <div className="table-wrap">
-          <table className="mini-table mini-table--tight">
-            <thead>
-              <tr>
-                <th>Narrative</th>
-                <th>Service</th>
-                <th>Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {uniqueNarratives.map(n => (
-                <tr key={n.DEBTNARRINDEX}>
-                  <td dangerouslySetInnerHTML={{ __html: n.FEENARRATIVE }} />
-                  <td>{n.SERVINDEX}</td>
-                  <td>{currency(n.AMOUNT)}</td>
+        {/* Panel 1: Draft WIP Analysis */}
+        <div className="panel panel--draft">
+          <div className="panel__title">Draft WIP Analysis</div>
+          <div className="table-wrap">
+            <table className="mini-table mini-table--tight">
+              <thead>
+                <tr>
+                  <th style={{width:36}}></th>
+                  <th>Client Code</th>
+                  <th>Client Name</th>
+                  <th>Service</th>
+                  <th>Type</th>
+                  <th>Job</th>
+                  <th>Draft WIP</th>
+                  <th>Draft Amt</th>
+                  <th>Write-Off</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rows.map(d => {
+                  const client = data.codeMap[d.CONTINDEX] || {};
+                  const granData = (Array.isArray(data.NARRATIVEDETAIL) ? [] : []);
+                  // you already had this line; preserved:
+                  const g = granularData.filter(x => Number(x.Job_Idx) === Number(d.SERVPERIOD));
+
+                  return (
+                    <DraftRow
+                      key={`${d.DRAFTFEEIDX}-${d.SERVPERIOD}-${d.CONTINDEX}`}
+                      d={d}
+                      client={client}
+                      granData={g}
+                      onHover={showDetails}
+                      onLeave={delayHide}
+                    />
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </section>
-    </div>
-  );
+
+        {/* Panel 2: Draft Narratives */}
+        <div className="panel panel--narrative">
+          <div className="panel__title">Draft Narratives</div>
+          <div className="table-wrap">
+            <table className="mini-table mini-table--tight">
+              <thead>
+                <tr><th>Narrative</th><th>Service</th><th>Amount</th></tr>
+              </thead>
+              <tbody>
+                {uniqueNarratives.map(n => (
+                  <tr key={n.DEBTNARRINDEX}>
+                    <td dangerouslySetInnerHTML={{ __html:n.FEENARRATIVE }} />
+                    <td>{n.SERVINDEX}</td>
+                    <td>{currency(n.AMOUNT)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Panel 3: Job Details (appears when hovering the magnifier) */}
+        <JobDetailsPanel
+          details={activeDetails}
+          onMouseEnter={() => { if (hideTimer.current) clearTimeout(hideTimer.current); }}
+          onMouseLeave={delayHide}
+        />
+      </div>
+    );
   };
 
   
