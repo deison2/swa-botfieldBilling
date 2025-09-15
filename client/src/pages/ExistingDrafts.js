@@ -72,9 +72,14 @@ export const IconSearchOutline = ({ size=18, stroke=1.8 }) => (
 );
 
 function JobDetailsPanel({ details }) {
-  if (!details) return null;
+  // Hooks must be called unconditionally at the top level
+  const [tab, setTab] = React.useState('progress'); // 'progress' | 'totals' | 'review'
+
+  if (!details) return null; // safe now: hook already executed
+
   const j = details.job || {};
 
+  // ---------- formatters ----------
   const num   = v => (v == null ? '–' : Number(v).toLocaleString('en-US'));
   const money = v => (v == null ? '–' : Number(v).toLocaleString('en-US', { style:'currency', currency:'USD' }));
   const pct   = v => {
@@ -85,7 +90,7 @@ function JobDetailsPanel({ details }) {
     return isNaN(n) ? '–' : `${n.toFixed(2)}%`;
   };
 
-  // --- simple helpers for the right-side mini viz ---
+  // ---------- viz helpers ----------
   const clamp01 = n => Math.max(0, Math.min(1, n));
   const parsePctNum = v => {
     if (v == null || v === '') return 0;
@@ -96,7 +101,7 @@ function JobDetailsPanel({ details }) {
   };
 
   const Donut = ({ value = 0.0, size = 120 }) => {
-    const r = (size - 14) / 2;                   // 7px stroke both sides
+    const r = (size - 14) / 2;
     const C = 2 * Math.PI * r;
     const p = clamp01(value);
     const off = C * (1 - p);
@@ -144,55 +149,107 @@ function JobDetailsPanel({ details }) {
   };
 
   return (
-    <div className="panel panel--job">
-      <div className="panel__title">Job Details</div>
+    <div className="job-details-split">
+      {/* LEFT: Job Details */}
+      <section className="panel panel--job">
+        <div className="panel__title">Job Details</div>
 
-      <div className="job-header">
-        <span
-          className="chip job-id"
-          title={`${details.clientCode} ${details.clientName}`}
-          data-tooltip={`${details.clientCode} ${details.clientName}`}
-        >
-          {details.clientCode} {details.clientName}
-        </span>
-
-        <span
-          className="chip job-chip"
-          title={details.jobTitle}
-          data-tooltip={details.jobTitle}
-        >
-          {details.jobTitle || '—'}
-        </span>
-      </div>
-
-
-      <div className="job-body">
-        {/* LEFT: compact inline rows */}
-        <div className="stat-list">
-          <Row label="Hours"            py={j.PYHours}           cy={j.CYHours}           kind="num" />
-          <Row label="WIP Time"         py={j.PYWIPTime}         cy={j.CYWIPTime}         kind="money" />
-          <Row label="WIP Exp"          py={j.PYWIPExp}          cy={j.CYWIPExp}          kind="money" />
-          <Row label="Billed"           py={j.PYBilled}          cy={j.CYBilled}          kind="money" />
-          <Row label="Realization"      py={j.PYRealization}     cy={j.CYRealization}     kind="pct" />
-          <Row label="WIP Outstanding"  py={j.PYWIPOutstanding}  cy={j.CYWIPOutstanding}  kind="money" />
+        <div className="job-header">
+          <span
+            className="chip job-id"
+            title={`${details.clientCode} ${details.clientName}`}
+            data-tooltip={`${details.clientCode} ${details.clientName}`}
+          >
+            {details.clientCode} {details.clientName}
+          </span>
+          <span
+            className="chip job-chip"
+            title={details.jobTitle}
+            data-tooltip={details.jobTitle}
+          >
+            {details.jobTitle || '—'}
+          </span>
         </div>
 
-        {/* RIGHT: tiny viz */}
-        <div className="vis-wrap">
-          <div className="vis-card">
-            <div className="vis-title">CY Realization</div>
-            <Donut value={parsePctNum(j.CYRealization)} />
-          </div>
-
-          <div className="vis-card">
-            <div className="vis-title">Money Snapshot</div>
-            <BarPair label="WIP Time"        py={j.PYWIPTime}        cy={j.CYWIPTime} />
-            <BarPair label="WIP Exp"         py={j.PYWIPExp}         cy={j.CYWIPExp} />
-            <BarPair label="Billed"          py={j.PYBilled}         cy={j.CYBilled} />
-            <BarPair label="WIP Outstanding" py={j.PYWIPOutstanding} cy={j.CYWIPOutstanding} />
+        <div className="job-body">
+          <div className="stat-list">
+            <Row label="Hours"            py={j.PYHours}           cy={j.CYHours}           kind="num" />
+            <Row label="WIP Time"         py={j.PYWIPTime}         cy={j.CYWIPTime}         kind="money" />
+            <Row label="WIP Exp"          py={j.PYWIPExp}          cy={j.CYWIPExp}          kind="money" />
+            <Row label="Billed"           py={j.PYBilled}          cy={j.CYBilled}          kind="money" />
+            <Row label="Realization"      py={j.PYRealization}     cy={j.CYRealization}     kind="pct" />
+            <Row label="WIP Outstanding"  py={j.PYWIPOutstanding}  cy={j.CYWIPOutstanding}  kind="money" />
           </div>
         </div>
-      </div>
+      </section>
+
+      {/* RIGHT: Tabbed panel */}
+      <section className="panel panel--jobtabs" aria-labelledby="jobtabs-title">
+        <div id="jobtabs-title" className="sr-only">Job sub-sections</div>
+
+        <div className="tabbar" role="tablist" aria-label="Job sub-sections">
+          <button
+            role="tab"
+            aria-selected={tab === 'progress'}
+            className={`tab-btn ${tab === 'progress' ? 'is-active' : ''}`}
+            onClick={() => setTab('progress')}
+          >
+            Job Progress
+          </button>
+          <button
+            role="tab"
+            aria-selected={tab === 'totals'}
+            className={`tab-btn ${tab === 'totals' ? 'is-active' : ''}`}
+            onClick={() => setTab('totals')}
+          >
+            Totals by Invoice Line
+          </button>
+          <button
+            role="tab"
+            aria-selected={tab === 'review'}
+            className={`tab-btn ${tab === 'review' ? 'is-active' : ''}`}
+            onClick={() => setTab('review')}
+          >
+            Invoice Review
+          </button>
+        </div>
+
+        <div className="tab-body">
+          {tab === 'progress' && (
+            <div className="progress-pane">
+              <div className="vis-card">
+                <div className="vis-title">CY Realization</div>
+                <Donut value={parsePctNum(j.CYRealization)} />
+              </div>
+              <div className="vis-card">
+                <div className="vis-title">Money Snapshot</div>
+                <BarPair label="WIP Time"        py={j.PYWIPTime}        cy={j.CYWIPTime} />
+                <BarPair label="WIP Exp"         py={j.PYWIPExp}         cy={j.CYWIPExp} />
+                <BarPair label="Billed"          py={j.PYBilled}         cy={j.CYBilled} />
+                <BarPair label="WIP Outstanding" py={j.PYWIPOutstanding} cy={j.CYWIPOutstanding} />
+              </div>
+            </div>
+          )}
+
+          {tab === 'totals' && (
+            <div className="placeholder-pane">
+              <div className="vis-card">
+                <div className="vis-title">Totals by Invoice Line</div>
+                <p className="muted">Stubbed table goes here.</p>
+              </div>
+            </div>
+          )}
+
+          {tab === 'review' && (
+            <div className="placeholder-pane">
+              <div className="vis-card">
+                <div className="vis-title">Invoice Review</div>
+                <p className="muted">Review/approve UI placeholder.</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   );
 }
