@@ -1151,3 +1151,41 @@
 .existing-drafts .panel--job .job-right{ 
   margin-top: -38px;           /* pull up to align with chips */
 }
+/* === Job Details: Pin control (top-right) === */
+.existing-drafts .panel--job { position: relative; }
+.existing-drafts .panel--job .pin-wrap{
+  position: absolute; top: 8px; right: 10px; z-index: 5;
+}
+
+/* Pill button with centered icon */
+.existing-drafts .panel--job .pin-toggle{
+  width: 30px; height: 30px; border-radius: 10px;
+  border: 1px solid #cfe2df; background: #f6fbfa;
+  display: grid; place-items: center; padding: 0; cursor: pointer;
+  color: #274c77;                         /* <-- icon color (deselected) */
+  box-shadow: 0 1px 0 rgba(0,0,0,.02);
+  transition: background .2s, border-color .2s, box-shadow .2s, transform .05s, color .2s;
+}
+.existing-drafts .panel--job .pin-toggle:hover{ box-shadow: 0 2px 6px rgba(0,0,0,.06); }
+.existing-drafts .panel--job .pin-toggle:active{ transform: translateY(1px); }
+.existing-drafts .panel--job .pin-toggle:focus-visible{
+  outline: 2px solid color-mix(in srgb, var(--tab-grad-end, #547872) 55%, #ffffff);
+  outline-offset: 2px;
+}
+
+/* Make SVGs inherit the button color (so we can turn them white) */
+.existing-drafts .panel--job .pin-toggle .ico { width: 18px; height: 18px; display:block; fill: currentColor; }
+.existing-drafts .panel--job .pin-toggle .pin-solid { display: none; }
+
+/* Selected state: use the Job Progress gradient + white icon */
+.existing-drafts .panel--job .pin-toggle.is-pinned{
+  background: linear-gradient(135deg, var(--tab-grad-start, #063941), var(--tab-grad-end, #547872));
+  border-color: transparent;
+  color: #fff;                            /* <-- turns icon white */
+}
+.existing-drafts .panel--job .pin-toggle.is-pinned .pin-outline{ display: none; }
+.existing-drafts .panel--job .pin-toggle.is-pinned .pin-solid{ display: block; }
+
+/* OPTIONAL: If you prefer no icon when pinned, uncomment:
+.existing-drafts .panel--job .pin-toggle.is-pinned .ico{ opacity: 0; }
+*/

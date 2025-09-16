@@ -74,17 +74,26 @@ export const IconSearchOutline = ({ size=18, stroke=1.8 }) => (
 function JobDetailsPanel({ details }) {
   const [tab, setTab] = React.useState('progress'); // 'progress' | 'totals' | 'review'
 
-  // ⬇️ NEW: hover-lock + short grace for mouse travel
+  // === Pin state (locks the panel open and freezes its content) ===
+  const [pinned, setPinned] = React.useState(false);
+
+  // === Hover-lock + short grace for mouse travel ===
   const [isHovering, setIsHovering] = React.useState(false);
   const [inGrace, setInGrace] = React.useState(false);
   const graceTimer = React.useRef(null);
-  const GRACE_MS = 220; // tweak if you want
+  const GRACE_MS = 220;
 
-  // Keep last non-null details so content doesn't vanish during grace/hover
+  // Keep the last non-null details, but do NOT update it while pinned.
   const lastDetailsRef = React.useRef(details || null);
-  if (details) lastDetailsRef.current = details;
+  if (details && !pinned) lastDetailsRef.current = details;
 
   React.useEffect(() => {
+    // Only run grace logic when we're not pinned
+    if (pinned) {
+      clearTimeout(graceTimer.current);
+      setInGrace(false);
+      return;
+    }
     if (details) {
       clearTimeout(graceTimer.current);
       setInGrace(false);
@@ -94,14 +103,14 @@ function JobDetailsPanel({ details }) {
       graceTimer.current = setTimeout(() => setInGrace(false), GRACE_MS);
     }
     return () => clearTimeout(graceTimer.current);
-  }, [details]);
+  }, [details, pinned]);
 
-  // Visible when trigger is on, OR we’re hovering the panel, OR within grace
-  const shouldRender = !!(details || isHovering || inGrace);
+  // Visible when (a) we have details, (b) hovering, (c) in grace, or (d) pinned.
+  const shouldRender = !!(details || isHovering || inGrace || pinned);
   if (!shouldRender) return null;
 
-  // Use the latest available details while hovered/in grace
-  const _details = details || lastDetailsRef.current;
+  // Use frozen details while pinned; otherwise fall back to latest
+  const _details = pinned ? (lastDetailsRef.current || details) : (details || lastDetailsRef.current);
   if (!_details) return null;
 
   const j = (_details.job) || {};
@@ -176,12 +185,31 @@ function JobDetailsPanel({ details }) {
   };
 
   return (
-    <div className="job-details-split">{/* blue panel fills full width */}
+    <div className="job-details-split">
       <section
         className="panel panel--job"
-        onMouseEnter={() => setIsHovering(true)}   /* ⬅️ NEW */
-        onMouseLeave={() => setIsHovering(false)}  /* ⬅️ NEW */
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}
       >
+        {/* Pin control: locks open + freezes content */}
+        <div className="pin-wrap">
+          <button
+            className={`pin-toggle ${pinned ? 'is-pinned' : ''}`}
+            aria-pressed={pinned}
+            onClick={() => setPinned(p => !p)}
+            title={pinned ? 'Unpin' : 'Pin'}
+          >
+            {/* Bootstrap Icons: pin (outline) */}
+            <svg className="ico pin-outline" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <path d="M4.146.146A.5.5 0 0 1 4.5 0h7a.5.5 0 0 1 .5.5c0 .68-.342 1.174-.646 1.479-.126.125-.25.224-.354.298v4.431l.078.048c.203.127.476.314.751.555C12.36 7.775 13 8.527 13 9.5a.5.5 0 0 1-.5.5h-4v4.5c0 .276-.224 1.5-.5 1.5s-.5-1.224-.5-1.5V10h-4a.5.5 0 0 1-.5-.5c0-.973.64-1.725 1.17-2.189A5.921 5.921 0 0 1 5 6.708V2.277a2.77 2.77 0 0 1-.354-.298C4.342 1.674 4 1.179 4 .5a.5.5 0 0 1 .146-.354z"/>
+            </svg>
+            {/* Bootstrap Icons: pin-fill (solid) */}
+            <svg className="ico pin-solid" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <path d="M4.146.146A.5.5 0 0 1 4.5 0h7a.5.5 0 0 1 .5.5c0 .68-.342 1.174-.646 1.479-.126.125-.25.224-.354.298v4.431l.078.048c.203.127.476.314.751.555C12.36 7.775 13 8.527 13 9.5a.5.5 0 0 1-.5.5h-4v4.5c0 .276-.224 1.5-.5 1.5s-.5-1.224-.5-1.5V10h-4a.5.5 0 0 1-.5-.5c0-.973.64-1.725 1.17-2.189A5.921 5.921 0 0 1 5 6.708V2.277a2.77 2.77 0 0 1-.354-.298C4.342 1.674 4 1.179 4 .5a.5.5 0 0 1 .146-.354z"/>
+            </svg>
+          </button>
+        </div>
+
         <div className="panel__title">Job Details</div>
 
         <div className="job-header">
@@ -201,7 +229,7 @@ function JobDetailsPanel({ details }) {
           </span>
         </div>
 
-        {/* ⬇️ Two-column grid inside the blue panel */}
+        {/* Two-column grid inside the blue panel */}
         <div className="job-body">
           {/* LEFT: fixed stats column */}
           <div className="stat-list">
@@ -287,6 +315,7 @@ function JobDetailsPanel({ details }) {
     </div>
   );
 }
+
 
 
 /* ─── page ────────────────────────────────────────────────────────── */
