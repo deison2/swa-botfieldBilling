@@ -73,9 +73,38 @@ export const IconSearchOutline = ({ size=18, stroke=1.8 }) => (
 
 function JobDetailsPanel({ details }) {
   const [tab, setTab] = React.useState('progress'); // 'progress' | 'totals' | 'review'
-  if (!details) return null;
 
-  const j = details.job || {};
+  // ⬇️ NEW: hover-lock + short grace for mouse travel
+  const [isHovering, setIsHovering] = React.useState(false);
+  const [inGrace, setInGrace] = React.useState(false);
+  const graceTimer = React.useRef(null);
+  const GRACE_MS = 220; // tweak if you want
+
+  // Keep last non-null details so content doesn't vanish during grace/hover
+  const lastDetailsRef = React.useRef(details || null);
+  if (details) lastDetailsRef.current = details;
+
+  React.useEffect(() => {
+    if (details) {
+      clearTimeout(graceTimer.current);
+      setInGrace(false);
+    } else {
+      clearTimeout(graceTimer.current);
+      setInGrace(true);
+      graceTimer.current = setTimeout(() => setInGrace(false), GRACE_MS);
+    }
+    return () => clearTimeout(graceTimer.current);
+  }, [details]);
+
+  // Visible when trigger is on, OR we’re hovering the panel, OR within grace
+  const shouldRender = !!(details || isHovering || inGrace);
+  if (!shouldRender) return null;
+
+  // Use the latest available details while hovered/in grace
+  const _details = details || lastDetailsRef.current;
+  if (!_details) return null;
+
+  const j = (_details.job) || {};
 
   // ---------- formatters ----------
   const num   = v => (v == null ? '–' : Number(v).toLocaleString('en-US'));
@@ -147,24 +176,28 @@ function JobDetailsPanel({ details }) {
   };
 
   return (
-    <div className="job-details-split">{/* now just a shell; blue panel fills full width */}
-      <section className="panel panel--job">
+    <div className="job-details-split">{/* blue panel fills full width */}
+      <section
+        className="panel panel--job"
+        onMouseEnter={() => setIsHovering(true)}   /* ⬅️ NEW */
+        onMouseLeave={() => setIsHovering(false)}  /* ⬅️ NEW */
+      >
         <div className="panel__title">Job Details</div>
 
         <div className="job-header">
           <span
             className="chip job-id"
-            title={`${details.clientCode} ${details.clientName}`}
-            data-tooltip={`${details.clientCode} ${details.clientName}`}
+            title={`${_details.clientCode} ${_details.clientName}`}
+            data-tooltip={`${_details.clientCode} ${_details.clientName}`}
           >
-            {details.clientCode} {details.clientName}
+            {_details.clientCode} {_details.clientName}
           </span>
           <span
             className="chip job-chip"
-            title={details.jobTitle}
-            data-tooltip={details.jobTitle}
+            title={_details.jobTitle}
+            data-tooltip={_details.jobTitle}
           >
-            {details.jobTitle || '—'}
+            {_details.jobTitle || '—'}
           </span>
         </div>
 
@@ -254,6 +287,7 @@ function JobDetailsPanel({ details }) {
     </div>
   );
 }
+
 
 /* ─── page ────────────────────────────────────────────────────────── */
 export default function ExistingDrafts() {
