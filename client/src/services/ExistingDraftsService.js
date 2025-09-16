@@ -1,4 +1,4 @@
-import { getAuthToken } from './runtimeConfig';
+import { getAuthToken, setAuthToken } from './runtimeConfig';
 
 export async function getToken() {
     console.log('calling getToken');
@@ -15,7 +15,8 @@ export async function getToken() {
 
 export async function CreateBulkPrintList(draftIndexes) {
   console.log('Draft Indexes - ', draftIndexes);
-  const token = await getAuthToken();
+  const token = await getToken();
+  setAuthToken(token);
   const res = await fetch('/api/CreateBulkPrintList', {
     method: "POST",
     headers: { "Content-Type": "application/json" },

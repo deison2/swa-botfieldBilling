@@ -16,9 +16,7 @@ console.log(
 async function bootstrap() {
   try {
         const token = await getToken();
-        console.log('Get Token Returns - ', token);
     setAuthToken(token);
-    console.log(getAuthToken());
   } catch (err) {
     console.error('Failed to get auth token:', err);
     // decide whether to render a fallback UI or still boot the app
