@@ -1115,3 +1115,39 @@
   outline: 2px solid color-mix(in srgb, var(--tab-grad-end) 65%, #ffffff);
   outline-offset: 2px;
 }
+
+/* Make the outer wrapper a single full-width column */
+.existing-drafts .job-details-split{
+  display: block;          /* was a 2-col grid; turn it into a simple block */
+  margin-top: 14px;
+}
+
+/* The blue panel already defines a 2-col grid in .panel--job .job-body.
+   This wrapper just ensures the right column behaves like a full-height card. */
+.existing-drafts .panel--job .job-right{
+  display: flex;
+  min-width: 0;            /* allows inner content to shrink properly */
+}
+
+/* When nested, keep the white card flush and flexible */
+.existing-drafts .panel--job .job-right .panel--jobtabs{
+  margin: 0;               /* remove any accidental offsets */
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.existing-drafts .panel--job .job-body{
+  grid-template-columns: var(--left-min) 1fr;        /* keep the flexible track */
+  column-gap: 18px;                                  /* optional: extra gutter */
+}
+
+.existing-drafts .panel--job .job-right{
+  width: clamp(540px, 48vw, 680px);                  /* ← tune these bounds */
+  margin-left: auto;                                  /* anchor to right side */
+}
+
+/* Estimate chip row height; tune this value */
+.existing-drafts .panel--job .job-right{ 
+  margin-top: -38px;           /* pull up to align with chips */
+}

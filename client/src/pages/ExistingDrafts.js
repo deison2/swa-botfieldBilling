@@ -72,10 +72,8 @@ export const IconSearchOutline = ({ size=18, stroke=1.8 }) => (
 );
 
 function JobDetailsPanel({ details }) {
-  // Hooks must be called unconditionally at the top level
   const [tab, setTab] = React.useState('progress'); // 'progress' | 'totals' | 'review'
-
-  if (!details) return null; // safe now: hook already executed
+  if (!details) return null;
 
   const j = details.job || {};
 
@@ -149,8 +147,7 @@ function JobDetailsPanel({ details }) {
   };
 
   return (
-    <div className="job-details-split">
-      {/* LEFT: Job Details */}
+    <div className="job-details-split">{/* now just a shell; blue panel fills full width */}
       <section className="panel panel--job">
         <div className="panel__title">Job Details</div>
 
@@ -171,7 +168,9 @@ function JobDetailsPanel({ details }) {
           </span>
         </div>
 
+        {/* ⬇️ Two-column grid inside the blue panel */}
         <div className="job-body">
+          {/* LEFT: fixed stats column */}
           <div className="stat-list">
             <Row label="Hours"            py={j.PYHours}           cy={j.CYHours}           kind="num" />
             <Row label="WIP Time"         py={j.PYWIPTime}         cy={j.CYWIPTime}         kind="money" />
@@ -180,74 +179,76 @@ function JobDetailsPanel({ details }) {
             <Row label="Realization"      py={j.PYRealization}     cy={j.CYRealization}     kind="pct" />
             <Row label="WIP Outstanding"  py={j.PYWIPOutstanding}  cy={j.CYWIPOutstanding}  kind="money" />
           </div>
-        </div>
-      </section>
 
-      {/* RIGHT: Tabbed panel */}
-      <section className="panel panel--jobtabs" aria-labelledby="jobtabs-title">
-        <div id="jobtabs-title" className="sr-only">Job sub-sections</div>
+          {/* RIGHT: white tabbed panel now nested inside the blue */}
+          <div className="job-right">
+            <section className="panel panel--jobtabs" aria-labelledby="jobtabs-title">
+              <div id="jobtabs-title" className="sr-only">Job sub-sections</div>
 
-        <div className="tabbar" role="tablist" aria-label="Job sub-sections">
-          <button
-            role="tab"
-            aria-selected={tab === 'progress'}
-            className={`tab-btn ${tab === 'progress' ? 'is-active' : ''}`}
-            onClick={() => setTab('progress')}
-          >
-            Job Progress
-          </button>
-          <button
-            role="tab"
-            aria-selected={tab === 'totals'}
-            className={`tab-btn ${tab === 'totals' ? 'is-active' : ''}`}
-            onClick={() => setTab('totals')}
-          >
-            Totals by Invoice Line
-          </button>
-          <button
-            role="tab"
-            aria-selected={tab === 'review'}
-            className={`tab-btn ${tab === 'review' ? 'is-active' : ''}`}
-            onClick={() => setTab('review')}
-          >
-            Invoice Review
-          </button>
-        </div>
-
-        <div className="tab-body">
-          {tab === 'progress' && (
-            <div className="progress-pane">
-              <div className="vis-card">
-                <div className="vis-title">CY Realization</div>
-                <Donut value={parsePctNum(j.CYRealization)} />
+              <div className="tabbar" role="tablist" aria-label="Job sub-sections">
+                <button
+                  role="tab"
+                  aria-selected={tab === 'progress'}
+                  className={`tab-btn ${tab === 'progress' ? 'is-active' : ''}`}
+                  onClick={() => setTab('progress')}
+                >
+                  Job Progress
+                </button>
+                <button
+                  role="tab"
+                  aria-selected={tab === 'totals'}
+                  className={`tab-btn ${tab === 'totals' ? 'is-active' : ''}`}
+                  onClick={() => setTab('totals')}
+                >
+                  Totals by Invoice Line
+                </button>
+                <button
+                  role="tab"
+                  aria-selected={tab === 'review'}
+                  className={`tab-btn ${tab === 'review' ? 'is-active' : ''}`}
+                  onClick={() => setTab('review')}
+                >
+                  Invoice Review
+                </button>
               </div>
-              <div className="vis-card">
-                <div className="vis-title">Money Snapshot</div>
-                <BarPair label="WIP Time"        py={j.PYWIPTime}        cy={j.CYWIPTime} />
-                <BarPair label="WIP Exp"         py={j.PYWIPExp}         cy={j.CYWIPExp} />
-                <BarPair label="Billed"          py={j.PYBilled}         cy={j.CYBilled} />
-                <BarPair label="WIP Outstanding" py={j.PYWIPOutstanding} cy={j.CYWIPOutstanding} />
-              </div>
-            </div>
-          )}
 
-          {tab === 'totals' && (
-            <div className="placeholder-pane">
-              <div className="vis-card">
-                <div className="vis-title">Totals by Invoice Line</div>
-                <p className="muted">Stubbed table goes here.</p>
-              </div>
-            </div>
-          )}
+              <div className="tab-body">
+                {tab === 'progress' && (
+                  <div className="progress-pane">
+                    <div className="vis-card">
+                      <div className="vis-title">CY Realization</div>
+                      <Donut value={parsePctNum(j.CYRealization)} />
+                    </div>
+                    <div className="vis-card">
+                      <div className="vis-title">Money Snapshot</div>
+                      <BarPair label="WIP Time"        py={j.PYWIPTime}        cy={j.CYWIPTime} />
+                      <BarPair label="WIP Exp"         py={j.PYWIPExp}         cy={j.CYWIPExp} />
+                      <BarPair label="Billed"          py={j.PYBilled}         cy={j.CYBilled} />
+                      <BarPair label="WIP Outstanding" py={j.PYWIPOutstanding} cy={j.CYWIPOutstanding} />
+                    </div>
+                  </div>
+                )}
 
-          {tab === 'review' && (
-            <div className="placeholder-pane">
-              <div className="vis-card">
-                <div className="vis-title">Invoice Review</div>
-                <p className="muted">Review/approve UI placeholder.</p>
+                {tab === 'totals' && (
+                  <div className="placeholder-pane">
+                    <div className="vis-card">
+                      <div className="vis-title">Totals by Invoice Line</div>
+                      <p className="muted">Stubbed table goes here.</p>
+                    </div>
+                  </div>
+                )}
+
+                {tab === 'review' && (
+                  <div className="placeholder-pane">
+                    <div className="vis-card">
+                      <div className="vis-title">Invoice Review</div>
+                      <p className="muted">Review/approve UI placeholder.</p>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            </section>
+          </div>
         </div>
       </section>
     </div>
