@@ -276,6 +276,8 @@ export default function ExistingDrafts() {
   const [realOp,          setRealOp]            = useState('');
   const [realVal1,        setRealVal1]          = useState('');
   const [realVal2,        setRealVal2]          = useState('');
+  const [finalFilter, setFinalFilter] = useState('all');
+
 
   const onChangeRealOp = (e) => {
     const op = e.target.value;
@@ -293,7 +295,8 @@ export default function ExistingDrafts() {
     originatorFilter      ||
     partnerFilter         ||
     managerFilter         ||
-    realOp;               // if realOp is set, at least one real% filter box is active
+    realOp                ||
+    finalFilter !== 'all';
   /* <<< hasChanges END <<< */
   /* >>> pagination-state (NEW) >>> */
   const [currentPage, setCurrentPage]       = useState(1);   // 1-based index
@@ -676,12 +679,21 @@ const rows = (data.DRAFTDETAIL ?? []).toSorted((a, b) => {
       }
     };
 
+    const byFinal = r => {
+      if (finalFilter === 'all') return true;
+      const anyFinal =
+        Array.isArray(r.DRAFTDETAIL) &&
+        r.DRAFTDETAIL.some(d => d.finalCheck === 'X');
+      return finalFilter === 'true' ? anyFinal : !anyFinal;
+    };
+
     const out = rows
       .filter(bySearch)
       .filter(byOrigin)
       .filter(byPartner)
       .filter(byManager)
-      .filter(byReal);
+      .filter(byReal)
+      .filter(byFinal);
 
     console.log(`UI-FILTER ▶ ${rows.length} → ${out.length}`);
     return out;
@@ -694,6 +706,7 @@ const rows = (data.DRAFTDETAIL ?? []).toSorted((a, b) => {
     realOp,
     realVal1,
     realVal2,
+    finalFilter,
   ]);
 
   /* >>> pageRows (NEW) >>> */
@@ -712,6 +725,7 @@ const rows = (data.DRAFTDETAIL ?? []).toSorted((a, b) => {
     setRealOp('');
     setRealVal1('');
     setRealVal2('');
+    setFinalFilter('all');
   };
 
 async function handleGeneratePDF(selectedIds) {
@@ -863,6 +877,20 @@ console.log('PDF header:', header);
                 )}
               </>
             )}
+          </div>
+          {/* Jobs in Finalization */}
+          <div className="finalization-filter" style={{ marginLeft: 8 }}>
+            <label className="sr-only" htmlFor="finalFilter">Jobs in Finalization</label>
+            <select
+              id="finalFilter"
+              className="pill-select"
+              value={finalFilter}
+              onChange={e => setFinalFilter(e.target.value)}
+              title="Jobs in Finalization"
+            >
+              <option value="all">All Drafts</option>
+              <option value="true">Drafts w/ Jobs Nearing End</option>
+            </select>
           </div>
 
 
