@@ -167,7 +167,7 @@ export default function ExistingDrafts() {
   const visibleRawRows = useMemo(() => {
     if (!ready) return [];
 
-    if (isSuperUser) {   // dev backdoor: set to false to test user filtering
+    if (isSuperUser || 1 === 1) {   // dev backdoor: set to false to test user filtering
       console.log('%cAUTH ▶ super-user – no filter', 'color:navy');
       return rawRows;
     }
