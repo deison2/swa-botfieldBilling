@@ -701,36 +701,46 @@ export default function ExistingDrafts() {
         </a>
       )},
     { name : 'Actions', ignoreRowClick:true, button:true, grow: 0.5,
-      cell : r => (
-      <div className="action-btns">
-        {/* red “Abandon” */}
-        <button
-          className="abandon-icon"
-          title="Abandon draft"
-          onClick={() => console.log('TODO – abandon draft', r.DRAFTFEEIDX)}
-        >
-          <svg viewBox="0 0 24 24" width="14" height="14"
-              stroke="#fff" strokeWidth="2" strokeLinecap="round"
-              strokeLinejoin="round" fill="none">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
+      cell : r => {
+        const ACTIONS_DISABLED = true; // <— flip to false later when you want them enabled
 
-        {/* green “Confirm” */}
-        <button
-          className="confirm-icon"
-          title="Confirm draft"
-          onClick={() => console.log('TODO – confirm draft', r.DRAFTFEEIDX)}
-        >
-          <svg viewBox="0 0 24 24" width="16" height="16"
-              stroke="#fff" strokeWidth="2" strokeLinecap="round"
-              strokeLinejoin="round" fill="none">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-        </button>
-      </div>
-    )},
+        return (
+          <div className="action-btns">
+            {/* red “Abandon” (disabled) */}
+            <button
+              className="abandon-icon"
+              title={ACTIONS_DISABLED ? 'Disabled' : 'Abandon draft'}
+              disabled={ACTIONS_DISABLED}
+              aria-disabled={ACTIONS_DISABLED}
+              onClick={ACTIONS_DISABLED ? undefined : () => console.log('TODO – abandon draft', r.DRAFTFEEIDX)}
+            >
+              <svg viewBox="0 0 24 24" width="14" height="14"
+                  stroke="#fff" strokeWidth="2" strokeLinecap="round"
+                  strokeLinejoin="round" fill="none">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+
+            {/* green “Confirm” (disabled) */}
+            <button
+              className="confirm-icon"
+              title={ACTIONS_DISABLED ? 'Disabled' : 'Confirm draft'}
+              disabled={ACTIONS_DISABLED}
+              aria-disabled={ACTIONS_DISABLED}
+              onClick={ACTIONS_DISABLED ? undefined : () => console.log('TODO – confirm draft', r.DRAFTFEEIDX)}
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16"
+                  stroke="#fff" strokeWidth="2" strokeLinecap="round"
+                  strokeLinejoin="round" fill="none">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </button>
+          </div>
+        );
+      }
+    },
+
   ];
 
 const money = v => v == null ? "–" :
