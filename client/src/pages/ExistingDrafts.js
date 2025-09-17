@@ -61,6 +61,285 @@ const parseYmdLocal = (ymd) => {
   return new Date(y, (m || 1) - 1, d || 1); // local midnight, no timezone jump
 };
 
+export const IconSearchOutline = ({ size=18, stroke=1.8 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true"
+       xmlns="http://www.w3.org/2000/svg" stroke="currentColor" strokeWidth={stroke}
+       strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="11" cy="11" r="6" fill="currentColor" opacity="0.12" />
+    <circle cx="11" cy="11" r="6" fill="none" />
+    <line x1="16.5" y1="16.5" x2="21" y2="21" />
+  </svg>
+);
+
+function JobDetailsPanel({ details }) {
+  // ===== Helpers =====
+  const getJobKey = (d = {}) =>
+    d.jobId || d.jobID || d.job?.Id || d.job?.JobId || d.job?.JobID || d.jobCode || d.job?.JobCode ||
+    `${d.clientCode ?? ""}|${d.jobTitle ?? ""}`; // fallback if no stable id
+
+  // ===== Pinned stack + per-panel tabs =====
+  const [pinned, setPinned] = React.useState([]);     // [{ key, details }]
+  const [tabByKey, setTabByKey] = React.useState({}); // { [key]: 'progress'|'totals'|'review' }
+
+  const isPinned = (key) => pinned.some(p => p.key === key);
+  const addPin    = (d) => setPinned(prev => isPinned(getJobKey(d)) ? prev : [...prev, { key: getJobKey(d), details: d }]);
+  const removePin = (key) => setPinned(prev => prev.filter(p => p.key !== key));
+  const setTabFor = (key, next) => setTabByKey(prev => ({ ...prev, [key]: next }));
+
+  // ===== Hover lock + grace for the ephemeral panel =====
+  const [isHovering, setIsHovering] = React.useState(false);
+  const [inGrace, setInGrace] = React.useState(false);
+  const graceTimer = React.useRef(null);
+  const GRACE_MS = 220;
+
+  // keep the last hovered details so we can render while hovering/grace
+  const lastHoverRef = React.useRef(details || null);
+  if (details) lastHoverRef.current = details;
+
+  React.useEffect(() => {
+    clearTimeout(graceTimer.current);
+    if (details) {
+      setInGrace(false);
+    } else {
+      setInGrace(true);
+      graceTimer.current = setTimeout(() => setInGrace(false), GRACE_MS);
+    }
+    return () => clearTimeout(graceTimer.current);
+  }, [details]);
+
+  // While hovering OR in grace, keep showing the last hovered job
+  const hoverSource = details || ((isHovering || inGrace) ? lastHoverRef.current : null);
+
+  // Don't show ephemeral if it's already pinned
+  const pinnedKeys = React.useMemo(() => new Set(pinned.map(p => p.key)), [pinned]);
+  const ephemeral  = hoverSource && !pinnedKeys.has(getJobKey(hoverSource)) ? hoverSource : null;
+
+  // Hide the whole stack only if no pinned, no ephemeral, and not hovering/grace
+  const shouldRender = !!(pinned.length || ephemeral || isHovering || inGrace);
+  if (!shouldRender) return null;
+
+  // ---------- formatters ----------
+  const num   = v => (v == null ? '–' : Number(v).toLocaleString('en-US'));
+  const money = v => (v == null ? '–' : Number(v).toLocaleString('en-US', { style:'currency', currency:'USD' }));
+  const pct   = v => {
+    if (v == null || v === '') return '–';
+    const n = typeof v === 'string' && v.includes('%')
+      ? parseFloat(v)
+      : (Math.abs(Number(v)) <= 1 ? Number(v) * 100 : Number(v));
+    return isNaN(n) ? '–' : `${n.toFixed(2)}%`;
+  };
+
+  // ---------- viz helpers ----------
+  const clamp01 = n => Math.max(0, Math.min(1, n));
+  const parsePctNum = v => {
+    if (v == null || v === '') return 0;
+    const n = typeof v === 'string' && v.includes('%')
+      ? parseFloat(v) / 100
+      : (Math.abs(Number(v)) <= 1 ? Number(v) : Number(v) / 100);
+    return isNaN(n) ? 0 : clamp01(n);
+  };
+
+  const Donut = ({ value = 0.0, size = 120 }) => {
+    const r = (size - 14) / 2;
+    const C = 2 * Math.PI * r;
+    const p = clamp01(value);
+    const off = C * (1 - p);
+    return (
+      <div className="donut">
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <g transform={`translate(${size/2},${size/2}) rotate(-90)`}>
+            <circle r={r} cx="0" cy="0" className="trk" />
+            <circle r={r} cx="0" cy="0" className="val" strokeDasharray={C} strokeDashoffset={off}/>
+          </g>
+        </svg>
+        <div className="donut-label">{(p*100).toFixed(1)}%</div>
+      </div>
+    );
+  };
+
+  const BarPair = ({ label, py, cy }) => {
+    const PY = Number(py) || 0;
+    const CY = Number(cy) || 0;
+    const max = Math.max(PY, CY, 1);
+    return (
+      <div className="barpair">
+        <div className="bar-label">{label}</div>
+        <div className="bar-track" aria-hidden="true">
+          <span className="bar py" style={{ width: `${(PY/max)*100}%` }} />
+          <span className="bar cy" style={{ width: `${(CY/max)*100}%` }} />
+        </div>
+        <div className="bar-vals">
+          <span className="mini-pill py">{money(PY)}</span>
+          <span className="mini-pill cy">{money(CY)}</span>
+        </div>
+      </div>
+    );
+  };
+
+  const Row = ({ label, py, cy, kind }) => {
+    const fmt = kind === 'money' ? money : kind === 'pct' ? pct : num;
+    return (
+      <div className="stat-row">
+        <div className="k">{label}</div>
+        <span className="pill py"><b>PY</b><span className="v">{fmt(py)}</span></span>
+        <span className="pill cy"><b>CY</b><span className="v">{fmt(cy)}</span></span>
+      </div>
+    );
+  };
+
+  // ===== One reusable panel =====
+  const Panel = ({ data, pinned }) => {
+    const key = getJobKey(data);
+    const j = (data.job) || {};
+    const tab = tabByKey[key] || 'progress';
+    const setTab = (t) => setTabFor(key, t);
+
+    return (
+      <div className="job-details-split">
+        <section className="panel panel--job">
+          {/* Pin control */}
+          <div className="pin-wrap">
+            <button
+              className={`pin-toggle ${pinned ? 'is-pinned' : ''}`}
+              aria-pressed={pinned}
+              onClick={() => (pinned ? removePin(key) : addPin(data))}
+              title={pinned ? 'Unpin' : 'Pin'}
+            >
+              {/* bi-pin (outline) */}
+              <svg className="ico pin-outline" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                <path d="M4.146.146A.5.5 0 0 1 4.5 0h7a.5.5 0 0 1 .5.5c0 .68-.342 1.174-.646 1.479-.126.125-.25.224-.354.298v4.431l.078.048c.203.127.476.314.751.555C12.36 7.775 13 8.527 13 9.5a.5.5 0 0 1-.5.5h-4v4.5c0 .276-.224 1.5-.5 1.5s-.5-1.224-.5-1.5V10h-4a.5.5 0 0 1-.5-.5c0-.973.64-1.725 1.17-2.189A5.921 5.921 0 0 1 5 6.708V2.277a2.77 2.77 0 0 1-.354-.298C4.342 1.674 4 1.179 4 .5a.5.5 0 0 1 .146-.354z"/>
+              </svg>
+              {/* bi-pin-fill (solid) */}
+              <svg className="ico pin-solid" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                <path d="M4.146.146A.5.5 0 0 1 4.5 0h7a.5.5 0 0 1 .5.5c0 .68-.342 1.174-.646 1.479-.126.125-.25.224-.354.298v4.431l.078.048c.203.127.476.314.751.555C12.36 7.775 13 8.527 13 9.5a.5.5 0 0 1-.5.5h-4v4.5c0 .276-.224 1.5-.5 1.5s-.5-1.224-.5-1.5V10h-4a.5.5 0 0 1-.5-.5c0-.973.64-1.725 1.17-2.189A5.921 5.921 0 0 1 5 6.708V2.277a2.77 2.77 0 0 1-.354-.298C4.342 1.674 4 1.179 4 .5a.5.5 0 0 1 .146-.354z"/>
+              </svg>
+            </button>
+          </div>
+
+          <div className="panel__title">Job Details</div>
+
+          <div className="job-header">
+            <span
+              className="chip job-id"
+              title={`${data.clientCode} ${data.clientName}`}
+              data-tooltip={`${data.clientCode} ${data.clientName}`}
+            >
+              {data.clientCode} {data.clientName}
+            </span>
+            <span
+              className="chip job-chip"
+              title={data.jobTitle}
+              data-tooltip={data.jobTitle}
+            >
+              {data.jobTitle || '—'}
+            </span>
+          </div>
+
+          {/* Two-column grid inside the blue panel */}
+          <div className="job-body">
+            {/* LEFT: fixed stats column */}
+            <div className="stat-list">
+              <Row label="Hours"            py={j.PYHours}           cy={j.CYHours}           kind="num" />
+              <Row label="WIP Time"         py={j.PYWIPTime}         cy={j.CYWIPTime}         kind="money" />
+              <Row label="WIP Exp"          py={j.PYWIPExp}          cy={j.CYWIPExp}          kind="money" />
+              <Row label="Billed"           py={j.PYBilled}          cy={j.CYBilled}          kind="money" />
+              <Row label="Realization"      py={j.PYRealization}     cy={j.CYRealization}     kind="pct" />
+              <Row label="WIP Outstanding"  py={j.PYWIPOutstanding}  cy={j.CYWIPOutstanding}  kind="money" />
+            </div>
+
+            {/* RIGHT: white tabbed panel now nested inside the blue */}
+            <div className="job-right">
+              <section className="panel panel--jobtabs" aria-labelledby="jobtabs-title">
+                <div id="jobtabs-title" className="sr-only">Job sub-sections</div>
+
+                <div className="tabbar" role="tablist" aria-label="Job sub-sections">
+                  <button
+                    role="tab"
+                    aria-selected={tab === 'progress'}
+                    className={`tab-btn ${tab === 'progress' ? 'is-active' : ''}`}
+                    onClick={() => setTab('progress')}
+                  >
+                    Job Progress
+                  </button>
+                  <button
+                    role="tab"
+                    aria-selected={tab === 'totals'}
+                    className={`tab-btn ${tab === 'totals' ? 'is-active' : ''}`}
+                    onClick={() => setTab('totals')}
+                  >
+                    Totals by Invoice Line
+                  </button>
+                  <button
+                    role="tab"
+                    aria-selected={tab === 'review'}
+                    className={`tab-btn ${tab === 'review' ? 'is-active' : ''}`}
+                    onClick={() => setTab('review')}
+                  >
+                    Invoice Review
+                  </button>
+                </div>
+
+                <div className="tab-body">
+                  {tab === 'progress' && (
+                    <div className="progress-pane">
+                      <div className="vis-card">
+                        <div className="vis-title">CY Realization</div>
+                        <Donut value={parsePctNum(j.CYRealization)} />
+                      </div>
+                      <div className="vis-card">
+                        <div className="vis-title">Money Snapshot</div>
+                        <BarPair label="WIP Time"        py={j.PYWIPTime}        cy={j.CYWIPTime} />
+                        <BarPair label="WIP Exp"         py={j.PYWIPExp}         cy={j.CYWIPExp} />
+                        <BarPair label="Billed"          py={j.PYBilled}         cy={j.CYBilled} />
+                        <BarPair label="WIP Outstanding" py={j.PYWIPOutstanding} cy={j.CYWIPOutstanding} />
+                      </div>
+                    </div>
+                  )}
+
+                  {tab === 'totals' && (
+                    <div className="placeholder-pane">
+                      <div className="vis-card">
+                        <div className="vis-title">Totals by Invoice Line</div>
+                        <p className="muted">Stubbed table goes here.</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {tab === 'review' && (
+                    <div className="placeholder-pane">
+                      <div className="vis-card">
+                        <div className="vis-title">Invoice Review</div>
+                        <p className="muted">Review/approve UI placeholder.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </section>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  };
+
+  // ===== Render: all pinned panels, then the ephemeral one (if any) =====
+  return (
+    <div
+      className="job-details-stack"
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
+    >
+      {pinned.map(p => (
+        <Panel key={`pinned:${p.key}`} data={p.details} pinned />
+      ))}
+      {ephemeral && (
+        <Panel key={`hover:${getJobKey(ephemeral)}`} data={ephemeral} pinned={false} />
+      )}
+    </div>
+  );
+}
+
+
 
 /* ─── page ────────────────────────────────────────────────────────── */
 export default function ExistingDrafts() {
@@ -422,36 +701,46 @@ export default function ExistingDrafts() {
         </a>
       )},
     { name : 'Actions', ignoreRowClick:true, button:true, grow: 0.5,
-      cell : r => (
-      <div className="action-btns">
-        {/* red “Abandon” */}
-        <button
-          className="abandon-icon"
-          title="Abandon draft"
-          onClick={() => console.log('TODO – abandon draft', r.DRAFTFEEIDX)}
-        >
-          <svg viewBox="0 0 24 24" width="14" height="14"
-              stroke="#fff" strokeWidth="2" strokeLinecap="round"
-              strokeLinejoin="round" fill="none">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
+      cell : r => {
+        const ACTIONS_DISABLED = true; // <— flip to false later when you want them enabled
 
-        {/* green “Confirm” */}
-        <button
-          className="confirm-icon"
-          title="Confirm draft"
-          onClick={() => console.log('TODO – confirm draft', r.DRAFTFEEIDX)}
-        >
-          <svg viewBox="0 0 24 24" width="16" height="16"
-              stroke="#fff" strokeWidth="2" strokeLinecap="round"
-              strokeLinejoin="round" fill="none">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-        </button>
-      </div>
-    )},
+        return (
+          <div className="action-btns">
+            {/* red “Abandon” (disabled) */}
+            <button
+              className="abandon-icon"
+              title={ACTIONS_DISABLED ? 'Disabled' : 'Abandon draft'}
+              disabled={ACTIONS_DISABLED}
+              aria-disabled={ACTIONS_DISABLED}
+              onClick={ACTIONS_DISABLED ? undefined : () => console.log('TODO – abandon draft', r.DRAFTFEEIDX)}
+            >
+              <svg viewBox="0 0 24 24" width="14" height="14"
+                  stroke="#fff" strokeWidth="2" strokeLinecap="round"
+                  strokeLinejoin="round" fill="none">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+
+            {/* green “Confirm” (disabled) */}
+            <button
+              className="confirm-icon"
+              title={ACTIONS_DISABLED ? 'Disabled' : 'Confirm draft'}
+              disabled={ACTIONS_DISABLED}
+              aria-disabled={ACTIONS_DISABLED}
+              onClick={ACTIONS_DISABLED ? undefined : () => console.log('TODO – confirm draft', r.DRAFTFEEIDX)}
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16"
+                  stroke="#fff" strokeWidth="2" strokeLinecap="round"
+                  strokeLinejoin="round" fill="none">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </button>
+          </div>
+        );
+      }
+    },
+
   ];
 
 const money = v => v == null ? "–" :
@@ -492,58 +781,33 @@ function JobHoverMatrix({ job }) {
   );
 }
 
-function DraftRow({ d, client, granData }) {
-  const iconRef = React.useRef(null);
-  const [open, setOpen] = React.useState(false);
-  const [pos, setPos] = React.useState({ top: 0, left: 0 });
-
-  const handleEnter = () => {
-    const r = iconRef.current?.getBoundingClientRect();
-    if (!r) return;
-    setPos({ top: r.top + window.scrollY, left: r.right + window.scrollX + 12 });
-    setOpen(true);
+function DraftRow({ d, client, granData, onHover, onLeave }) {
+  // assemble payload when user hovers the magnifier
+  const payload = {
+    clientCode : client.code,
+    clientName : client.name,
+    jobTitle   : d.JOBTITLE,
+    job        : Array.isArray(granData) ? granData[0] : undefined
   };
-  const handleLeave = () => setOpen(false);
 
   return (
     <tr key={`${d.DRAFTFEEIDX}-${d.SERVPERIOD}-${d.CONTINDEX}`}
-        style={d.finalCheck === 'X' ? {color: 'red'} : undefined}
-        >
+        style={d.finalCheck === 'X' ? {color: 'red'} : undefined}>
       <td className="icon-cell">
-        <span
-          ref={iconRef}
-          className="magnify"
-          aria-label="Preview"
-          onMouseEnter={handleEnter}
-          onMouseLeave={handleLeave}
-          tabIndex={0}
-          onFocus={handleEnter}
-          onBlur={handleLeave}
+        <button
+          type="button"
+          className="icon-btn zoom-in"
+          title="View job details"
+          onMouseEnter={() => onHover && onHover(payload)}
+          onMouseLeave={() => onLeave && onLeave()}
+          aria-label="View job details"
         >
-          🔍
-        </span>
-
-        <PopoverPortal open={open}>
-          <div
-            className="hover-modal-fixed"
-            style={{ top: pos.top
-              , left: pos.left 
-              }}
-            onMouseEnter={() => setOpen(true)}
-            onMouseLeave={handleLeave}
-            role="dialog"
-            aria-modal="false"
-          >
-            <strong>Job Data</strong>
-            {granData.length ? (
-              <div className="hover-list">
-                {granData.map(g => <JobHoverMatrix key={g.Job_Idx} job={g} />)}
-              </div>
-            ) : (
-              <em>No job data</em>
-            )}
-          </div>
-        </PopoverPortal>
+          {/* simple magnifier SVG that matches your UI */}
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="7"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+        </button>
       </td>
 
       <td>{client.code}</td>
@@ -560,86 +824,115 @@ function DraftRow({ d, client, granData }) {
 
   /* ── EXPANDABLE row render ────────────────────────────────── */
   const Expandable = ({ data }) => {
+    // NEW: manage which row’s job details are shown
+    const [activeDetails, setActiveDetails] = React.useState(null);
+    const hideTimer = React.useRef(null);
+
+    const showDetails = (p) => {
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+      setActiveDetails(p);
+    };
+    const delayHide = () => {
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+      hideTimer.current = setTimeout(() => setActiveDetails(null), 160); // small grace to move cursor
+    };
+
     const uniqueNarratives = Array.from(
       new Map(data.NARRATIVEDETAIL.map(n => [n.DEBTNARRINDEX, n])).values()
     );
 
-const rows = (data.DRAFTDETAIL ?? []).toSorted((a, b) => {
-  const ac = (data.codeMap[a.CONTINDEX]?.code ?? "").toString().trim();
-  const bc = (data.codeMap[b.CONTINDEX]?.code ?? "").toString().trim();
+    const rows = (data.DRAFTDETAIL ?? []).toSorted((a, b) => {
+      const ac = (data.codeMap[a.CONTINDEX]?.code ?? "").toString().trim();
+      const bc = (data.codeMap[b.CONTINDEX]?.code ?? "").toString().trim();
 
-  // 1) sort by Client Code (blank codes last)
-  if (ac !== bc) {
-    if (!ac) return 1;
-    if (!bc) return -1;
-    return ac.localeCompare(bc, undefined, { numeric: true, sensitivity: "base" });
-  }
-
-  // 2) then by Job Name (JOBTITLE) (blank titles last)
-  const aj = (a.JOBTITLE ?? "").toString().trim();
-  const bj = (b.JOBTITLE ?? "").toString().trim();
-
-  if (aj !== bj) {
-    if (!aj) return 1;
-    if (!bj) return -1;
-    return aj.localeCompare(bj, undefined, { numeric: true, sensitivity: "base" });
-  }
-
-  // 3) stable tiebreaker (optional)
-  return String(a.SERVPERIOD ?? "").localeCompare(
-    String(b.SERVPERIOD ?? ""),
-    undefined,
-    { numeric: true, sensitivity: "base" }
-  );
-});
-
+      if (ac !== bc) {
+        if (!ac) return 1;
+        if (!bc) return -1;
+        return ac.localeCompare(bc, undefined, { numeric: true, sensitivity: "base" });
+      }
+      const aj = (a.JOBTITLE ?? "").toString().trim();
+      const bj = (b.JOBTITLE ?? "").toString().trim();
+      if (aj !== bj) {
+        if (!aj) return 1;
+        if (!bj) return -1;
+        return aj.localeCompare(bj, undefined, { numeric: true, sensitivity: "base" });
+      }
+      return String(a.SERVPERIOD ?? "").localeCompare(
+        String(b.SERVPERIOD ?? ""), undefined, { numeric: true, sensitivity: "base" }
+      );
+    });
 
     return (
       <div className="expanded-content">
-        <h4>Draft Analysis</h4>
-        <table className="mini-table">
-          <thead>
-            <tr>
-              <th /><th>Client Code</th><th>Client Name</th><th>Service</th><th>Type</th>
-              <th>Job</th><th>Draft WIP</th><th>Draft Amt</th><th>Write-Off</th>
-            </tr>
-          </thead>
-          <tbody>
 
+        {/* Panel 1: Draft WIP Analysis */}
+        <div className="panel panel--draft">
+          <div className="panel__title">Draft WIP Analysis</div>
+          <div className="table-wrap">
+            <table className="mini-table mini-table--tight">
+              <thead>
+                <tr>
+                  <th style={{width:36}}></th>
+                  <th>Client Code</th>
+                  <th>Client Name</th>
+                  <th>Service</th>
+                  <th>Type</th>
+                  <th>Job</th>
+                  <th>Draft WIP</th>
+                  <th>Draft Amt</th>
+                  <th>Write-Off</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(d => {
+                  const client = data.codeMap[d.CONTINDEX] || {};
+                  const granData = (Array.isArray(data.NARRATIVEDETAIL) ? [] : []);
+                  // you already had this line; preserved:
+                  const g = granularData.filter(x => Number(x.Job_Idx) === Number(d.SERVPERIOD));
 
+                  return (
+                    <DraftRow
+                      key={`${d.DRAFTFEEIDX}-${d.SERVPERIOD}-${d.CONTINDEX}`}
+                      d={d}
+                      client={client}
+                      granData={g}
+                      onHover={showDetails}
+                      onLeave={delayHide}
+                    />
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-              {rows.map(d => {
-    const client = data.codeMap[d.CONTINDEX] || {};
-    const granData = granularData.filter(x => Number(x.Job_Idx) === Number(d.SERVPERIOD));
-    return (
-      <DraftRow
-        key={`${d.DRAFTFEEIDX}-${d.SERVPERIOD}-${d.CONTINDEX}`}
-        d={d}
-        client={client}
-        granData={granData}
-      />
-    );
-  })}
+        {/* Panel 2: Draft Narratives */}
+        <div className="panel panel--narrative">
+          <div className="panel__title">Draft Narratives</div>
+          <div className="table-wrap">
+            <table className="mini-table mini-table--tight">
+              <thead>
+                <tr><th>Narrative</th><th>Service</th><th>Amount</th></tr>
+              </thead>
+              <tbody>
+                {uniqueNarratives.map(n => (
+                  <tr key={n.DEBTNARRINDEX}>
+                    <td dangerouslySetInnerHTML={{ __html:n.FEENARRATIVE }} />
+                    <td>{n.SERVINDEX}</td>
+                    <td>{currency(n.AMOUNT)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-
-          </tbody>
-        </table>
-
-        <h4>Narrative</h4>
-        <table className="mini-table">
-          <thead>
-            <tr><th>Narrative</th><th>Service</th><th>Amount</th></tr>
-          </thead>
-          <tbody>
-            {uniqueNarratives.map(n => (
-              <tr key={n.DEBTNARRINDEX}>
-                <td dangerouslySetInnerHTML={{ __html:n.FEENARRATIVE }} />
-                <td>{n.SERVINDEX}</td>
-                <td>{currency(n.AMOUNT)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {/* Panel 3: Job Details (appears when hovering the magnifier) */}
+        <JobDetailsPanel
+          details={activeDetails}
+          onMouseEnter={() => { if (hideTimer.current) clearTimeout(hideTimer.current); }}
+          onMouseLeave={delayHide}
+        />
       </div>
     );
   };
@@ -879,7 +1172,7 @@ console.log('PDF header:', header);
             )}
           </div>
           {/* Jobs in Finalization */}
-          <div className="finalization-filter" style={{ marginLeft: 8 }}>
+          <div className="finalization-filter">
             <label className="sr-only" htmlFor="finalFilter">Jobs in Finalization</label>
             <select
               id="finalFilter"

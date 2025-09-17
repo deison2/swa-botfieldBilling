@@ -796,3 +796,441 @@
 @media (max-width: 1280px){
   .existing-drafts{ --filter-pill-w: 150px; }
 }
+
+/* small, modern icon button that matches the chips/buttons */
+.icon-btn{
+  all: unset;
+  display:inline-flex; align-items:center; justify-content:center;
+  width:28px; height:28px; border-radius:8px;
+  color:#2b5560;                          /* ink */
+  background:#eef5f4;                      /* soft teal-ish */
+  border:1px solid #d7dee5;                /* gray-300 */
+  box-shadow:0 1px 0 rgba(0,0,0,0.02);
+  cursor:pointer;
+  transition:background .2s, box-shadow .2s, transform .05s;
+}
+.icon-btn:hover{ background:#e4f0ef; }
+.icon-btn:active{ transform:translateY(1px); }
+.icon-btn:focus-visible{ outline:2px solid rgba(6,57,65,.2); outline-offset:2px; }
+.icon-btn.zoom-in{ cursor: zoom-in; }
+
+.icon-cell { width: 36px; padding-right: .25rem; position: relative; }
+
+/* ===== Expanded row panels ===== */
+.existing-drafts .panel{
+  /* shared card look */
+  --panel-bg: #f6fbfa;             /* default soft teal-ish */
+  --panel-ring: #cfe2df;
+  --panel-title: #063941;          /* brand ink */
+  --panel-th: #e8f3f1;
+
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-ring);
+  border-radius: 12px;
+  padding: 14px 16px 16px;
+  box-shadow: 0 8px 18px rgba(0,0,0,.06);
+}
+
+.existing-drafts .panel + .panel{ margin-top: 14px; }
+
+.existing-drafts .panel__title{
+  display:flex; align-items:center; gap:8px;
+  margin: 2px 0 10px;
+  font-weight: 800; font-size: 1rem; letter-spacing:.2px;
+  color: var(--panel-title);
+}
+
+/* tiny dot accent */
+.existing-drafts .panel__title::before{
+  content:"";
+  width:8px; height:8px; border-radius:50%;
+  background: var(--panel-title);
+  opacity:.45;
+}
+
+/* Variant: Draft Analysis (soft teal) */
+.existing-drafts .panel--draft{
+  --panel-bg: #f1f8f6;
+  --panel-ring:#cfe7e3;
+  --panel-title:#0e4b52;
+  --panel-th:#e3f1ee;
+}
+
+/* Variant: Narrative (soft indigo) */
+.existing-drafts .panel--narrative{
+  --panel-bg: #f6f5fb;
+  --panel-ring:#dcd9f3;
+  --panel-title:#3f46a5;
+  --panel-th:#ecebfa;
+}
+
+/* Table shell inside a panel */
+.existing-drafts .table-wrap{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:10px;
+  overflow:hidden;                  /* rounds header corners cleanly */
+}
+
+/* Compact table spacing (optional) */
+.existing-drafts .mini-table--tight th,
+.existing-drafts .mini-table--tight td{
+  padding: 6px 8px;
+}
+
+/* Panel-specific table head */
+.existing-drafts .panel .mini-table thead th{
+  background: var(--panel-th);
+  color:#22323a;
+  font-weight:700;
+  border-color: rgba(0,0,0,.06);
+}
+
+/* Subtle row separators on white body */
+.existing-drafts .panel .mini-table td{
+  border-color:#eef2f4;
+}
+
+/* Hover nudge for rows (optional; comment out if you prefer static) */
+.existing-drafts .panel .mini-table tbody tr:hover td{
+  background:#fafcff;
+}
+/* ======================= Job Details (fixed-left layout) ======================= */
+.existing-drafts .panel--job{
+  /* theme */
+  --panel-bg:   #f2f7fd;
+  --panel-ring: #d7e6fb;
+  --panel-title:#274c77;
+  --panel-th:   #e8f1fd;
+
+  /* layout knobs */
+  --label-col-w: 150px;  /* label column width */
+  --stat-pill-w: 100px;  /* PY/CY pill width */
+
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-ring);
+  border-radius: 12px;
+  padding: 12px 14px 14px;
+  box-shadow: 0 8px 18px rgba(0,0,0,.06);
+
+  /* ensure no extra offset vs right panel */
+  margin-top: 0;
+}
+
+/* header chips */
+.existing-drafts .panel--job .job-header{
+  display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:4px 0 10px;
+}
+.existing-drafts .panel--job .chip.job-id{
+  background:#eef2f4; border:1px solid #d7dee5; font-weight:700;
+  max-width: clamp(260px, 50vw, 640px);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.existing-drafts .panel--job .chip.job-chip{
+  background:#ecebfa; border:1px solid #dcd9f3; color:#3f46a5;
+  max-width: clamp(220px, 40vw, 520px);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* body: left stats (fixed width) + right viz (flex) */
+.existing-drafts .panel--job .job-body{
+  /* EXACT width the left column needs: label + PY + CY + 2 gaps */
+  --left-min: calc(var(--label-col-w) + (var(--stat-pill-w) * 2) + (8px * 2));
+  display: grid;
+  column-gap: 14px;
+  row-gap: 14px;
+
+  /* 🔒 Fix the LEFT column; let the RIGHT take the rest */
+  grid-template-columns: var(--left-min) minmax(300px, 1fr);
+}
+@media (max-width:1100px){
+  .existing-drafts .panel--job .job-body{ grid-template-columns: 1fr; }
+}
+
+/* LEFT: stat rows — label | PY | CY */
+.existing-drafts .panel--job .stat-list{
+  display:flex; flex-direction:column; gap:4px;
+
+  /* Do not allow growth beyond computed width */
+  width: var(--left-min);
+  max-width: var(--left-min);
+  flex: 0 0 var(--left-min);
+}
+.existing-drafts .panel--job .stat-row{
+  display:grid; align-items:center; column-gap:8px; padding:4px 0;
+
+  /* 🔒 No flexible columns here — all fixed so they sit tight */
+  grid-template-columns: var(--label-col-w) var(--stat-pill-w) var(--stat-pill-w);
+  border-bottom:1px dashed rgba(0,0,0,.06);
+}
+.existing-drafts .panel--job .stat-row:last-child{ border-bottom:0; }
+.existing-drafts .panel--job .k{ font-weight:700; color:#293941; white-space:nowrap; }
+
+/* value pills */
+.existing-drafts .panel--job .pill{
+  box-sizing:border-box;
+  display:inline-flex; align-items:center; justify-content:flex-start; gap:6px;
+  width:var(--stat-pill-w); min-width:var(--stat-pill-w); max-width:var(--stat-pill-w);
+  padding:3px 8px; border-radius:9999px; font-weight:700; font-size:12px;
+  border:1px solid transparent;
+}
+.existing-drafts .panel--job .pill b{ font-size:10px; opacity:.7; letter-spacing:.3px; }
+.existing-drafts .panel--job .pill .v{ font-variant-numeric: tabular-nums; }
+.existing-drafts .panel--job .pill.py{ background:#eef6ff; border-color:#cfe0ff; color:#163e72; }
+.existing-drafts .panel--job .pill.cy{ background:#ecfbf6; border-color:#c7eee2; color:#0b5147; }
+
+/* RIGHT: viz cards */
+.existing-drafts .panel--job .vis-wrap{ display:grid; gap:10px; }
+.existing-drafts .panel--job .vis-card{
+  background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px;
+}
+.existing-drafts .panel--job .vis-title{ font-weight:800; font-size:12px; color:#42545e; margin-bottom:6px; }
+.existing-drafts .panel--job .donut{ position:relative; width:120px; height:120px; margin:6px auto 2px; }
+.existing-drafts .panel--job .donut .trk{ fill:none; stroke:#e6eef4; stroke-width:14; stroke-linecap:round; }
+.existing-drafts .panel--job .donut .val{ fill:none; stroke:#30b39b; stroke-width:14; stroke-linecap:round; transition:stroke-dashoffset .35s ease; }
+.existing-drafts .panel--job .donut-label{ position:absolute; inset:0; display:grid; place-items:center; font-weight:800; color:#0b5147; }
+.existing-drafts .panel--job .barpair{ display:grid; grid-template-columns:120px 1fr auto; gap:8px; align-items:center; margin:6px 0; }
+.existing-drafts .panel--job .bar-label{ font-size:12px; color:#33434b; font-weight:700; white-space:nowrap; }
+.existing-drafts .panel--job .bar-track{ position:relative; height:10px; background:#f1f5f9; border-radius:6px; overflow:hidden; }
+.existing-drafts .panel--job .bar{ position:absolute; top:0; left:0; height:100%; border-radius:6px; }
+.existing-drafts .panel--job .bar.py{ background:#cfe0ff; }
+.existing-drafts .panel--job .bar.cy{ background:#bfeadf; mix-blend-mode:multiply; }
+.existing-drafts .panel--job .bar-vals{ display:flex; gap:6px; }
+.existing-drafts .panel--job .mini-pill{
+  font:700 11px/1 var(--sans, system-ui, sans-serif);
+  padding:4px 6px; border-radius:9999px; border:1px solid #e5e7eb; background:#fff; color:#2b3b43;
+}
+.existing-drafts .panel--job .mini-pill.py{ border-color:#cfe0ff; }
+.existing-drafts .panel--job .mini-pill.cy{ border-color:#c7eee2; }
+
+/* small screens — optional slight tighten */
+@media (max-width:1280px){
+  .existing-drafts .panel--job{ --stat-pill-w: 96px; }
+}
+
+/* ===== Split the panel into two columns (adds the top spacing you want) ===== */
+.existing-drafts .job-details-split{
+  display:grid;
+  grid-template-columns: 1fr 1fr;   /* half | half */
+  gap: 14px;
+
+  /* this creates the consistent space below Draft Narratives */
+  margin-top: 14px;
+}
+@media (max-width:1100px){
+  .existing-drafts .job-details-split{ grid-template-columns: 1fr; }
+}
+
+/* Right-hand tabbed panel container */
+.existing-drafts .panel--jobtabs{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+
+  /* ensure it aligns flush with the left panel top */
+  margin-top: 0;
+}
+
+/* Equal-width tab buttons (inactive = gray) */
+.existing-drafts .panel--jobtabs .tabbar{
+  display:grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-bottom:1px solid #e5e7eb;
+}
+.existing-drafts .panel--jobtabs .tab-btn{
+  appearance:none; border:none; background:#eef1f4; color:#4b5563;
+  font-weight:700; height:42px; cursor:pointer; padding:0 12px;
+  transition: background .15s ease, color .15s ease, box-shadow .15s ease;
+}
+.existing-drafts .panel--jobtabs .tab-btn:first-child{ border-top-left-radius:12px; }
+.existing-drafts .panel--jobtabs .tab-btn:last-child{  border-top-right-radius:12px; }
+.existing-drafts .panel--jobtabs .tab-btn:hover{ background:#e3e7ec; }
+.existing-drafts .panel--jobtabs .tab-btn.is-active{
+  background: var(--bmss-blue, #2c93ff);
+  color:#fff;
+  box-shadow: inset 0 -2px 0 rgba(0,0,0,.06);
+}
+
+/* Tab content area */
+.existing-drafts .panel--jobtabs .tab-body{ padding:12px; }
+.existing-drafts .panel--jobtabs .progress-pane{ display:grid; gap:10px; }
+@media (min-width:680px){
+  .existing-drafts .panel--jobtabs .progress-pane{ grid-template-columns: 1fr 1fr; }
+}
+
+/* Reuse card/viz styles inside the right panel */
+.existing-drafts .panel--jobtabs .vis-card{
+  background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px;
+}
+.existing-drafts .panel--jobtabs .vis-title{ font-weight:800; font-size:12px; color:#42545e; margin-bottom:6px; }
+
+.existing-drafts .panel--jobtabs .donut{ position:relative; width:140px; height:140px; margin:6px auto; }
+.existing-drafts .panel--jobtabs .donut .trk{ fill:none; stroke:#e6eef4; stroke-width:14; stroke-linecap:round; }
+.existing-drafts .panel--jobtabs .donut .val{ fill:none; stroke:#30b39b; stroke-width:14; stroke-linecap:round; }
+.existing-drafts .panel--jobtabs .donut-label{ position:absolute; inset:0; display:grid; place-items:center; font-weight:800; color:#0b5147; }
+
+.existing-drafts .panel--jobtabs .barpair{ display:grid; grid-template-columns:120px 1fr auto; gap:8px; align-items:center; margin:8px 0; }
+.existing-drafts .panel--jobtabs .bar-label{ font-size:12px; color:#33434b; font-weight:700; white-space:nowrap; }
+.existing-drafts .panel--jobtabs .bar-track{ position:relative; height:10px; background:#f1f5f9; border-radius:6px; overflow:hidden; }
+.existing-drafts .panel--jobtabs .bar{ position:absolute; top:0; left:0; height:100%; border-radius:6px; }
+.existing-drafts .panel--jobtabs .bar.py{ background:#cfe0ff; }
+.existing-drafts .panel--jobtabs .bar.cy{ background:#bfeadf; mix-blend-mode:multiply; }
+.existing-drafts .panel--jobtabs .bar-vals{ display:flex; gap:6px; }
+.existing-drafts .panel--jobtabs .mini-pill{
+  font:700 11px/1 var(--sans, system-ui, sans-serif);
+  padding:4px 6px; border-radius:9999px; border:1px solid #e5e7eb; background:#fff; color:#2b3b43;
+}
+.existing-drafts .panel--jobtabs .mini-pill.py{ border-color:#cfe0ff; }
+.existing-drafts .panel--jobtabs .mini-pill.cy{ border-color:#c7eee2; }
+
+.existing-drafts .panel--jobtabs .placeholder-pane .muted{ color:#6b7280; }
+
+/* A11y: hide-only utility if you don't already have one */
+.sr-only{
+  position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); border:0;
+}
+
+/* Brand gradient tokens (reuse sidebar colors) */
+.existing-drafts{
+  --tab-grad-start: #063941;
+  --tab-grad-end:   #547872;
+}
+
+/* Active tab = sidebar gradient */
+.existing-drafts .panel--jobtabs .tab-btn.is-active{
+  background: linear-gradient(135deg, var(--tab-grad-start), var(--tab-grad-end));
+  color:#fff;
+  border: 0;                                  /* cleaner edge on gradient */
+  box-shadow: inset 0 -2px 0 rgba(0,0,0,.06); /* keep subtle pressed feel */
+}
+
+/* Optional: focus/hover polish on active tab */
+.existing-drafts .panel--jobtabs .tab-btn.is-active:hover{
+  filter: brightness(1.02);
+}
+.existing-drafts .panel--jobtabs .tab-btn:focus-visible{
+  outline: 2px solid color-mix(in srgb, var(--tab-grad-end) 65%, #ffffff);
+  outline-offset: 2px;
+}
+
+/* Make the outer wrapper a single full-width column */
+.existing-drafts .job-details-split{
+  display: block;          /* was a 2-col grid; turn it into a simple block */
+  margin-top: 14px;
+}
+
+/* The blue panel already defines a 2-col grid in .panel--job .job-body.
+   This wrapper just ensures the right column behaves like a full-height card. */
+.existing-drafts .panel--job .job-right{
+  display: flex;
+  min-width: 0;            /* allows inner content to shrink properly */
+}
+
+/* When nested, keep the white card flush and flexible */
+.existing-drafts .panel--job .job-right .panel--jobtabs{
+  margin: 0;               /* remove any accidental offsets */
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.existing-drafts .panel--job .job-body{
+  grid-template-columns: var(--left-min) 1fr;        /* keep the flexible track */
+  column-gap: 18px;                                  /* optional: extra gutter */
+}
+
+.existing-drafts .panel--job .job-right{
+  width: clamp(540px, 48vw, 680px);                  /* ← tune these bounds */
+  margin-left: auto;                                  /* anchor to right side */
+}
+
+/* Estimate chip row height; tune this value */
+.existing-drafts .panel--job .job-right{ 
+  margin-top: -38px;           /* pull up to align with chips */
+}
+/* === Job Details: Pin control (top-right) === */
+.existing-drafts .panel--job { position: relative; }
+.existing-drafts .panel--job .pin-wrap{
+  position: absolute; top: 8px; right: 10px; z-index: 5;
+}
+
+/* Pill button with centered icon */
+.existing-drafts .panel--job .pin-toggle{
+  width: 30px; height: 30px; border-radius: 10px;
+  border: 1px solid #cfe2df; background: #f6fbfa;
+  display: grid; place-items: center; padding: 0; cursor: pointer;
+  color: #274c77;                         /* <-- icon color (deselected) */
+  box-shadow: 0 1px 0 rgba(0,0,0,.02);
+  transition: background .2s, border-color .2s, box-shadow .2s, transform .05s, color .2s;
+}
+.existing-drafts .panel--job .pin-toggle:hover{ box-shadow: 0 2px 6px rgba(0,0,0,.06); }
+.existing-drafts .panel--job .pin-toggle:active{ transform: translateY(1px); }
+.existing-drafts .panel--job .pin-toggle:focus-visible{
+  outline: 2px solid color-mix(in srgb, var(--tab-grad-end, #547872) 55%, #ffffff);
+  outline-offset: 2px;
+}
+
+/* Make SVGs inherit the button color (so we can turn them white) */
+.existing-drafts .panel--job .pin-toggle .ico { width: 18px; height: 18px; display:block; fill: currentColor; }
+.existing-drafts .panel--job .pin-toggle .pin-solid { display: none; }
+
+/* Selected state: use the Job Progress gradient + white icon */
+.existing-drafts .panel--job .pin-toggle.is-pinned{
+  background: linear-gradient(135deg, var(--tab-grad-start, #063941), var(--tab-grad-end, #547872));
+  border-color: transparent;
+  color: #fff;                            /* <-- turns icon white */
+}
+.existing-drafts .panel--job .pin-toggle.is-pinned .pin-outline{ display: none; }
+.existing-drafts .panel--job .pin-toggle.is-pinned .pin-solid{ display: block; }
+
+/* Disabled state for action buttons (keeps tooltip working) */
+.abandon-icon:disabled,
+.confirm-icon:disabled{
+  background: linear-gradient(135deg, #e5e7eb 0%, #cfd4da 100%) !important;
+  box-shadow: inset 0 1px 2px rgba(255,255,255,.65), 0 1px 2px rgba(0,0,0,.06) !important;
+  color: #9aa3ad !important;
+  cursor: not-allowed !important;
+  filter: saturate(0.2) brightness(0.98);
+  transform: none !important;                /* cancel hover/active transforms */
+}
+
+/* Keep them grey even when hovered/active */
+.abandon-icon:disabled:hover,
+.abandon-icon:disabled:active,
+.confirm-icon:disabled:hover,
+.confirm-icon:disabled:active{
+  box-shadow: inset 0 1px 2px rgba(255,255,255,.65), 0 1px 2px rgba(0,0,0,.06) !important;
+  transform: none !important;
+}
+
+/* Optional: slightly dim the glyphs when disabled */
+.abandon-icon:disabled svg,
+.confirm-icon:disabled svg{
+  opacity: .7;
+}
+
+/* Shrink ALL filter selects by 5px (keeps them equal) */
+.existing-drafts .filter-bar .role-select,
+.existing-drafts .filter-bar .pill-select{
+  /* Use your existing base width if defined; fall back to 220px */
+  --base-filter-width: var(--filter-pill-w, 220px);
+  width:     calc(var(--base-filter-width) - 10px) !important;
+  min-width: calc(var(--base-filter-width) - 10px) !important;
+  max-width: calc(var(--base-filter-width) - 10px) !important;
+}
+
+/* === Draft Link image — force a taller SVG in the main table === */
+.existing-drafts .rdt_TableCell .open-link-icon {
+  height: 38px !important;   /* increase the visible size */
+  width: auto !important;    /* keep the SVG’s aspect ratio */
+  max-height: none !important;
+  display: block;
+}
+
+/* Give the row a little more room so the taller icon isn’t squashed */
+.existing-drafts .rdt_TableRow {
+  min-height: 64px;          /* tweak to taste (56–68px) */
+}
