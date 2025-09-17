@@ -1212,3 +1212,25 @@
   opacity: .7;
 }
 
+/* Shrink ALL filter selects by 5px (keeps them equal) */
+.existing-drafts .filter-bar .role-select,
+.existing-drafts .filter-bar .pill-select{
+  /* Use your existing base width if defined; fall back to 220px */
+  --base-filter-width: var(--filter-pill-w, 220px);
+  width:     calc(var(--base-filter-width) - 10px) !important;
+  min-width: calc(var(--base-filter-width) - 10px) !important;
+  max-width: calc(var(--base-filter-width) - 10px) !important;
+}
+
+/* === Draft Link image — force a taller SVG in the main table === */
+.existing-drafts .rdt_TableCell .open-link-icon {
+  height: 38px !important;   /* increase the visible size */
+  width: auto !important;    /* keep the SVG’s aspect ratio */
+  max-height: none !important;
+  display: block;
+}
+
+/* Give the row a little more room so the taller icon isn’t squashed */
+.existing-drafts .rdt_TableRow {
+  min-height: 64px;          /* tweak to taste (56–68px) */
+}

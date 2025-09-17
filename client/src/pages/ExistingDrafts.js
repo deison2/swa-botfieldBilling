@@ -1172,7 +1172,7 @@ console.log('PDF header:', header);
             )}
           </div>
           {/* Jobs in Finalization */}
-          <div className="finalization-filter" style={{ marginLeft: 8 }}>
+          <div className="finalization-filter">
             <label className="sr-only" htmlFor="finalFilter">Jobs in Finalization</label>
             <select
               id="finalFilter"
