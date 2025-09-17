@@ -72,48 +72,51 @@ export const IconSearchOutline = ({ size=18, stroke=1.8 }) => (
 );
 
 function JobDetailsPanel({ details }) {
-  const [tab, setTab] = React.useState('progress'); // 'progress' | 'totals' | 'review'
+  // ===== Helpers =====
+  const getJobKey = (d = {}) =>
+    d.jobId || d.jobID || d.job?.Id || d.job?.JobId || d.job?.JobID || d.jobCode || d.job?.JobCode ||
+    `${d.clientCode ?? ""}|${d.jobTitle ?? ""}`; // fallback if no stable id
 
-  // === Pin state (locks the panel open and freezes its content) ===
-  const [pinned, setPinned] = React.useState(false);
+  // ===== Pinned stack + per-panel tabs =====
+  const [pinned, setPinned] = React.useState([]);     // [{ key, details }]
+  const [tabByKey, setTabByKey] = React.useState({}); // { [key]: 'progress'|'totals'|'review' }
 
-  // === Hover-lock + short grace for mouse travel ===
+  const isPinned = (key) => pinned.some(p => p.key === key);
+  const addPin    = (d) => setPinned(prev => isPinned(getJobKey(d)) ? prev : [...prev, { key: getJobKey(d), details: d }]);
+  const removePin = (key) => setPinned(prev => prev.filter(p => p.key !== key));
+  const setTabFor = (key, next) => setTabByKey(prev => ({ ...prev, [key]: next }));
+
+  // ===== Hover lock + grace for the ephemeral panel =====
   const [isHovering, setIsHovering] = React.useState(false);
   const [inGrace, setInGrace] = React.useState(false);
   const graceTimer = React.useRef(null);
   const GRACE_MS = 220;
 
-  // Keep the last non-null details, but do NOT update it while pinned.
-  const lastDetailsRef = React.useRef(details || null);
-  if (details && !pinned) lastDetailsRef.current = details;
+  // keep the last hovered details so we can render while hovering/grace
+  const lastHoverRef = React.useRef(details || null);
+  if (details) lastHoverRef.current = details;
 
   React.useEffect(() => {
-    // Only run grace logic when we're not pinned
-    if (pinned) {
-      clearTimeout(graceTimer.current);
-      setInGrace(false);
-      return;
-    }
+    clearTimeout(graceTimer.current);
     if (details) {
-      clearTimeout(graceTimer.current);
       setInGrace(false);
     } else {
-      clearTimeout(graceTimer.current);
       setInGrace(true);
       graceTimer.current = setTimeout(() => setInGrace(false), GRACE_MS);
     }
     return () => clearTimeout(graceTimer.current);
-  }, [details, pinned]);
+  }, [details]);
 
-  // Visible when (a) we have details, (b) hovering, (c) in grace, or (d) pinned.
-  const shouldRender = !!(details || isHovering || inGrace || pinned);
+  // While hovering OR in grace, keep showing the last hovered job
+  const hoverSource = details || ((isHovering || inGrace) ? lastHoverRef.current : null);
+
+  // Don't show ephemeral if it's already pinned
+  const pinnedKeys = React.useMemo(() => new Set(pinned.map(p => p.key)), [pinned]);
+  const ephemeral  = hoverSource && !pinnedKeys.has(getJobKey(hoverSource)) ? hoverSource : null;
+
+  // Hide the whole stack only if no pinned, no ephemeral, and not hovering/grace
+  const shouldRender = !!(pinned.length || ephemeral || isHovering || inGrace);
   if (!shouldRender) return null;
-
-  // Use frozen details while pinned; otherwise fall back to latest
-  const _details = pinned ? (lastDetailsRef.current || details) : (details || lastDetailsRef.current);
-  if (!_details) return null;
-
-  const j = (_details.job) || {};
 
   // ---------- formatters ----------
   const num   = v => (v == null ? '–' : Number(v).toLocaleString('en-US'));
@@ -184,134 +187,154 @@ function JobDetailsPanel({ details }) {
     );
   };
 
+  // ===== One reusable panel =====
+  const Panel = ({ data, pinned }) => {
+    const key = getJobKey(data);
+    const j = (data.job) || {};
+    const tab = tabByKey[key] || 'progress';
+    const setTab = (t) => setTabFor(key, t);
+
+    return (
+      <div className="job-details-split">
+        <section className="panel panel--job">
+          {/* Pin control */}
+          <div className="pin-wrap">
+            <button
+              className={`pin-toggle ${pinned ? 'is-pinned' : ''}`}
+              aria-pressed={pinned}
+              onClick={() => (pinned ? removePin(key) : addPin(data))}
+              title={pinned ? 'Unpin' : 'Pin'}
+            >
+              {/* bi-pin (outline) */}
+              <svg className="ico pin-outline" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                <path d="M4.146.146A.5.5 0 0 1 4.5 0h7a.5.5 0 0 1 .5.5c0 .68-.342 1.174-.646 1.479-.126.125-.25.224-.354.298v4.431l.078.048c.203.127.476.314.751.555C12.36 7.775 13 8.527 13 9.5a.5.5 0 0 1-.5.5h-4v4.5c0 .276-.224 1.5-.5 1.5s-.5-1.224-.5-1.5V10h-4a.5.5 0 0 1-.5-.5c0-.973.64-1.725 1.17-2.189A5.921 5.921 0 0 1 5 6.708V2.277a2.77 2.77 0 0 1-.354-.298C4.342 1.674 4 1.179 4 .5a.5.5 0 0 1 .146-.354z"/>
+              </svg>
+              {/* bi-pin-fill (solid) */}
+              <svg className="ico pin-solid" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                <path d="M4.146.146A.5.5 0 0 1 4.5 0h7a.5.5 0 0 1 .5.5c0 .68-.342 1.174-.646 1.479-.126.125-.25.224-.354.298v4.431l.078.048c.203.127.476.314.751.555C12.36 7.775 13 8.527 13 9.5a.5.5 0 0 1-.5.5h-4v4.5c0 .276-.224 1.5-.5 1.5s-.5-1.224-.5-1.5V10h-4a.5.5 0 0 1-.5-.5c0-.973.64-1.725 1.17-2.189A5.921 5.921 0 0 1 5 6.708V2.277a2.77 2.77 0 0 1-.354-.298C4.342 1.674 4 1.179 4 .5a.5.5 0 0 1 .146-.354z"/>
+              </svg>
+            </button>
+          </div>
+
+          <div className="panel__title">Job Details</div>
+
+          <div className="job-header">
+            <span
+              className="chip job-id"
+              title={`${data.clientCode} ${data.clientName}`}
+              data-tooltip={`${data.clientCode} ${data.clientName}`}
+            >
+              {data.clientCode} {data.clientName}
+            </span>
+            <span
+              className="chip job-chip"
+              title={data.jobTitle}
+              data-tooltip={data.jobTitle}
+            >
+              {data.jobTitle || '—'}
+            </span>
+          </div>
+
+          {/* Two-column grid inside the blue panel */}
+          <div className="job-body">
+            {/* LEFT: fixed stats column */}
+            <div className="stat-list">
+              <Row label="Hours"            py={j.PYHours}           cy={j.CYHours}           kind="num" />
+              <Row label="WIP Time"         py={j.PYWIPTime}         cy={j.CYWIPTime}         kind="money" />
+              <Row label="WIP Exp"          py={j.PYWIPExp}          cy={j.CYWIPExp}          kind="money" />
+              <Row label="Billed"           py={j.PYBilled}          cy={j.CYBilled}          kind="money" />
+              <Row label="Realization"      py={j.PYRealization}     cy={j.CYRealization}     kind="pct" />
+              <Row label="WIP Outstanding"  py={j.PYWIPOutstanding}  cy={j.CYWIPOutstanding}  kind="money" />
+            </div>
+
+            {/* RIGHT: white tabbed panel now nested inside the blue */}
+            <div className="job-right">
+              <section className="panel panel--jobtabs" aria-labelledby="jobtabs-title">
+                <div id="jobtabs-title" className="sr-only">Job sub-sections</div>
+
+                <div className="tabbar" role="tablist" aria-label="Job sub-sections">
+                  <button
+                    role="tab"
+                    aria-selected={tab === 'progress'}
+                    className={`tab-btn ${tab === 'progress' ? 'is-active' : ''}`}
+                    onClick={() => setTab('progress')}
+                  >
+                    Job Progress
+                  </button>
+                  <button
+                    role="tab"
+                    aria-selected={tab === 'totals'}
+                    className={`tab-btn ${tab === 'totals' ? 'is-active' : ''}`}
+                    onClick={() => setTab('totals')}
+                  >
+                    Totals by Invoice Line
+                  </button>
+                  <button
+                    role="tab"
+                    aria-selected={tab === 'review'}
+                    className={`tab-btn ${tab === 'review' ? 'is-active' : ''}`}
+                    onClick={() => setTab('review')}
+                  >
+                    Invoice Review
+                  </button>
+                </div>
+
+                <div className="tab-body">
+                  {tab === 'progress' && (
+                    <div className="progress-pane">
+                      <div className="vis-card">
+                        <div className="vis-title">CY Realization</div>
+                        <Donut value={parsePctNum(j.CYRealization)} />
+                      </div>
+                      <div className="vis-card">
+                        <div className="vis-title">Money Snapshot</div>
+                        <BarPair label="WIP Time"        py={j.PYWIPTime}        cy={j.CYWIPTime} />
+                        <BarPair label="WIP Exp"         py={j.PYWIPExp}         cy={j.CYWIPExp} />
+                        <BarPair label="Billed"          py={j.PYBilled}         cy={j.CYBilled} />
+                        <BarPair label="WIP Outstanding" py={j.PYWIPOutstanding} cy={j.CYWIPOutstanding} />
+                      </div>
+                    </div>
+                  )}
+
+                  {tab === 'totals' && (
+                    <div className="placeholder-pane">
+                      <div className="vis-card">
+                        <div className="vis-title">Totals by Invoice Line</div>
+                        <p className="muted">Stubbed table goes here.</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {tab === 'review' && (
+                    <div className="placeholder-pane">
+                      <div className="vis-card">
+                        <div className="vis-title">Invoice Review</div>
+                        <p className="muted">Review/approve UI placeholder.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </section>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  };
+
+  // ===== Render: all pinned panels, then the ephemeral one (if any) =====
   return (
-    <div className="job-details-split">
-      <section
-        className="panel panel--job"
-        onMouseEnter={() => setIsHovering(true)}
-        onMouseLeave={() => setIsHovering(false)}
-      >
-        {/* Pin control: locks open + freezes content */}
-        <div className="pin-wrap">
-          <button
-            className={`pin-toggle ${pinned ? 'is-pinned' : ''}`}
-            aria-pressed={pinned}
-            onClick={() => setPinned(p => !p)}
-            title={pinned ? 'Unpin' : 'Pin'}
-          >
-            {/* Bootstrap Icons: pin (outline) */}
-            <svg className="ico pin-outline" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-              <path d="M4.146.146A.5.5 0 0 1 4.5 0h7a.5.5 0 0 1 .5.5c0 .68-.342 1.174-.646 1.479-.126.125-.25.224-.354.298v4.431l.078.048c.203.127.476.314.751.555C12.36 7.775 13 8.527 13 9.5a.5.5 0 0 1-.5.5h-4v4.5c0 .276-.224 1.5-.5 1.5s-.5-1.224-.5-1.5V10h-4a.5.5 0 0 1-.5-.5c0-.973.64-1.725 1.17-2.189A5.921 5.921 0 0 1 5 6.708V2.277a2.77 2.77 0 0 1-.354-.298C4.342 1.674 4 1.179 4 .5a.5.5 0 0 1 .146-.354z"/>
-            </svg>
-            {/* Bootstrap Icons: pin-fill (solid) */}
-            <svg className="ico pin-solid" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-              <path d="M4.146.146A.5.5 0 0 1 4.5 0h7a.5.5 0 0 1 .5.5c0 .68-.342 1.174-.646 1.479-.126.125-.25.224-.354.298v4.431l.078.048c.203.127.476.314.751.555C12.36 7.775 13 8.527 13 9.5a.5.5 0 0 1-.5.5h-4v4.5c0 .276-.224 1.5-.5 1.5s-.5-1.224-.5-1.5V10h-4a.5.5 0 0 1-.5-.5c0-.973.64-1.725 1.17-2.189A5.921 5.921 0 0 1 5 6.708V2.277a2.77 2.77 0 0 1-.354-.298C4.342 1.674 4 1.179 4 .5a.5.5 0 0 1 .146-.354z"/>
-            </svg>
-          </button>
-        </div>
-
-        <div className="panel__title">Job Details</div>
-
-        <div className="job-header">
-          <span
-            className="chip job-id"
-            title={`${_details.clientCode} ${_details.clientName}`}
-            data-tooltip={`${_details.clientCode} ${_details.clientName}`}
-          >
-            {_details.clientCode} {_details.clientName}
-          </span>
-          <span
-            className="chip job-chip"
-            title={_details.jobTitle}
-            data-tooltip={_details.jobTitle}
-          >
-            {_details.jobTitle || '—'}
-          </span>
-        </div>
-
-        {/* Two-column grid inside the blue panel */}
-        <div className="job-body">
-          {/* LEFT: fixed stats column */}
-          <div className="stat-list">
-            <Row label="Hours"            py={j.PYHours}           cy={j.CYHours}           kind="num" />
-            <Row label="WIP Time"         py={j.PYWIPTime}         cy={j.CYWIPTime}         kind="money" />
-            <Row label="WIP Exp"          py={j.PYWIPExp}          cy={j.CYWIPExp}          kind="money" />
-            <Row label="Billed"           py={j.PYBilled}          cy={j.CYBilled}          kind="money" />
-            <Row label="Realization"      py={j.PYRealization}     cy={j.CYRealization}     kind="pct" />
-            <Row label="WIP Outstanding"  py={j.PYWIPOutstanding}  cy={j.CYWIPOutstanding}  kind="money" />
-          </div>
-
-          {/* RIGHT: white tabbed panel now nested inside the blue */}
-          <div className="job-right">
-            <section className="panel panel--jobtabs" aria-labelledby="jobtabs-title">
-              <div id="jobtabs-title" className="sr-only">Job sub-sections</div>
-
-              <div className="tabbar" role="tablist" aria-label="Job sub-sections">
-                <button
-                  role="tab"
-                  aria-selected={tab === 'progress'}
-                  className={`tab-btn ${tab === 'progress' ? 'is-active' : ''}`}
-                  onClick={() => setTab('progress')}
-                >
-                  Job Progress
-                </button>
-                <button
-                  role="tab"
-                  aria-selected={tab === 'totals'}
-                  className={`tab-btn ${tab === 'totals' ? 'is-active' : ''}`}
-                  onClick={() => setTab('totals')}
-                >
-                  Totals by Invoice Line
-                </button>
-                <button
-                  role="tab"
-                  aria-selected={tab === 'review'}
-                  className={`tab-btn ${tab === 'review' ? 'is-active' : ''}`}
-                  onClick={() => setTab('review')}
-                >
-                  Invoice Review
-                </button>
-              </div>
-
-              <div className="tab-body">
-                {tab === 'progress' && (
-                  <div className="progress-pane">
-                    <div className="vis-card">
-                      <div className="vis-title">CY Realization</div>
-                      <Donut value={parsePctNum(j.CYRealization)} />
-                    </div>
-                    <div className="vis-card">
-                      <div className="vis-title">Money Snapshot</div>
-                      <BarPair label="WIP Time"        py={j.PYWIPTime}        cy={j.CYWIPTime} />
-                      <BarPair label="WIP Exp"         py={j.PYWIPExp}         cy={j.CYWIPExp} />
-                      <BarPair label="Billed"          py={j.PYBilled}         cy={j.CYBilled} />
-                      <BarPair label="WIP Outstanding" py={j.PYWIPOutstanding} cy={j.CYWIPOutstanding} />
-                    </div>
-                  </div>
-                )}
-
-                {tab === 'totals' && (
-                  <div className="placeholder-pane">
-                    <div className="vis-card">
-                      <div className="vis-title">Totals by Invoice Line</div>
-                      <p className="muted">Stubbed table goes here.</p>
-                    </div>
-                  </div>
-                )}
-
-                {tab === 'review' && (
-                  <div className="placeholder-pane">
-                    <div className="vis-card">
-                      <div className="vis-title">Invoice Review</div>
-                      <p className="muted">Review/approve UI placeholder.</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </section>
-          </div>
-        </div>
-      </section>
+    <div
+      className="job-details-stack"
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
+    >
+      {pinned.map(p => (
+        <Panel key={`pinned:${p.key}`} data={p.details} pinned />
+      ))}
+      {ephemeral && (
+        <Panel key={`hover:${getJobKey(ephemeral)}`} data={ephemeral} pinned={false} />
+      )}
     </div>
   );
 }
