@@ -884,6 +884,26 @@ const Expandable = ({ data }) => {
     hideTimer.current = setTimeout(() => setActiveDetails(null), 160);
   };
 
+  // NOTE POPUP (hover)
+  const [showNotes, setShowNotes] = React.useState(false);
+  const notesTimer = React.useRef(null);
+  const openNotes  = () => { if (notesTimer.current) clearTimeout(notesTimer.current); setShowNotes(true); };
+  const closeNotes = () => {
+    if (notesTimer.current) clearTimeout(notesTimer.current);
+    // small delay to allow cursor to move from icon → popover without flicker
+    notesTimer.current = setTimeout(() => setShowNotes(false), 120);
+  };
+
+  // Resolve Draft Notes once per Expanded group
+  const draftNotes = React.useMemo(() => {
+    if (data?.DRAFTNOTES && String(data.DRAFTNOTES).trim()) return String(data.DRAFTNOTES);
+    // fallback: first non-empty notes from detail rows (if present)
+    const fromDetail = (data?.DRAFTDETAIL || [])
+      .map(r => r?.DRAFTNOTES)
+      .find(t => t && String(t).trim());
+    return fromDetail ? String(fromDetail) : '';
+  }, [data]);
+
   // unique narratives
   const uniqueNarratives = Array.from(
     new Map((data.NARRATIVEDETAIL ?? []).map(n => [n.DEBTNARRINDEX, n])).values()
@@ -932,7 +952,46 @@ const Expandable = ({ data }) => {
 
       {/* Panel 1: Draft WIP Analysis */}
       <div className="panel panel--draft">
-        <div className="panel__title">Draft WIP Analysis</div>
+        <div className="panel__title-row">
+          <div className="panel__title">Draft WIP Analysis</div>
+
+          {/* Notes icon + hover popover */}
+          <div
+            className="notes-wrap"
+            onMouseEnter={openNotes}
+            onMouseLeave={closeNotes}
+          >
+            <button
+              type="button"
+              className="notes-trigger bare"
+              aria-haspopup="dialog"
+              aria-expanded={showNotes}
+              title="View draft notes"
+            >
+              {/* Your hosted SVG — no circle, exactly as stored */}
+              <img
+                src="https://storageacctbmssprod001.blob.core.windows.net/container-bmssprod001-public/images/SpeechBubble.svg"
+                alt="Draft notes"
+                className="notes-icon"
+                width="22"
+                height="22"
+                draggable="false"
+              />
+            </button>
+
+            {showNotes && (
+              <div className="note-popover" role="dialog" aria-label="Draft Notes">
+                <div className="note-head">Draft Notes</div>
+                <div className="note-body">
+                  {draftNotes
+                    ? draftNotes.split(/\r?\n/).map((line, i) => <p key={i}>{line}</p>)
+                    : <p className="muted">No notes on this draft.</p>}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className="table-wrap">
           <table className="mini-table mini-table--tight existing-drafts">
             {/* lock widths so drill aligns perfectly */}
