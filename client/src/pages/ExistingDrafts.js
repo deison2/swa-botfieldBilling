@@ -9,6 +9,8 @@ import TopBar           from '../components/TopBar';
 import GeneralDataTable from '../components/DataTable';
 
 import sampleDrafts     from '../devSampleData/sampleExistingDrafts.json';
+import { GetGranularWIPData } from '../services/ExistingDraftsService';
+
 import { useAuth }      from '../auth/AuthContext';
 import './ExistingDrafts.css';
 //import { getJobDetails } from '../services/PE - Get Job Details'; // Used for PE API config testing purposes
@@ -71,7 +73,7 @@ export const IconSearchOutline = ({ size=18, stroke=1.8 }) => (
   </svg>
 );
 
-function JobDetailsPanel({ details }) {
+function JobDetailsPanel({ details, pinRequest }) {
   // ===== Helpers =====
   const getJobKey = (d = {}) =>
     d.jobId || d.jobID || d.job?.Id || d.job?.JobId || d.job?.JobID || d.jobCode || d.job?.JobCode ||
@@ -95,6 +97,13 @@ function JobDetailsPanel({ details }) {
   // keep the last hovered details so we can render while hovering/grace
   const lastHoverRef = React.useRef(details || null);
   if (details) lastHoverRef.current = details;
+
+  React.useEffect(() => {
+    if (pinRequest) {
+      addPin(pinRequest);          // stick it
+    }
+  }, [pinRequest]);                 // runs only when a new request arrives
+
 
   React.useEffect(() => {
     clearTimeout(graceTimer.current);
@@ -369,9 +378,10 @@ export default function ExistingDrafts() {
       const iso = toIsoYmd(bt);
 
       // 2) Fetch data with billThroughDate in body
-      const [dRes, gRes] = await Promise.allSettled([
+      const [dRes, gRes, wipRes] = await Promise.allSettled([
         GetDrafts(iso),
         GetGranularJobData(iso),
+        GetGranularWIPData(),
       ]);
       if (cancelled) return;
 
@@ -383,6 +393,9 @@ export default function ExistingDrafts() {
 
       if (gRes.status === 'fulfilled') setGranularData(Array.isArray(gRes.value) ? gRes.value : []);
       else console.error('GetGranularJobData failed:', gRes.reason);
+
+      if (wipRes.status === 'fulfilled') setGranularWip(Array.isArray(wipRes.value) ? wipRes.value : []);
+       else console.error('GetGranularWIPData failed:', wipRes.reason);
     } finally {
       if (!cancelled) setLoading(false);
     }
@@ -401,7 +414,20 @@ export default function ExistingDrafts() {
   /* ── RAW DATA  (dev stub) ───────────────────────────────────── */
   const [rawRows, setRawRows] = useState([]);
   const [granularData, setGranularData] = useState([]);
+  const [granularWip, setGranularWip]   = useState([]); // <<< live WIP rows (staff/task-level)
   const [loading, setLoading] = useState(false);
+
+  const wipByDraftJob = useMemo(() => {
+    const m = new Map();
+    for (const r of granularWip) {
+      // normalize keys: payload might send numbers as strings
+      const key = `${Number(r.DraftFeeIdx)}|${Number(r.Job_Idx)}`;
+      if (!m.has(key)) m.set(key, []);
+      m.get(key).push(r);
+    }
+    return m;
+  }, [granularWip]);
+
 
   /* >>> selection-state (NEW) >>> */
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -781,8 +807,7 @@ function JobHoverMatrix({ job }) {
   );
 }
 
-function DraftRow({ d, client, granData, onHover, onLeave }) {
-  // assemble payload when user hovers the magnifier
+function DraftRow({ d, client, granData, onHover, onLeave, onPin, expanded, onToggleExpand }) {
   const payload = {
     clientCode : client.code,
     clientName : client.name,
@@ -790,24 +815,39 @@ function DraftRow({ d, client, granData, onHover, onLeave }) {
     job        : Array.isArray(granData) ? granData[0] : undefined
   };
 
+  const rowKey = `${d.DRAFTFEEIDX}-${d.SERVPERIOD}-${d.CONTINDEX}`;
+
   return (
-    <tr key={`${d.DRAFTFEEIDX}-${d.SERVPERIOD}-${d.CONTINDEX}`}
-        style={d.finalCheck === 'X' ? {color: 'red'} : undefined}>
+    <tr key={rowKey} style={d.finalCheck === 'X' ? { color: 'red' } : undefined}>
       <td className="icon-cell">
-        <button
-          type="button"
-          className="icon-btn zoom-in"
-          title="View job details"
-          onMouseEnter={() => onHover && onHover(payload)}
-          onMouseLeave={() => onLeave && onLeave()}
-          aria-label="View job details"
-        >
-          {/* simple magnifier SVG that matches your UI */}
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="11" cy="11" r="7"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-        </button>
+        <div className="icon-stack">
+          {/* zoom = ONLY for Job Details hover */}
+          <button
+            type="button"
+            className="icon-btn zoom-in"
+            title="View job details"
+            onMouseEnter={() => onHover && onHover(payload)}
+            onMouseLeave={() => onLeave && onLeave()}
+            onClick={() => onPin && onPin(payload)}
+            aria-label="View job details"
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="7"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </button>
+
+          {/* expand/collapse = toggles drilldown */}
+          <button
+            type="button"
+            className="icon-btn expand-btn"
+            title={expanded ? 'Collapse' : 'Expand'}
+            aria-expanded={!!expanded}
+            onClick={() => onToggleExpand && onToggleExpand(rowKey)}
+          >
+            {expanded ? '−' : '+'}
+          </button>
+        </div>
       </td>
 
       <td>{client.code}</td>
@@ -823,119 +863,236 @@ function DraftRow({ d, client, granData, onHover, onLeave }) {
 }
 
   /* ── EXPANDABLE row render ────────────────────────────────── */
-  const Expandable = ({ data }) => {
-    // NEW: manage which row’s job details are shown
-    const [activeDetails, setActiveDetails] = React.useState(null);
-    const hideTimer = React.useRef(null);
+const Expandable = ({ data }) => {
+  const [activeDetails, setActiveDetails] = React.useState(null);
+  const hideTimer = React.useRef(null);
 
-    const showDetails = (p) => {
-      if (hideTimer.current) clearTimeout(hideTimer.current);
-      setActiveDetails(p);
-    };
-    const delayHide = () => {
-      if (hideTimer.current) clearTimeout(hideTimer.current);
-      hideTimer.current = setTimeout(() => setActiveDetails(null), 160); // small grace to move cursor
-    };
+  // open/close per-row and mode per-row
+  const [openRows, setOpenRows] = React.useState({});      // { [rowKey]: true }
+  const [modeByRow, setModeByRow] = React.useState({});    // { [rowKey]: 'staff' | 'task' }
+  const [pinRequest, setPinRequest] = React.useState(null);
 
-    const uniqueNarratives = Array.from(
-      new Map(data.NARRATIVEDETAIL.map(n => [n.DEBTNARRINDEX, n])).values()
+  const toggleOpen = (key) => setOpenRows(prev => ({ ...prev, [key]: !prev[key] }));
+  const setModeFor = (key, mode) => setModeByRow(prev => ({ ...prev, [key]: mode }));
+
+  const showDetails = (p) => {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    setActiveDetails(p);
+  };
+  const delayHide = () => {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    hideTimer.current = setTimeout(() => setActiveDetails(null), 160);
+  };
+
+  // unique narratives
+  const uniqueNarratives = Array.from(
+    new Map((data.NARRATIVEDETAIL ?? []).map(n => [n.DEBTNARRINDEX, n])).values()
+  );
+
+  // sort rows: Code → Job → ServicePeriod
+  const rows = (data.DRAFTDETAIL ?? []).toSorted((a, b) => {
+    const ac = (data.codeMap[a.CONTINDEX]?.code ?? "").toString().trim();
+    const bc = (data.codeMap[b.CONTINDEX]?.code ?? "").toString().trim();
+    if (ac !== bc) {
+      if (!ac) return 1; if (!bc) return -1;
+      return ac.localeCompare(bc, undefined, { numeric: true, sensitivity: "base" });
+    }
+    const aj = (a.JOBTITLE ?? "").toString().trim();
+    const bj = (b.JOBTITLE ?? "").toString().trim();
+    if (aj !== bj) {
+      if (!aj) return 1; if (!bj) return -1;
+      return aj.localeCompare(bj, undefined, { numeric: true, sensitivity: "base" });
+    }
+    return String(a.SERVPERIOD ?? "").localeCompare(
+      String(b.SERVPERIOD ?? ""), undefined, { numeric: true, sensitivity: "base" }
     );
+  });
 
-    const rows = (data.DRAFTDETAIL ?? []).toSorted((a, b) => {
-      const ac = (data.codeMap[a.CONTINDEX]?.code ?? "").toString().trim();
-      const bc = (data.codeMap[b.CONTINDEX]?.code ?? "").toString().trim();
-
-      if (ac !== bc) {
-        if (!ac) return 1;
-        if (!bc) return -1;
-        return ac.localeCompare(bc, undefined, { numeric: true, sensitivity: "base" });
-      }
-      const aj = (a.JOBTITLE ?? "").toString().trim();
-      const bj = (b.JOBTITLE ?? "").toString().trim();
-      if (aj !== bj) {
-        if (!aj) return 1;
-        if (!bj) return -1;
-        return aj.localeCompare(bj, undefined, { numeric: true, sensitivity: "base" });
-      }
-      return String(a.SERVPERIOD ?? "").localeCompare(
-        String(b.SERVPERIOD ?? ""), undefined, { numeric: true, sensitivity: "base" }
-      );
+  // helper: aggregate Hours, WIP, Bill, Woff by Staff or Task
+  const aggregate = (rows, by) => {
+    const keyOf = (r) => by === 'task' ? (r.Task_Subject || '—') : (r.StaffName || '—');
+    const map = new Map();
+    rows.forEach(r => {
+      const k = keyOf(r);
+      const prev = map.get(k) || { hours:0, wip:0, bill:0, woff:0 };
+      map.set(k, {
+        hours: prev.hours + (+r.WIPHours   || 0),
+        wip:   prev.wip   + (+r.WIPAmount  || 0),
+        bill:  prev.bill  + (+r.BillAmount || 0),
+        woff:  prev.woff  + (+r.BillWoff   || 0),
+      });
     });
+    return [...map.entries()]
+      .map(([label, v]) => ({ label, ...v }))
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric:true, sensitivity:'base' }));
+  };
 
-    return (
-      <div className="expanded-content">
+  return (
+    <div className="expanded-content">
 
-        {/* Panel 1: Draft WIP Analysis */}
-        <div className="panel panel--draft">
-          <div className="panel__title">Draft WIP Analysis</div>
-          <div className="table-wrap">
-            <table className="mini-table mini-table--tight">
-              <thead>
-                <tr>
-                  <th style={{width:36}}></th>
-                  <th>Client Code</th>
-                  <th>Client Name</th>
-                  <th>Service</th>
-                  <th>Type</th>
-                  <th>Job</th>
-                  <th>Draft WIP</th>
-                  <th>Draft Amt</th>
-                  <th>Write-Off</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map(d => {
-                  const client = data.codeMap[d.CONTINDEX] || {};
-                  const granData = (Array.isArray(data.NARRATIVEDETAIL) ? [] : []);
-                  // you already had this line; preserved:
-                  const g = granularData.filter(x => Number(x.Job_Idx) === Number(d.SERVPERIOD));
+      {/* Panel 1: Draft WIP Analysis */}
+      <div className="panel panel--draft">
+        <div className="panel__title">Draft WIP Analysis</div>
+        <div className="table-wrap">
+          <table className="mini-table mini-table--tight existing-drafts">
+            {/* lock widths so drill aligns perfectly */}
+            <colgroup>
+              <col style={{ width: 64 }} />            {/* icon */}
+              <col /><col /><col /><col /><col />      {/* code | name | service | type | job */}
+              <col className="col-money" />            {/* Draft WIP */}
+              <col className="col-money" />            {/* Draft Amt */}
+              <col className="col-money" />            {/* Write-Off */}
+            </colgroup>
 
-                  return (
+            <thead>
+              <tr>
+                <th></th>
+                <th>Client Code</th>
+                <th>Client Name</th>
+                <th>Service</th>
+                <th>Type</th>
+                <th>Job</th>
+                <th>Draft WIP</th>
+                <th>Draft Amt</th>
+                <th>Write-Off</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {rows.map(d => {
+                const client = data.codeMap[d.CONTINDEX] || {};
+                const g = granularData.filter(x => Number(x.Job_Idx) === Number(d.SERVPERIOD));
+
+                const rowKey = `${d.DRAFTFEEIDX}-${d.SERVPERIOD}-${d.CONTINDEX}`;
+                const expanded = !!openRows[rowKey];
+                const mode = modeByRow[rowKey] || 'staff';
+
+                 // LIVE granular rows for this Draft + Job
+                const wipKey   = `${Number(d.DRAFTFEEIDX)}|${Number(d.SERVPERIOD)}`;
+                const wipRows  = wipByDraftJob.get(wipKey) || [];
+                const grouped  = aggregate(wipRows, mode);
+
+                return (
+                  <React.Fragment key={rowKey}>
                     <DraftRow
-                      key={`${d.DRAFTFEEIDX}-${d.SERVPERIOD}-${d.CONTINDEX}`}
                       d={d}
                       client={client}
                       granData={g}
                       onHover={showDetails}
                       onLeave={delayHide}
+                      onPin={(p) => setPinRequest(p)}
+                      expanded={expanded}
+                      onToggleExpand={toggleOpen}
                     />
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
 
-        {/* Panel 2: Draft Narratives */}
-        <div className="panel panel--narrative">
-          <div className="panel__title">Draft Narratives</div>
-          <div className="table-wrap">
-            <table className="mini-table mini-table--tight">
-              <thead>
-                <tr><th>Narrative</th><th>Service</th><th>Amount</th></tr>
-              </thead>
-              <tbody>
-                {uniqueNarratives.map(n => (
-                  <tr key={n.DEBTNARRINDEX}>
-                    <td dangerouslySetInnerHTML={{ __html:n.FEENARRATIVE }} />
-                    <td>{n.SERVINDEX}</td>
-                    <td>{currency(n.AMOUNT)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                    {expanded && (
+                      <>
+                        {/* TOGGLE ROW ONLY (white pills) */}
+                        <tr className="drill-subhead">
+                          <td colSpan={9}>
+                            <div className="seg-toggle" role="tablist" aria-label="Breakdown mode">
+                              <button
+                                type="button"
+                                role="tab"
+                                aria-selected={mode === 'staff'}
+                                className={`seg-btn ${mode === 'staff' ? 'is-active' : ''}`}
+                                onClick={() => setModeFor(rowKey, 'staff')}
+                              >
+                                By Staff
+                              </button>
+                              <button
+                                type="button"
+                                role="tab"
+                                aria-selected={mode === 'task'}
+                                className={`seg-btn ${mode === 'task' ? 'is-active' : ''}`}
+                                onClick={() => setModeFor(rowKey, 'task')}
+                              >
+                                By Task
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
 
-        {/* Panel 3: Job Details (appears when hovering the magnifier) */}
-        <JobDetailsPanel
-          details={activeDetails}
-          onMouseEnter={() => { if (hideTimer.current) clearTimeout(hideTimer.current); }}
-          onMouseLeave={delayHide}
-        />
+                        {/* HEADER ROW (labels only — aligns with data cells) */}
+                        <tr className="drill-head-row">
+                          <td colSpan={6}>
+                            <div className="drill-subhead-grid">
+                              <span className="hdr-left">{mode === 'task' ? 'Task Name' : 'Staff Name'}</span>
+                              <span className="hdr-hours">Hours</span>
+                            </div>
+                          </td>
+                          <td className="th-like num">Draft WIP</td>
+                          <td className="th-like num">Draft Amt</td>
+                          <td className="th-like num">Write-Off</td>
+                        </tr>
+
+                        {/* DATA ROWS */}
+                        {grouped.length === 0 ? (
+                          <tr className="drill-item">
+                            <td colSpan={6} className="muted">No granular rows for this draft.</td>
+                            <td className="num"></td>
+                            <td className="num"></td>
+                            <td className="num"></td>
+                          </tr>
+                        ) : (
+                          grouped.map(r => (
+                            <tr key={r.label} className="drill-item">
+                              <td colSpan={6}>
+                                <div className="row-left">
+                                  <span className="lbl">{r.label}</span>
+                                  <span className="hrs">{r.hours.toFixed(2)}</span>
+                                </div>
+                              </td>
+                              <td className="num">{currency(r.wip)}</td>
+                              <td className="num">{currency(r.bill)}</td>
+                              <td className="num">{currency(r.woff)}</td>
+                            </tr>
+                          ))
+                        )}
+
+                        {/* bumper */}
+                        <tr className="drill-bumper"><td colSpan={9} /></tr>
+                      </>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
-    );
-  };
+
+      {/* Panel 2: Draft Narratives */}
+      <div className="panel panel--narrative">
+        <div className="panel__title">Draft Narratives</div>
+        <div className="table-wrap">
+          <table className="mini-table mini-table--tight">
+            <thead>
+              <tr><th>Narrative</th><th>Service</th><th>Amount</th></tr>
+            </thead>
+            <tbody>
+              {uniqueNarratives.map(n => (
+                <tr key={n.DEBTNARRINDEX}>
+                  <td dangerouslySetInnerHTML={{ __html:n.FEENARRATIVE }} />
+                  <td>{n.SERVINDEX}</td>
+                  <td>{currency(n.AMOUNT)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Panel 3: Job Details (hover from magnifier) */}
+      <JobDetailsPanel
+        details={activeDetails}
+        pinRequest={pinRequest}
+        onMouseEnter={() => { if (hideTimer.current) clearTimeout(hideTimer.current); }}
+        onMouseLeave={delayHide}
+      />
+    </div>
+  );
+};
 
   
 
@@ -1269,9 +1426,10 @@ console.log('PDF header:', header);
                       setBtMonth(new Date(picked.getFullYear(), picked.getMonth(), 1));
                       setBtOpen(false);
                       // (c) refresh data using the new ISO date
-                      const [dRes, gRes] = await Promise.allSettled([
+                      const [dRes, gRes, wipRes] = await Promise.allSettled([
                         GetDrafts(iso),
                         GetGranularJobData(iso),
+                        GetGranularWIPData(),
                       ]);
                       if (dRes.status === 'fulfilled') setRawRows(Array.isArray(dRes.value) ? dRes.value : []);
                       else console.error('GetDrafts failed after bill-through change:', dRes.reason);
