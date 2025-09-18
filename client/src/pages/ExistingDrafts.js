@@ -21,7 +21,8 @@ import {
   GetDrafts,
   GetGranularJobData,
   GetBillThroughBlob,
-  SetBillThroughBlob
+  SetBillThroughBlob,
+  GetInvoiceLineItems
 } from '../services/ExistingDraftsService';
 
 import Loader           from '../components/Loader';
@@ -343,31 +344,51 @@ function JobDetailsPanel({ details, pinRequest }) {
       return;
     }
     setLoading(true);
-    const t = setTimeout(() => {
-      const start = parseYmdLocal(toIsoYmd(startDate));
-      const end   = parseYmdLocal(toIsoYmd(endDate));
+    let cancelled = false;
+    (async () => {
+      try {
+        const dateRange = `'${toIsoYmd(startDate)}' and '${toIsoYmd(endDate)}'`;
+        const apiRows = await GetInvoiceLineItems({ clientCode, dateRange });
 
-      const filtered = (sampleInvoiceLineItems || [])
-        .filter(r => String(f(r, 'ClientCode')) === String(clientCode))
-        .filter(r => {
-          const d = parseSqlishDate(f(r, 'DebtTranDate'));
-          return d >= start && d <= end;
-        });
-
-      // group by narrative (HTML stripped), sum NET
-      const byNarr = new Map();
-      for (const r of filtered) {
-        const narr = stripHtml(f(r, 'Narrative') || '').trim() || '—';
-        const amt  = Number(f(r, 'Net')) || 0;
-        byNarr.set(narr, (byNarr.get(narr) || 0) + amt);
+        // group by narrative (HTML stripped), sum Net
+        const byNarr = new Map();
+        for (const r of apiRows || []) {
+          const narr = stripHtml(f(r, 'Narrative') || '').trim() || '—';
+          const amt  = Number(f(r, 'Net')) || 0;
+          byNarr.set(narr, (byNarr.get(narr) || 0) + amt);
+        }
+        const out = [...byNarr.entries()].map(([narrative, total]) => ({ narrative, total }));
+        if (!cancelled) {
+          cacheRef.current.set(key, out);
+          setRows(out);
+        }
+      } catch (err) {
+        console.error('GetInvoiceLineItems failed, falling back to sample:', err);
+        // fallback to local sample so the UI still shows *something*
+        const start = parseYmdLocal(toIsoYmd(startDate));
+        const end   = parseYmdLocal(toIsoYmd(endDate));
+        const filtered = (sampleInvoiceLineItems || [])
+          .filter(r => String(f(r, 'ClientCode')) === String(clientCode))
+          .filter(r => {
+            const d = parseSqlishDate(f(r, 'DebtTranDate'));
+            return d >= start && d <= end;
+          });
+        const byNarr = new Map();
+        for (const r of filtered) {
+          const narr = stripHtml(f(r, 'Narrative') || '').trim() || '—';
+          const amt  = Number(f(r, 'Net')) || 0;
+          byNarr.set(narr, (byNarr.get(narr) || 0) + amt);
+        }
+        const out = [...byNarr.entries()].map(([narrative, total]) => ({ narrative, total }));
+        if (!cancelled) {
+          cacheRef.current.set(key, out);
+          setRows(out);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-
-      const out = [...byNarr.entries()].map(([narrative, total]) => ({ narrative, total }));
-      cacheRef.current.set(key, out);
-      setRows(out);
-      setLoading(false);
-    }, 120);
-    return () => clearTimeout(t);
+    })();
+    return () => { cancelled = true; };
   }, [clientCode, startDate, endDate]);
 
 
