@@ -1385,3 +1385,39 @@
   cursor: not-allowed;
 }
 
+/* Totals pane scaffolding */
+.totals-pane { display: grid; gap: 12px; }
+.pane-subhead { font-size: 0.9rem; color: #4b5563; }
+
+.date-range { display: inline-flex; align-items: center; gap: 10px; }
+.date-range .through { color: #374151; opacity: 0.8; }
+
+/* reuse bill-through tokens for inline pickers */
+.bt-inline { display: inline-flex; align-items: center; gap: 6px; }
+.bt-inline .bt-label { font-size: 0.8rem; color: #4b5563; }
+.bt-inline .bt-display { padding: 6px 10px; border-radius: 8px; border: 1px solid var(--panel-ring); background:#fff; }
+.bt-inline .bt-display.readonly { cursor: default; }
+
+.range-error {
+  color: #b91c1c; background: #fee2e2; border: 1px solid #fecaca;
+  padding: 6px 10px; border-radius: 8px; font-size: 0.9rem;
+}
+
+.totals-table-wrap { position: relative; }
+.totals-table-wrap .mini-loader { display:flex; align-items:center; justify-content:center; min-height:120px; }
+
+/* Narrative wrapping (preferred) */
+.narr-cell {
+  white-space: normal;          /* allow wrapping */
+  overflow-wrap: anywhere;      /* break long words */
+}
+
+/* ExistingDrafts.css */
+.kb-inline-spinner {
+  display: inline-block;
+  border: 3px solid rgba(0,0,0,0.08);
+  border-top-color: rgba(0,0,0,0.45);
+  border-radius: 50%;
+  animation: kb-spin 0.7s linear infinite;
+}
+@keyframes kb-spin { to { transform: rotate(360deg); } }
