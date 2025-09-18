@@ -878,6 +878,12 @@
   padding: 6px 8px;
 }
 
+.existing-drafts .mini-table--tight p{
+  margin-block-start: auto;
+  margin-block-end: auto;
+  padding: 2px 2px; 
+}
+
 /* Panel-specific table head */
 .existing-drafts .panel .mini-table thead th{
   background: var(--panel-th);
@@ -1246,7 +1252,7 @@
 
 /* icon column + pills */
 .existing-drafts .mini-table .icon-cell{ width:64px; padding:0 6px; }
-.existing-drafts .icon-stack{ display:inline-flex; gap:2px; align-items:center; }
+.existing-drafts .icon-stack{ display:inline-flex; gap:2px; align-items:center; padding: 3px 3px;}
 .existing-drafts .icon-btn{
   all:unset; display:inline-grid; place-items:center;
   width:30px; height:30px; border-radius:8px;
@@ -1372,3 +1378,10 @@
 .notes-trigger.bare:hover::before{
   background-color: rgba(41, 167, 152, 0.9);
 }
+
+.tab-btn.is-disabled,
+.tab-btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+

@@ -8,6 +8,7 @@ import Sidebar          from '../components/Sidebar';
 import TopBar           from '../components/TopBar';
 import GeneralDataTable from '../components/DataTable';
 
+import sampleInvoiceLineItems from '../devSampleData/sampleExistingDrafts.json';
 import sampleDrafts     from '../devSampleData/sampleExistingDrafts.json';
 import { GetGranularWIPData } from '../services/ExistingDraftsService';
 
@@ -203,8 +204,10 @@ function JobDetailsPanel({ details, pinRequest }) {
   const Panel = ({ data, pinned }) => {
     const key = getJobKey(data);
     const j = (data.job) || {};
-    const tab = tabByKey[key] || 'progress';
+    const tab = tabByKey[key] || 'totals';
     const setTab = (t) => setTabFor(key, t);
+
+  const disableOtherTabs = true; // lock non-totals tabs (UI only)
 
     return (
       <div className="job-details-split">
@@ -268,8 +271,10 @@ function JobDetailsPanel({ details, pinRequest }) {
                   <button
                     role="tab"
                     aria-selected={tab === 'progress'}
-                    className={`tab-btn ${tab === 'progress' ? 'is-active' : ''}`}
-                    onClick={() => setTab('progress')}
+                    className={`tab-btn ${tab === 'progress' ? 'is-active' : ''} ${disableOtherTabs ? 'is-disabled' : ''}`}
+                    disabled={disableOtherTabs}
+                    aria-disabled={disableOtherTabs}
+                    onClick={disableOtherTabs ? undefined : () => setTab('progress')}
                   >
                     Job Progress
                   </button>
@@ -284,8 +289,10 @@ function JobDetailsPanel({ details, pinRequest }) {
                   <button
                     role="tab"
                     aria-selected={tab === 'review'}
-                    className={`tab-btn ${tab === 'review' ? 'is-active' : ''}`}
-                    onClick={() => setTab('review')}
+                    className={`tab-btn ${tab === 'review' ? 'is-active' : ''} ${disableOtherTabs ? 'is-disabled' : ''}`}
+                    disabled={disableOtherTabs}
+                    aria-disabled={disableOtherTabs}
+                    onClick={disableOtherTabs ? undefined : () => setTab('review')}
                   >
                     Invoice Review
                   </button>
