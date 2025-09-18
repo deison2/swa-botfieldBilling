@@ -802,7 +802,7 @@ const childByParent = useMemo(() => {
       return (
         <BillingInstructionsCell
           code={code}
-          value={row._instructions ?? ''}
+          value={row.BillingInstructions ?? ''}
           onChange={(val) => updateEdited(code, { instructions: val })}
           persistEdit={persistEdit}
         />
