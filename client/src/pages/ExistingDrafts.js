@@ -31,6 +31,9 @@ export function PopoverPortal({ open, children }) {
   return createPortal(children, document.body);
 }
 
+const norm = v => String(v ?? '').toLowerCase();
+const stripHtml = v => String(v ?? '').replace(/<[^>]*>/g, ' ');
+
 /* ─── helpers ─────────────────────────────────────────────────────── */
 const currency = n =>
   new Intl.NumberFormat('en-US', { style : 'currency', currency : 'USD' })
@@ -884,6 +887,26 @@ const Expandable = ({ data }) => {
     hideTimer.current = setTimeout(() => setActiveDetails(null), 160);
   };
 
+  // NOTE POPUP (hover)
+  const [showNotes, setShowNotes] = React.useState(false);
+  const notesTimer = React.useRef(null);
+  const openNotes  = () => { if (notesTimer.current) clearTimeout(notesTimer.current); setShowNotes(true); };
+  const closeNotes = () => {
+    if (notesTimer.current) clearTimeout(notesTimer.current);
+    // small delay to allow cursor to move from icon → popover without flicker
+    notesTimer.current = setTimeout(() => setShowNotes(false), 120);
+  };
+
+  // Resolve Draft Notes once per Expanded group
+  const draftNotes = React.useMemo(() => {
+    if (data?.DRAFTNOTES && String(data.DRAFTNOTES).trim()) return String(data.DRAFTNOTES);
+    // fallback: first non-empty notes from detail rows (if present)
+    const fromDetail = (data?.DRAFTDETAIL || [])
+      .map(r => r?.DRAFTNOTES)
+      .find(t => t && String(t).trim());
+    return fromDetail ? String(fromDetail) : '';
+  }, [data]);
+
   // unique narratives
   const uniqueNarratives = Array.from(
     new Map((data.NARRATIVEDETAIL ?? []).map(n => [n.DEBTNARRINDEX, n])).values()
@@ -932,7 +955,46 @@ const Expandable = ({ data }) => {
 
       {/* Panel 1: Draft WIP Analysis */}
       <div className="panel panel--draft">
-        <div className="panel__title">Draft WIP Analysis</div>
+        <div className="panel__title-row">
+          <div className="panel__title">Draft WIP Analysis</div>
+
+          {/* Notes icon + hover popover */}
+          <div
+            className="notes-wrap"
+            onMouseEnter={openNotes}
+            onMouseLeave={closeNotes}
+          >
+            <button
+              type="button"
+              className="notes-trigger bare"
+              aria-haspopup="dialog"
+              aria-expanded={showNotes}
+              title="View draft notes"
+            >
+              {/* Your hosted SVG — no circle, exactly as stored */}
+              <img
+                src="https://storageacctbmssprod001.blob.core.windows.net/container-bmssprod001-public/images/SpeechBubble.svg"
+                alt="Draft notes"
+                className="notes-icon"
+                width="22"
+                height="22"
+                draggable="false"
+              />
+            </button>
+
+            {showNotes && (
+              <div className="note-popover" role="dialog" aria-label="Draft Notes">
+                <div className="note-head">Draft Notes</div>
+                <div className="note-body">
+                  {draftNotes
+                    ? draftNotes.split(/\r?\n/).map((line, i) => <p key={i}>{line}</p>)
+                    : <p className="muted">No notes on this draft.</p>}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className="table-wrap">
           <table className="mini-table mini-table--tight existing-drafts">
             {/* lock widths so drill aligns perfectly */}
@@ -1098,12 +1160,40 @@ const Expandable = ({ data }) => {
 
   /* ── UI-FILTERED rows (after search / dropdowns) ───────────── */
   const filteredRows = useMemo(() => {
-    const bySearch  = r =>
-      !searchText ||
-      r.CLIENTS.some(c =>
-        c.code.toLowerCase().includes(searchText.toLowerCase()) ||
-        c.name.toLowerCase().includes(searchText.toLowerCase())
+    const bySearch = r => {
+      const q = norm(searchText).trim();
+      if (!q) return true;
+
+      // client codes & names
+      const clientHit = (r.CLIENTS || []).some(c =>
+        norm(c.code).includes(q) || norm(c.name).includes(q)
       );
+
+      // roles
+      const roleHit =
+        norm(r.ORIGINATOR).includes(q) ||
+        norm(r.CLIENTPARTNER).includes(q) ||
+        norm(r.CLIENTMANAGER).includes(q);
+
+      // draft notes (group-level or any detail row)
+      const groupNotes = norm(r.DRAFTNOTES);
+      const detailNotes = norm((r.DRAFTDETAIL || [])
+        .map(d => d?.DRAFTNOTES ?? '')
+        .join(' '));
+
+      const notesHit =
+        groupNotes.includes(q) || detailNotes.includes(q);
+
+      // narratives (strip HTML first)
+      const narratives = norm((r.NARRATIVEDETAIL || [])
+        .map(n => stripHtml(n?.FEENARRATIVE))
+        .join(' '));
+
+      const narrativeHit = narratives.includes(q);
+
+      return clientHit || roleHit || notesHit || narrativeHit;
+    };
+
 
     const byOrigin  = r => !originatorFilter || r.ORIGINATOR    === originatorFilter;
     const byPartner = r => !partnerFilter   || r.CLIENTPARTNER === partnerFilter;
@@ -1457,7 +1547,7 @@ console.log('PDF header:', header);
 
         <input
           type="text" className="search-input"
-          placeholder="Search client code or name…"
+          placeholder="Search code, name, roles, notes, or narratives…"
           value={searchText} onChange={e => setSearchText(e.target.value)}
         />
 
