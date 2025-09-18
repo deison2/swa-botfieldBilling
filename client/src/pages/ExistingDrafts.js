@@ -31,6 +31,9 @@ export function PopoverPortal({ open, children }) {
   return createPortal(children, document.body);
 }
 
+const norm = v => String(v ?? '').toLowerCase();
+const stripHtml = v => String(v ?? '').replace(/<[^>]*>/g, ' ');
+
 /* ─── helpers ─────────────────────────────────────────────────────── */
 const currency = n =>
   new Intl.NumberFormat('en-US', { style : 'currency', currency : 'USD' })
@@ -1157,12 +1160,40 @@ const Expandable = ({ data }) => {
 
   /* ── UI-FILTERED rows (after search / dropdowns) ───────────── */
   const filteredRows = useMemo(() => {
-    const bySearch  = r =>
-      !searchText ||
-      r.CLIENTS.some(c =>
-        c.code.toLowerCase().includes(searchText.toLowerCase()) ||
-        c.name.toLowerCase().includes(searchText.toLowerCase())
+    const bySearch = r => {
+      const q = norm(searchText).trim();
+      if (!q) return true;
+
+      // client codes & names
+      const clientHit = (r.CLIENTS || []).some(c =>
+        norm(c.code).includes(q) || norm(c.name).includes(q)
       );
+
+      // roles
+      const roleHit =
+        norm(r.ORIGINATOR).includes(q) ||
+        norm(r.CLIENTPARTNER).includes(q) ||
+        norm(r.CLIENTMANAGER).includes(q);
+
+      // draft notes (group-level or any detail row)
+      const groupNotes = norm(r.DRAFTNOTES);
+      const detailNotes = norm((r.DRAFTDETAIL || [])
+        .map(d => d?.DRAFTNOTES ?? '')
+        .join(' '));
+
+      const notesHit =
+        groupNotes.includes(q) || detailNotes.includes(q);
+
+      // narratives (strip HTML first)
+      const narratives = norm((r.NARRATIVEDETAIL || [])
+        .map(n => stripHtml(n?.FEENARRATIVE))
+        .join(' '));
+
+      const narrativeHit = narratives.includes(q);
+
+      return clientHit || roleHit || notesHit || narrativeHit;
+    };
+
 
     const byOrigin  = r => !originatorFilter || r.ORIGINATOR    === originatorFilter;
     const byPartner = r => !partnerFilter   || r.CLIENTPARTNER === partnerFilter;
@@ -1516,7 +1547,7 @@ console.log('PDF header:', header);
 
         <input
           type="text" className="search-input"
-          placeholder="Search client code or name…"
+          placeholder="Search code, name, roles, notes, or narratives…"
           value={searchText} onChange={e => setSearchText(e.target.value)}
         />
 
