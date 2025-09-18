@@ -1,0 +1,28 @@
+[
+  {
+    "CLIENTCODE": "00064-002",
+    "CONTINDEX": 1881,
+    "DEBTTRANDATE": "2024-04-15 00:00:00.000",
+    "DEBTTRANINDEX": 506198,
+    "DEBTTRANNAME": "Richard G. & Joyce P. Florence",
+    "DEBTTRANREFNUM": 309443,
+    "NARRATIVE": "<p><font style=\"font-family: Arial, Helvetica, sans-serif; font-size: 10pt;\">PREPARATION OF 2023 INDIVIDUAL INCOME TAX RETURNS</font></p>",
+    "NET": -908,
+    "TRANSVATINDEX": 96102,
+    "VATDETAILINDEX": 121132,
+    "VATSEQ": 1
+  },
+  {
+    "CLIENTCODE": "00064-002",
+    "CONTINDEX": 1881,
+    "DEBTTRANDATE": "2024-04-15 00:00:00.000",
+    "DEBTTRANINDEX": 506198,
+    "DEBTTRANNAME": "Richard G. & Joyce P. Florence",
+    "DEBTTRANREFNUM": 309443,
+    "NARRATIVE": "<p><font style=\"font-family: Arial, Helvetica, sans-serif; font-size: 10pt;\">PREPARATION OF 2023 INDIVIDUAL INCOME TAX RETURNS</font></p>",
+    "NET": 2908,
+    "TRANSVATINDEX": 94028,
+    "VATDETAILINDEX": 118801,
+    "VATSEQ": 1
+  }
+]

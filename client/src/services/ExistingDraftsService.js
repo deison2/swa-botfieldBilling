@@ -102,3 +102,37 @@ export async function GetGranularWIPData() {
     ;
   return res.json();
 }
+
+export async function GetInvoiceLineItems({ clientCode, startDate, endDate, dateRange } = {}) {
+  if (!clientCode) throw new Error("GetInvoiceLineItems: clientCode is required");
+
+  // helpers
+  const pad = n => String(n).padStart(2, '0');
+  const toIso = (d) => {
+    const dt = d instanceof Date ? d : new Date(d);
+    return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+  };
+  const jan1 = new Date(new Date().getFullYear(), 0, 1);
+  const today = new Date();
+
+  const startIso = toIso(startDate || jan1);
+  const endIso   = toIso(endDate   || today);
+
+  const payload = {
+    clientCode: String(clientCode),
+    dateRange : dateRange ?? `'${startIso}' and '${endIso}'`,
+  };
+
+  const res = await fetch('/api/invoiceLineItems', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const msg = await res.text();
+    throw new Error(`GetInvoiceLineItems failed: ${res.status} ${msg}`);
+  }
+
+  return res.json();
+}

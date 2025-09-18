@@ -8,6 +8,7 @@ import Sidebar          from '../components/Sidebar';
 import TopBar           from '../components/TopBar';
 import GeneralDataTable from '../components/DataTable';
 
+import sampleInvoiceLineItems from '../devSampleData/sampleInvoiceLineItems.json';
 import sampleDrafts     from '../devSampleData/sampleExistingDrafts.json';
 import { GetGranularWIPData } from '../services/ExistingDraftsService';
 
@@ -20,7 +21,8 @@ import {
   GetDrafts,
   GetGranularJobData,
   GetBillThroughBlob,
-  SetBillThroughBlob
+  SetBillThroughBlob,
+  GetInvoiceLineItems
 } from '../services/ExistingDraftsService';
 
 import Loader           from '../components/Loader';
@@ -76,6 +78,97 @@ export const IconSearchOutline = ({ size=18, stroke=1.8 }) => (
   </svg>
 );
 
+function InlineSpinner({ size = 22 }) {
+  return (
+    <span
+      className="kb-inline-spinner"
+      style={{ width: size, height: size }}
+      aria-label="Loading"
+      role="status"
+    />
+  );
+}
+
+function DatePicker({ label, date, setDate, onCloseNext }) {
+  const [open, setOpen] = React.useState(false);
+  const [month, setMonth] = React.useState(() =>
+    new Date(date.getFullYear(), date.getMonth(), 1)
+  );
+
+  const title = month.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+
+  const grid = React.useMemo(() => {
+    const y = month.getFullYear();
+    const m = month.getMonth();
+    const firstDow = new Date(y, m, 1).getDay();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const prevDays = new Date(y, m, 0).getDate();
+    const cells = [];
+    for (let i = 0; i < firstDow; i++) {
+      const dnum = prevDays - (firstDow - 1 - i);
+      cells.push({ date: new Date(y, m - 1, dnum), muted: true });
+    }
+    for (let d = 1; d <= daysInMonth; d++) cells.push({ date: new Date(y, m, d), muted: false });
+    while (cells.length < 42) {
+      const last = cells[cells.length - 1].date;
+      cells.push({ date: new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1), muted: true });
+    }
+    return cells;
+  }, [month]);
+
+  return (
+    <div className="bt-inline">
+      <span className="bt-label">{label}</span>
+      <button
+        type="button"
+        className="bt-display"
+        onClick={() => setOpen(v => !v)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+      >
+        {fmtMMDDYYYY(date)}
+        <svg className="bt-cal" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+          <rect x="3" y="4" width="18" height="17" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5"/>
+          <line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" strokeWidth="1.5"/>
+          <line x1="8" y1="2.5" x2="8" y2="5.5" stroke="currentColor" strokeWidth="1.5" />
+          <line x1="16" y1="2.5" x2="16" y2="5.5" stroke="currentColor" strokeWidth="1.5" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="bt-popover" role="dialog">
+          <div className="bt-head">
+            <button type="button" className="bt-nav" onClick={() => setMonth(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))}>‹</button>
+            <div className="bt-title">{title}</div>
+            <button type="button" className="bt-nav" onClick={() => setMonth(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))}>›</button>
+          </div>
+          <div className="bt-grid">
+            {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => <div key={d} className="bt-dow">{d}</div>)}
+            {grid.map((cell, i) => (
+              <button
+                key={i}
+                type="button"
+                className={`bt-day ${cell.muted ? 'muted' : ''}`}
+                onClick={() => {
+                  setDate(cell.date);
+                  setOpen(false);
+                  onCloseNext?.(); // e.g., open the END picker right after picking START
+                }}
+              >
+                {cell.date.getDate()}
+              </button>
+            ))}
+          </div>
+          <div className="bt-footer">
+            <button type="button" className="bt-link" onClick={() => setMonth(new Date())}>Jump to Today</button>
+            <button type="button" className="bt-link" onClick={() => setOpen(false)}>Close</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function JobDetailsPanel({ details, pinRequest }) {
   // ===== Helpers =====
   const getJobKey = (d = {}) =>
@@ -90,6 +183,10 @@ function JobDetailsPanel({ details, pinRequest }) {
   const addPin    = (d) => setPinned(prev => isPinned(getJobKey(d)) ? prev : [...prev, { key: getJobKey(d), details: d }]);
   const removePin = (key) => setPinned(prev => prev.filter(p => p.key !== key));
   const setTabFor = (key, next) => setTabByKey(prev => ({ ...prev, [key]: next }));
+
+  // Persist across Panel remounts:
+  const invoiceTotalsCacheRef = React.useRef(new Map()); // key: client|start|end -> [{ narrative, total }]
+  const invoiceDateRangeByClientRef = React.useRef(new Map()); // client -> { startDate: Date, endDate: Date }
 
   // ===== Hover lock + grace for the ephemeral panel =====
   const [isHovering, setIsHovering] = React.useState(false);
@@ -200,11 +297,165 @@ function JobDetailsPanel({ details, pinRequest }) {
   };
 
   // ===== One reusable panel =====
-  const Panel = ({ data, pinned }) => {
+  const Panel = ({ data, pinned, cacheRef, rangeRef }) => {
     const key = getJobKey(data);
     const j = (data.job) || {};
-    const tab = tabByKey[key] || 'progress';
+    const tab = tabByKey[key] || 'totals';
     const setTab = (t) => setTabFor(key, t);
+
+  const disableOtherTabs = true; // lock non-totals tabs (UI only)
+  function TotalsByInvoiceLinePane({ clientCode, cacheRef, rangeRef }) {
+  // defaults: Jan 1 this year → today
+  const today = new Date();
+ const jan1  = new Date(today.getFullYear(), 0, 1);
+
+ // restore per-client range if we have one
+ const saved = rangeRef.current.get(clientCode);
+ const [startDate, setStartDate] = React.useState(saved?.startDate ?? jan1);
+ const [endDate, setEndDate]     = React.useState(saved?.endDate ?? today);
+ const [forceOpenEnd, setForceOpenEnd] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
+
+  // read a field regardless of casing (CLIENTCODE vs ClientCode, etc.)
+  const f = (row, name) => row?.[name] ?? row?.[name.toUpperCase()] ?? row?.[name.toLowerCase()] ?? undefined;
+
+  // parse '2024-04-15 00:00:00.000' or ISO, without TZ shifts
+  const parseSqlishDate = (s) => {
+    if (s instanceof Date) return s;
+    const txt = String(s ?? '').trim();
+    if (!txt) return new Date(NaN);
+    // split on space or 'T' then use y-m-d
+    const [ymd] = txt.split(/[ T]/);
+    return parseYmdLocal(ymd);
+  };
+
+
+  // derived, with simple validation (end >= start)
+  const validRange = endDate >= startDate;
+
+  // simulate API load on any change (swap to real API later)
+  const [rows, setRows] = React.useState([]);
+  React.useEffect(() => {
+    const key = `${clientCode}|${toIsoYmd(startDate)}|${toIsoYmd(endDate)}`;
+    const cached = cacheRef.current.get(key);
+    if (cached) {
+      setRows(cached);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    let cancelled = false;
+    (async () => {
+      try {
+        const dateRange = `'${toIsoYmd(startDate)}' and '${toIsoYmd(endDate)}'`;
+        const apiRows = await GetInvoiceLineItems({ clientCode, dateRange });
+
+        // group by narrative (HTML stripped), sum Net
+        const byNarr = new Map();
+        for (const r of apiRows || []) {
+          const narr = stripHtml(f(r, 'Narrative') || '').trim() || '—';
+          const amt  = Number(f(r, 'Net')) || 0;
+          byNarr.set(narr, (byNarr.get(narr) || 0) + amt);
+        }
+        const out = [...byNarr.entries()].map(([narrative, total]) => ({ narrative, total }));
+        if (!cancelled) {
+          cacheRef.current.set(key, out);
+          setRows(out);
+        }
+      } catch (err) {
+        console.error('GetInvoiceLineItems failed, falling back to sample:', err);
+        // fallback to local sample so the UI still shows *something*
+        const start = parseYmdLocal(toIsoYmd(startDate));
+        const end   = parseYmdLocal(toIsoYmd(endDate));
+        const filtered = (sampleInvoiceLineItems || [])
+          .filter(r => String(f(r, 'ClientCode')) === String(clientCode))
+          .filter(r => {
+            const d = parseSqlishDate(f(r, 'DebtTranDate'));
+            return d >= start && d <= end;
+          });
+        const byNarr = new Map();
+        for (const r of filtered) {
+          const narr = stripHtml(f(r, 'Narrative') || '').trim() || '—';
+          const amt  = Number(f(r, 'Net')) || 0;
+          byNarr.set(narr, (byNarr.get(narr) || 0) + amt);
+        }
+        const out = [...byNarr.entries()].map(([narrative, total]) => ({ narrative, total }));
+        if (!cancelled) {
+          cacheRef.current.set(key, out);
+          setRows(out);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [clientCode, startDate, endDate]);
+
+
+  return (
+    <div className="totals-pane">
+      <div className="pane-subhead">
+        Displays totals by invoice line item for this client for the selected time period.
+        Click the dates to update the period.
+      </div>
+
+      <div className="date-range">
+        <DatePicker
+          label="Start"
+          date={startDate}
+          setDate={(d) => {
+            setStartDate(d);
+            if (endDate < d) setEndDate(d);
+            rangeRef.current.set(clientCode, { startDate: d, endDate: endDate < d ? d : endDate });
+          }}
+          onCloseNext={() => setForceOpenEnd(true)}
+        />
+
+        <DatePicker
+          label="End"
+          date={endDate}
+          setDate={(d) => {
+            setEndDate(d);
+            rangeRef.current.set(clientCode, { startDate, endDate: d });
+          }}
+        />
+      </div>
+
+      {!validRange && (
+        <div className="range-error" role="alert">
+          End date must be on or after the start date.
+        </div>
+      )}
+
+      <div className="totals-table-wrap">
+        {loading ? (
+          <div className="mini-loader" style={{ minHeight: 120, display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <InlineSpinner />
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="empty-msg">No invoices for this client within the date range selected.</div>
+        ) : (
+          <table className="mini-table mini-table--tight">
+            <thead>
+              <tr>
+                <th style={{ width: '70%' }}>Narrative</th>
+                <th className="num">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i}>
+                  <td className="narr-cell" title={r.narrative}>{r.narrative}</td>
+                  <td className="num">{currency(r.total)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
 
     return (
       <div className="job-details-split">
@@ -268,8 +519,10 @@ function JobDetailsPanel({ details, pinRequest }) {
                   <button
                     role="tab"
                     aria-selected={tab === 'progress'}
-                    className={`tab-btn ${tab === 'progress' ? 'is-active' : ''}`}
-                    onClick={() => setTab('progress')}
+                    className={`tab-btn ${tab === 'progress' ? 'is-active' : ''} ${disableOtherTabs ? 'is-disabled' : ''}`}
+                    disabled={disableOtherTabs}
+                    aria-disabled={disableOtherTabs}
+                    onClick={disableOtherTabs ? undefined : () => setTab('progress')}
                   >
                     Job Progress
                   </button>
@@ -284,8 +537,10 @@ function JobDetailsPanel({ details, pinRequest }) {
                   <button
                     role="tab"
                     aria-selected={tab === 'review'}
-                    className={`tab-btn ${tab === 'review' ? 'is-active' : ''}`}
-                    onClick={() => setTab('review')}
+                    className={`tab-btn ${tab === 'review' ? 'is-active' : ''} ${disableOtherTabs ? 'is-disabled' : ''}`}
+                    disabled={disableOtherTabs}
+                    aria-disabled={disableOtherTabs}
+                    onClick={disableOtherTabs ? undefined : () => setTab('review')}
                   >
                     Invoice Review
                   </button>
@@ -309,11 +564,9 @@ function JobDetailsPanel({ details, pinRequest }) {
                   )}
 
                   {tab === 'totals' && (
-                    <div className="placeholder-pane">
-                      <div className="vis-card">
-                        <div className="vis-title">Totals by Invoice Line</div>
-                        <p className="muted">Stubbed table goes here.</p>
-                      </div>
+                    <div className="vis-card">
+                      <div className="vis-title">Totals by Invoice Line</div>
+                      <TotalsByInvoiceLinePane clientCode={data.clientCode} cacheRef={cacheRef} rangeRef={rangeRef} />
                     </div>
                   )}
 
@@ -342,10 +595,22 @@ function JobDetailsPanel({ details, pinRequest }) {
       onMouseLeave={() => setIsHovering(false)}
     >
       {pinned.map(p => (
-        <Panel key={`pinned:${p.key}`} data={p.details} pinned />
+        <Panel
+          key={`pinned:${p.key}`}
+          data={p.details}
+          pinned
+          cacheRef={invoiceTotalsCacheRef}
+          rangeRef={invoiceDateRangeByClientRef}
+        />
       ))}
       {ephemeral && (
-        <Panel key={`hover:${getJobKey(ephemeral)}`} data={ephemeral} pinned={false} />
+        <Panel
+          key={`hover:${getJobKey(ephemeral)}`}
+          data={ephemeral}
+          pinned={false}
+          cacheRef={invoiceTotalsCacheRef}
+          rangeRef={invoiceDateRangeByClientRef}
+        />
       )}
     </div>
   );
