@@ -73,7 +73,7 @@ export const IconSearchOutline = ({ size=18, stroke=1.8 }) => (
   </svg>
 );
 
-function JobDetailsPanel({ details }) {
+function JobDetailsPanel({ details, pinRequest }) {
   // ===== Helpers =====
   const getJobKey = (d = {}) =>
     d.jobId || d.jobID || d.job?.Id || d.job?.JobId || d.job?.JobID || d.jobCode || d.job?.JobCode ||
@@ -97,6 +97,13 @@ function JobDetailsPanel({ details }) {
   // keep the last hovered details so we can render while hovering/grace
   const lastHoverRef = React.useRef(details || null);
   if (details) lastHoverRef.current = details;
+
+  React.useEffect(() => {
+    if (pinRequest) {
+      addPin(pinRequest);          // stick it
+    }
+  }, [pinRequest]);                 // runs only when a new request arrives
+
 
   React.useEffect(() => {
     clearTimeout(graceTimer.current);
@@ -800,7 +807,7 @@ function JobHoverMatrix({ job }) {
   );
 }
 
-function DraftRow({ d, client, granData, onHover, onLeave, expanded, onToggleExpand }) {
+function DraftRow({ d, client, granData, onHover, onLeave, onPin, expanded, onToggleExpand }) {
   const payload = {
     clientCode : client.code,
     clientName : client.name,
@@ -821,6 +828,7 @@ function DraftRow({ d, client, granData, onHover, onLeave, expanded, onToggleExp
             title="View job details"
             onMouseEnter={() => onHover && onHover(payload)}
             onMouseLeave={() => onLeave && onLeave()}
+            onClick={() => onPin && onPin(payload)}
             aria-label="View job details"
           >
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
@@ -862,6 +870,7 @@ const Expandable = ({ data }) => {
   // open/close per-row and mode per-row
   const [openRows, setOpenRows] = React.useState({});      // { [rowKey]: true }
   const [modeByRow, setModeByRow] = React.useState({});    // { [rowKey]: 'staff' | 'task' }
+  const [pinRequest, setPinRequest] = React.useState(null);
 
   const toggleOpen = (key) => setOpenRows(prev => ({ ...prev, [key]: !prev[key] }));
   const setModeFor = (key, mode) => setModeByRow(prev => ({ ...prev, [key]: mode }));
@@ -971,6 +980,7 @@ const Expandable = ({ data }) => {
                       granData={g}
                       onHover={showDetails}
                       onLeave={delayHide}
+                      onPin={(p) => setPinRequest(p)}
                       expanded={expanded}
                       onToggleExpand={toggleOpen}
                     />
@@ -1076,6 +1086,7 @@ const Expandable = ({ data }) => {
       {/* Panel 3: Job Details (hover from magnifier) */}
       <JobDetailsPanel
         details={activeDetails}
+        pinRequest={pinRequest}
         onMouseEnter={() => { if (hideTimer.current) clearTimeout(hideTimer.current); }}
         onMouseLeave={delayHide}
       />
