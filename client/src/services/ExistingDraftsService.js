@@ -93,3 +93,12 @@ export async function GetGranularJobData(billThroughDate) {
   });
   return res.json();
 }
+
+export async function GetGranularWIPData() {
+    console.log('calling GetGranularWIPData');
+    const res = await fetch('/api/GetGranularWIPData', {
+    method: "POST"
+    })
+    ;
+  return res.json();
+}

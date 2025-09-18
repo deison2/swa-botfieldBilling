@@ -9,7 +9,7 @@ import TopBar           from '../components/TopBar';
 import GeneralDataTable from '../components/DataTable';
 
 import sampleDrafts     from '../devSampleData/sampleExistingDrafts.json';
-import sampleWipGranularData from '../devSampleData/sampleWipGranularData.json';
+import { GetGranularWIPData } from '../services/ExistingDraftsService';
 
 import { useAuth }      from '../auth/AuthContext';
 import './ExistingDrafts.css';
@@ -371,9 +371,10 @@ export default function ExistingDrafts() {
       const iso = toIsoYmd(bt);
 
       // 2) Fetch data with billThroughDate in body
-      const [dRes, gRes] = await Promise.allSettled([
+      const [dRes, gRes, wipRes] = await Promise.allSettled([
         GetDrafts(iso),
         GetGranularJobData(iso),
+        GetGranularWIPData(),
       ]);
       if (cancelled) return;
 
@@ -385,6 +386,9 @@ export default function ExistingDrafts() {
 
       if (gRes.status === 'fulfilled') setGranularData(Array.isArray(gRes.value) ? gRes.value : []);
       else console.error('GetGranularJobData failed:', gRes.reason);
+
+      if (wipRes.status === 'fulfilled') setGranularWip(Array.isArray(wipRes.value) ? wipRes.value : []);
+       else console.error('GetGranularWIPData failed:', wipRes.reason);
     } finally {
       if (!cancelled) setLoading(false);
     }
@@ -403,7 +407,20 @@ export default function ExistingDrafts() {
   /* ── RAW DATA  (dev stub) ───────────────────────────────────── */
   const [rawRows, setRawRows] = useState([]);
   const [granularData, setGranularData] = useState([]);
+  const [granularWip, setGranularWip]   = useState([]); // <<< live WIP rows (staff/task-level)
   const [loading, setLoading] = useState(false);
+
+  const wipByDraftJob = useMemo(() => {
+    const m = new Map();
+    for (const r of granularWip) {
+      // normalize keys: payload might send numbers as strings
+      const key = `${Number(r.DraftFeeIdx)}|${Number(r.Job_Idx)}`;
+      if (!m.has(key)) m.set(key, []);
+      m.get(key).push(r);
+    }
+    return m;
+  }, [granularWip]);
+
 
   /* >>> selection-state (NEW) >>> */
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -941,13 +958,10 @@ const Expandable = ({ data }) => {
                 const expanded = !!openRows[rowKey];
                 const mode = modeByRow[rowKey] || 'staff';
 
-                // sample granular rows for this Draft + Job (replace with real when wired)
-                const sampleRows = sampleWipGranularData.filter(x =>
-                  Number(x.DraftFeeIdx) === Number(d.DRAFTFEEIDX) &&
-                  Number(x.Job_Idx)     === Number(d.SERVPERIOD)
-                );
-
-                const grouped = aggregate(sampleRows, mode);
+                 // LIVE granular rows for this Draft + Job
+                const wipKey   = `${Number(d.DRAFTFEEIDX)}|${Number(d.SERVPERIOD)}`;
+                const wipRows  = wipByDraftJob.get(wipKey) || [];
+                const grouped  = aggregate(wipRows, mode);
 
                 return (
                   <React.Fragment key={rowKey}>
@@ -1401,9 +1415,10 @@ console.log('PDF header:', header);
                       setBtMonth(new Date(picked.getFullYear(), picked.getMonth(), 1));
                       setBtOpen(false);
                       // (c) refresh data using the new ISO date
-                      const [dRes, gRes] = await Promise.allSettled([
+                      const [dRes, gRes, wipRes] = await Promise.allSettled([
                         GetDrafts(iso),
                         GetGranularJobData(iso),
+                        GetGranularWIPData(),
                       ]);
                       if (dRes.status === 'fulfilled') setRawRows(Array.isArray(dRes.value) ? dRes.value : []);
                       else console.error('GetDrafts failed after bill-through change:', dRes.reason);
