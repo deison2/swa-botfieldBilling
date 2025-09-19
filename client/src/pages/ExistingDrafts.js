@@ -393,7 +393,8 @@ function JobDetailsPanel({ details, pinRequest, setGlobalLoading }) {
             const amt  = Number(f(r, 'Net')) || 0;
             byNarr.set(narr, (byNarr.get(narr) || 0) + amt);
           }
-          const out = [...byNarr.entries()].map(([narrative, total]) => ({ narrative, total }));
+          const out = [...byNarr.entries()].map(([narrative, total]) => ({ narrative, total }))
+            .sort((a, b) => b.total - a.total);
 
           if (!cancelled) {
             cacheRef.current.set(key, { rows: out, debtTranIndexes: uniqueIdx });
@@ -427,7 +428,8 @@ function JobDetailsPanel({ details, pinRequest, setGlobalLoading }) {
             const amt  = Number(f(r, 'Net')) || 0;
             byNarr.set(narr, (byNarr.get(narr) || 0) + amt);
           }
-          const out = [...byNarr.entries()].map(([narrative, total]) => ({ narrative, total }));
+          const out = [...byNarr.entries()].map(([narrative, total]) => ({ narrative, total }))
+            .sort((a, b) => b.total - a.total);
 
           if (!cancelled) {
             cacheRef.current.set(key, { rows: out, debtTranIndexes: uniqueIdx });
