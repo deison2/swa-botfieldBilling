@@ -1292,42 +1292,66 @@ const Expandable = ({ data }) => {
         <div className="panel__title-row">
           <div className="panel__title">Draft WIP Analysis</div>
 
-          {/* Notes icon + hover popover */}
-          <div
-            className="notes-wrap"
-            onMouseEnter={openNotes}
-            onMouseLeave={closeNotes}
-          >
+          {/* right aligned controls */}
+          <div className="panel-actions">
+            {/* NEW: user icon (no wiring yet) */}
             <button
               type="button"
-              className="notes-trigger bare"
-              aria-haspopup="dialog"
-              aria-expanded={showNotes}
-              title="View draft notes"
+              className="user-trigger bare"
+              aria-label="User"
+              title="User"
             >
-              {/* Your hosted SVG — no circle, exactly as stored */}
-              <img
-                src="https://storageacctbmssprod001.blob.core.windows.net/container-bmssprod001-public/images/SpeechBubble.svg"
-                alt="Draft notes"
-                className="notes-icon"
+              <svg
+                className="user-icon"
+                viewBox="0 0 24 24"
                 width="22"
                 height="22"
-                draggable="false"
-              />
+                aria-hidden="true"
+              >
+                <g opacity="var(--user-icon-opacity, 0.9)">
+                  <circle cx="12" cy="8" r="4" fill="currentColor" />
+                  <path d="M4 20c0-3.314 3.134-6 8-6s8 2.686 8 6H4z" fill="currentColor" />
+                </g>
+              </svg>
             </button>
 
-            {showNotes && (
-              <div className="note-popover" role="dialog" aria-label="Draft Notes">
-                <div className="note-head">Draft Notes</div>
-                <div className="note-body">
-                  {draftNotes
-                    ? draftNotes.split(/\r?\n/).map((line, i) => <p key={i}>{line}</p>)
-                    : <p className="muted">No notes on this draft.</p>}
+
+            {/* Notes icon + hover popover (existing) */}
+            <div
+              className="notes-wrap"
+              onMouseEnter={openNotes}
+              onMouseLeave={closeNotes}
+            >
+              <button
+                type="button"
+                className="notes-trigger bare"
+                aria-haspopup="dialog"
+                aria-expanded={showNotes}
+                title="View draft notes"
+              >
+                <img
+                  src="https://storageacctbmssprod001.blob.core.windows.net/container-bmssprod001-public/images/SpeechBubble.svg"
+                  alt="Draft notes"
+                  className="notes-icon"
+                  width="22"
+                  height="22"
+                  draggable="false"
+                />
+              </button>
+              {showNotes && (
+                <div className="note-popover" role="dialog" aria-label="Draft Notes">
+                  <div className="note-head">Draft Notes</div>
+                  <div className="note-body">
+                    {draftNotes
+                      ? draftNotes.split(/\r?\n/).map((line, i) => <p key={i}>{line}</p>)
+                      : <p className="muted">No notes on this draft.</p>}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
+
 
         <div className="table-wrap">
           <table className="mini-table mini-table--tight existing-drafts">

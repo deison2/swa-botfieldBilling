@@ -1445,3 +1445,43 @@
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+/* Action cluster on the right side of the panel title row */
+.panel__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px; /* space between user and bubble icons */
+}
+
+/* Reuse your existing “bare” button look if you have it;
+   otherwise this keeps them unboxed/clickable */
+button.bare {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  line-height: 0;
+}
+
+/* Tint the new user icon similarly to the notes bubble */
+.user-icon {
+  display: block;
+  color: var(--note-accent, #3ca38b); /* fallback near your bubble’s green */
+}
+
+/* Optional: hover affordance matching bubble behavior */
+.user-trigger:hover .user-icon {
+  filter: brightness(0.9);
+}
+
+.user-trigger {
+  transform: translateY(-1px);
+}
+
+.panel--draft .panel-actions { --user-icon-opacity: 0.5; }
