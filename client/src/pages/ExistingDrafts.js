@@ -286,13 +286,13 @@ function JobDetailsPanel({ details, pinRequest, setGlobalLoading }) {
     );
   };
 
-  const Row = ({ label, py, cy, kind }) => {
+  const Row = ({ label, py, cy, kind, hoverText }) => {
     const fmt = kind === 'money' ? money : kind === 'pct' ? pct : num;
     return (
       <div className="stat-row">
         <div className="k">{label}</div>
         <span className="pill py"><b>PY</b><span className="v">{fmt(py)}</span></span>
-        <span className="pill cy"><b>CY</b><span className="v">{fmt(cy)}</span></span>
+        <span className="pill cy" title={hoverText}><b>CY</b><span className="v">{fmt(cy)}</span></span>
       </div>
     );
   };
@@ -572,8 +572,8 @@ function JobDetailsPanel({ details, pinRequest, setGlobalLoading }) {
               <Row label="Hours"            py={j.PYHours}           cy={j.CYHours}           kind="num" />
               <Row label="WIP Time"         py={j.PYWIPTime}         cy={j.CYWIPTime}         kind="money" />
               <Row label="WIP Exp"          py={j.PYWIPExp}          cy={j.CYWIPExp}          kind="money" />
-              <Row label="Billed"           py={j.PYBilled}          cy={j.CYBilled}          kind="money" />
-              <Row label="Realization"      py={j.PYRealization}     cy={j.CYRealization}     kind="pct" />
+              <Row label="Billed"           py={j.PYBilled}          cy={j.CYBilled}          kind="money" hoverText={j.CYBilledwDraft} />
+              <Row label="Realization"      py={j.PYRealization}     cy={j.CYRealization}     kind="pct" hoverText={j.CYRealwDraft} />
               <Row label="WIP Outstanding"  py={j.PYWIPOutstanding}  cy={j.CYWIPOutstanding}  kind="money" />
             </div>
 
@@ -1130,12 +1130,12 @@ function JobHoverMatrix({ job }) {
           </tr>
         </thead>
         <tbody>
-          <tr><th>Hours</th>            <td>{num(job.PYHours)}</td>           <td>{num(job.CYHours)}</td></tr>
-          <tr><th>WIP Time</th>         <td>{money(job.PYWIPTime)}</td>       <td>{money(job.CYWIPTime)}</td></tr>
-          <tr><th>WIP Exp</th>          <td>{money(job.PYWIPExp)}</td>        <td>{money(job.CYWIPExp)}</td></tr>
-          <tr><th>Billed</th>           <td>{money(job.PYBilled)}</td>        <td>{money(job.CYBilled)}</td></tr>
-          <tr><th>Realization</th>      <td>{job.PYRealization ?? "–"}</td>   <td>{job.CYRealization ?? "–"}</td></tr>
-          <tr><th>WIP Outstanding</th>  <td>{money(job.PYWIPOutstanding)}</td><td>{money(job.CYWIPOutstanding)}</td></tr>
+          <tr><th>Hours</th>            <td>{num(job.PYHours)}</td>           <td title={'CY Total Hours (billed and unbilled) to date'}>{num(job.CYHours)}</td></tr>
+          <tr><th>WIP Time</th>         <td>{money(job.PYWIPTime)}</td>       <td title={'CY Total WIP (billed and unbilled) to date'}>{money(job.CYWIPTime)}</td></tr>
+          <tr><th>WIP Exp</th>          <td>{money(job.PYWIPExp)}</td>        <td title={'CY Total Expenses (billed and unbilled) to date'}>{money(job.CYWIPExp)}</td></tr>
+          <tr><th>Billed</th>           <td>{money(job.PYBilled)}</td>        <td title={`CY Total Billed (excluding current draft) to date.\n\nWhen including the current draft\'s bill amount, the CY Billed is ${money(job.CYBilledwDraft)}`}>{money(job.CYBilled)}</td></tr>
+          <tr><th>Realization</th>      <td>{job.PYRealization ?? "–"}</td>   <td title={`CY Total Realization (excluding current draft) to date.\n\nWhen including the current draft\'s bill amount, the CY Realization is ${job.CYRealwDraft}`}>{job.CYRealization ?? "–"}</td></tr>
+          <tr><th>WIP Outstanding</th>  <td>{money(job.PYWIPOutstanding)}</td><td title={'CY WIP Outstanding'}>{money(job.CYWIPOutstanding)}</td></tr>
         </tbody>
       </table>
     </div>
