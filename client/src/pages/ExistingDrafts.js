@@ -944,8 +944,21 @@ export default function ExistingDrafts() {
   const [realVal1,        setRealVal1]          = useState('');
   const [realVal2,        setRealVal2]          = useState('');
   const [finalFilter, setFinalFilter] = useState('all');
-  const [createdByFilter, setCreatedByFilter] = useState('');   // '' = All
+  // Multi-select: empty Set = "All Creators"
+  const [createdByFilter, setCreatedByFilter] = useState(() => new Set());
   const [showCreatedFilter, setShowCreatedFilter] = useState(false);
+
+  // helper: toggle one creator in the Set
+  const toggleCreator = (name) =>
+    setCreatedByFilter(prev => {
+      const next = new Set(prev);
+      next.has(name) ? next.delete(name) : next.add(name);
+      return next;
+    });
+
+  // helper: clear all selections (back to "All")
+  const clearCreators = () => setCreatedByFilter(new Set());
+
 
   useEffect(() => {
     const onKey = (e) => {
@@ -974,7 +987,7 @@ export default function ExistingDrafts() {
     managerFilter         ||
     realOp                ||
     finalFilter !== 'all' ||
-    createdByFilter; 
+    createdByFilter.size > 0; 
   /* <<< hasChanges END <<< */
   /* >>> pagination-state (NEW) >>> */
   const [currentPage, setCurrentPage]       = useState(1);   // 1-based index
@@ -1710,16 +1723,20 @@ const closeCreated = () => {
     };
 
     const byCreatedBy = r => {
-      if (!createdByFilter) return true;
+      if (!createdByFilter || createdByFilter.size === 0) return true; // no filter ⇒ all pass
+
+      // normalize wanted names to lowercase for case-insensitive matching
+      const wanted = new Set([...createdByFilter].map(s => String(s).toLowerCase()));
 
       const groupGb = r?.CREATEDBY ?? r?.CreatedBy ?? r?.DRAFTCREATEDBY;
-      if (String(groupGb || '').toLowerCase() === createdByFilter.toLowerCase()) return true;
+      if (groupGb && wanted.has(String(groupGb).toLowerCase())) return true;
 
       return (r.DRAFTDETAIL || []).some(d => {
         const gb = d?.CREATEDBY ?? d?.CreatedBy ?? d?.DRAFTCREATEDBY;
-        return String(gb || '').toLowerCase() === createdByFilter.toLowerCase();
+        return gb && wanted.has(String(gb).toLowerCase());
       });
     };
+
 
 
     const out = rows
@@ -1763,7 +1780,7 @@ const closeCreated = () => {
     setRealVal1('');
     setRealVal2('');
     setFinalFilter('all');
-    setCreatedByFilter('');
+    clearCreators();
   };
 
 async function handleGeneratePDF(selectedIds) {
@@ -1939,7 +1956,7 @@ console.log('PDF header:', header);
           >
             <button
               type="button"
-              className={`user-trigger bare ${createdByFilter ? 'is-active' : ''}`}
+              className={`user-trigger bare ${createdByFilter.size ? 'is-active' : ''}`}
               aria-haspopup="dialog"
               aria-expanded={showCreatedFilter}
               onClick={() => setShowCreatedFilter(v => !v)}
@@ -1953,46 +1970,72 @@ console.log('PDF header:', header);
             </button>
 
             {showCreatedFilter && (
-              <div className="note-popover created-filter" role="dialog" aria-label="Filter: Created By">
-                <div className="note-head" style={{display:'flex', alignItems:'center', justifyContent:'space-between'}}>
+              <div className="note-popover created-filter" role="dialog" aria-label="Filter by creator">
+                <div className="note-head" style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:8}}>
                   <span>Filter: Created By</span>
-                  <button
-                    type="button"
-                    className="created-filter-close"
-                    aria-label="Close"
-                    onClick={() => setShowCreatedFilter(false)}
-                  >
-                    ×
-                  </button>
+                  <div style={{display:'flex', gap:6}}>
+                    {/* Clear all */}
+                    <button
+                      type="button"
+                      className="created-filter-close"
+                      title="Clear all creators"
+                      onClick={clearCreators}
+                    >
+                      Clear
+                    </button>
+                    {/* Close popover */}
+                    <button
+                      type="button"
+                      className="created-filter-close"
+                      title="Close"
+                      onClick={() => setShowCreatedFilter(false)}
+                    >
+                      ×
+                    </button>
+                  </div>
                 </div>
 
-                <div className="note-body">
-                  <div className="created-filter-list" role="listbox" aria-label="Creators">
+                <div
+                  className="note-body"
+                  role="listbox"
+                  aria-multiselectable="true"
+                  aria-label="Creators"
+                >
+                  <div className="created-filter-list">
+                    {/* "All Creators" behaves as the 'no selections' state */}
                     <button
-                      className={`created-opt ${!createdByFilter ? 'is-selected' : ''}`}
-                      onClick={() => { setCreatedByFilter(''); /* keep menu open */ }}
-                      aria-selected={!createdByFilter}
+                      type="button"
+                      role="option"
+                      aria-selected={createdByFilter.size === 0}
+                      className={`created-opt ${createdByFilter.size === 0 ? 'is-selected' : ''}`}
+                      onClick={clearCreators}
+                      title="Show drafts from all creators"
                     >
                       All Creators
                     </button>
 
-                    {createdByOptions.map(name => (
-                      <button
-                        key={name || 'Unknown'}
-                        className={`created-opt ${createdByFilter === name ? 'is-selected' : ''}`}
-                        onClick={() => { setCreatedByFilter(name); /* keep menu open */ }}
-                        aria-selected={createdByFilter === name}
-                        title={name || 'Unknown'}
-                      >
-                        {name || 'Unknown'}
-                      </button>
-                    ))}
+                    {createdByOptions.map(name => {
+                      const selected = createdByFilter.has(name);
+                      return (
+                        <button
+                          key={name}
+                          type="button"
+                          role="option"
+                          aria-selected={selected}
+                          className={`created-opt ${selected ? 'is-selected' : ''}`}
+                          onClick={() => toggleCreator(name)}
+                          title={name}
+                        >
+                          {name}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
             )}
-
           </div>
+
     
           {/* RESET (filters + selections) */}
           <button

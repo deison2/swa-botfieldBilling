@@ -1531,7 +1531,7 @@ button.bare {
   position: relative;
   display: inline-flex;
   align-items: center;
-  margin-left: 6px;
+  margin-left: 0px;
 }
 
 /* compact icon button */
@@ -1706,4 +1706,18 @@ button.bare {
 }
 .existing-drafts .filter-bar .created-filter-wrap .user-trigger.is-active {
   box-shadow: 0 0 0 1px rgba(47,179,165,.35) inset;
+}
+
+/* Active state for the Created-By icon:
+   box = green, user icon = white */
+.created-filter-wrap .user-trigger.is-active {
+  background-color: var(--bubble-green, #2fb3a5) !important;
+  color: #fff !important;                /* drives SVG currentColor */
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.12) inset;
+}
+
+.created-filter-wrap .user-trigger.is-active .user-icon,
+.created-filter-wrap .user-trigger.is-active .user-icon * {
+  color: #fff !important;                 /* for stroke-based icons */
+  fill: currentColor;                      /* for fill-based paths */
 }
