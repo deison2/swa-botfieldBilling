@@ -69,6 +69,40 @@ const parseYmdLocal = (ymd) => {
   return new Date(y, (m || 1) - 1, d || 1); // local midnight, no timezone jump
 };
 
+// Parse '2024-04-15 00:00:00.000' or ISO 'YYYY-MM-DD...' without TZ shifts
+const parseSqlishDate = (s) => {
+  if (s instanceof Date) return s;
+  const txt = String(s ?? '').trim();
+  if (!txt) return new Date(NaN);
+  // split on space or 'T', then parse y-m-d in local time
+  const [ymd] = txt.split(/[ T]/);
+  return parseYmdLocal(ymd);
+};
+
+// Derive "created by/on" like the popup, for search indexing
+const deriveCreatedMeta = (group) => {
+  const gb = group?.CREATEDBY ?? group?.CreatedBy ?? group?.DRAFTCREATEDBY;
+  const go = group?.DRAFT_CREATED_ON ?? group?.CreatedOn ?? group?.CREATED_ON;
+
+  if (gb || go) return { by: String(gb || 'Unknown'), onRaw: String(go || '') };
+
+  const d = (group?.DRAFTDETAIL || []).find(r =>
+    r?.CREATEDBY || r?.CreatedBy || r?.DRAFTCREATEDBY || r?.DRAFT_CREATED_ON || r?.CreatedOn || r?.CREATED_ON
+  );
+  return {
+    by: String(d?.CREATEDBY ?? d?.CreatedBy ?? d?.DRAFTCREATEDBY ?? 'Unknown'),
+    onRaw: String(d?.DRAFT_CREATED_ON ?? d?.CreatedOn ?? d?.CREATED_ON ?? ''),
+  };
+};
+
+// Short, human date for search (matches popup’s feel)
+const fmtCreatedWhenShort = (val) => {
+  const dt = parseSqlishDate(val);
+  if (isNaN(dt)) return '';
+  return dt.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' });
+};
+
+
 export const IconSearchOutline = ({ size=18, stroke=1.8 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true"
        xmlns="http://www.w3.org/2000/svg" stroke="currentColor" strokeWidth={stroke}
@@ -343,15 +377,6 @@ function JobDetailsPanel({ details, pinRequest, setGlobalLoading }) {
     const f = (row, name) =>
       row?.[name] ?? row?.[name.toUpperCase()] ?? row?.[name.toLowerCase()] ?? undefined;
 
-    // parse '2024-04-15 00:00:00.000' or ISO, without TZ shifts
-    const parseSqlishDate = (s) => {
-      if (s instanceof Date) return s;
-      const txt = String(s ?? '').trim();
-      if (!txt) return new Date(NaN);
-      // split on space or 'T' then use y-m-d
-      const [ymd] = txt.split(/[ T]/);
-      return parseYmdLocal(ymd);
-    };
 
     // derived, with simple validation (end >= start)
     const validRange = endDate >= startDate;
@@ -1221,6 +1246,15 @@ const Expandable = ({ data }) => {
     hideTimer.current = setTimeout(() => setActiveDetails(null), 160);
   };
 
+  const formatCreatedWhen = (val) => {
+  const dt = parseSqlishDate(val);
+  if (isNaN(dt)) return '';
+  return dt.toLocaleString('en-US', {
+    year: 'numeric', month: 'short', day: '2-digit',
+    hour: 'numeric', minute: '2-digit'
+  });
+};
+
   // NOTE POPUP (hover)
   const [showNotes, setShowNotes] = React.useState(false);
   const notesTimer = React.useRef(null);
@@ -1231,6 +1265,17 @@ const Expandable = ({ data }) => {
     notesTimer.current = setTimeout(() => setShowNotes(false), 120);
   };
 
+  // CREATED POPUP (hover)
+const [showCreated, setShowCreated] = React.useState(false);
+const createdTimer = React.useRef(null);
+const openCreated  = () => { if (createdTimer.current) clearTimeout(createdTimer.current); setShowCreated(true); };
+const closeCreated = () => {
+  if (createdTimer.current) clearTimeout(createdTimer.current);
+  // small delay to allow cursor to move from icon → popover without flicker
+  createdTimer.current = setTimeout(() => setShowCreated(false), 120);
+};
+
+
   // Resolve Draft Notes once per Expanded group
   const draftNotes = React.useMemo(() => {
     if (data?.DRAFTNOTES && String(data.DRAFTNOTES).trim()) return String(data.DRAFTNOTES);
@@ -1239,6 +1284,25 @@ const Expandable = ({ data }) => {
       .map(r => r?.DRAFTNOTES)
       .find(t => t && String(t).trim());
     return fromDetail ? String(fromDetail) : '';
+  }, [data]);
+
+  //creation metadata
+  const { createdBy, createdOn } = React.useMemo(() => {
+    // prefer group-level fields if present
+    const gb = data?.CREATEDBY ?? data?.CreatedBy ?? data?.DRAFTCREATEDBY;
+    const go = data?.DRAFT_CREATED_ON ?? data?.CreatedOn ?? data?.CREATED_ON;
+
+    if (gb || go) return { createdBy: gb || 'Unknown', createdOn: go || '' };
+
+    // fallback to first non-empty detail row that has both
+    const d = (data?.DRAFTDETAIL || []).find(r => (r?.CREATEDBY || r?.CreatedBy || r?.DRAFTCREATEDBY) || (r?.DRAFT_CREATED_ON || r?.CreatedOn || r?.CREATED_ON));
+    if (d) {
+      return {
+        createdBy: d.CREATEDBY ?? d.CreatedBy ?? d.DRAFTCREATEDBY ?? 'Unknown',
+        createdOn: d.DRAFT_CREATED_ON ?? d.CreatedOn ?? d.CREATED_ON ?? '',
+      };
+    }
+    return { createdBy: 'Unknown', createdOn: '' };
   }, [data]);
 
   // unique narratives
@@ -1295,25 +1359,46 @@ const Expandable = ({ data }) => {
           {/* right aligned controls */}
           <div className="panel-actions">
             {/* NEW: user icon (no wiring yet) */}
-            <button
-              type="button"
-              className="user-trigger bare"
-              aria-label="User"
-              title="User"
+            <div
+              className="created-wrap"
+              onMouseEnter={openCreated}
+              onMouseLeave={closeCreated}
             >
-              <svg
-                className="user-icon"
-                viewBox="0 0 24 24"
-                width="22"
-                height="22"
-                aria-hidden="true"
+              <button
+                type="button"
+                className="user-trigger bare"
+                aria-haspopup="dialog"
+                aria-expanded={showCreated}
+                aria-label="Draft created"
+                title="Draft created"
               >
-                <g opacity="var(--user-icon-opacity, 0.9)">
-                  <circle cx="12" cy="8" r="4" fill="currentColor" />
-                  <path d="M4 20c0-3.314 3.134-6 8-6s8 2.686 8 6H4z" fill="currentColor" />
-                </g>
-              </svg>
-            </button>
+                <svg
+                  className="user-icon"
+                  viewBox="0 0 24 24"
+                  width="22"
+                  height="22"
+                  aria-hidden="true"
+                >
+                  <g opacity="var(--user-icon-opacity, 0.9)">
+                    <circle cx="12" cy="8" r="4" fill="currentColor" />
+                    <path d="M4 20c0-3.314 3.134-6 8-6s8 2.686 8 6H4z" fill="currentColor" />
+                  </g>
+                </svg>
+              </button>
+
+              {showCreated && (
+                <div className="note-popover" role="dialog" aria-label="Draft Created">
+                  <div className="note-head">Draft Created</div>
+                  <div className="note-body">
+                    <p>
+                      <strong>{createdBy || 'Unknown'}</strong>
+                      {` on ${formatCreatedWhen(createdOn) || '—'}`}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
 
 
             {/* Notes icon + hover popover (existing) */}
@@ -1539,19 +1624,25 @@ const Expandable = ({ data }) => {
       const detailNotes = norm((r.DRAFTDETAIL || [])
         .map(d => d?.DRAFTNOTES ?? '')
         .join(' '));
-
-      const notesHit =
-        groupNotes.includes(q) || detailNotes.includes(q);
+      const notesHit = groupNotes.includes(q) || detailNotes.includes(q);
 
       // narratives (strip HTML first)
       const narratives = norm((r.NARRATIVEDETAIL || [])
         .map(n => stripHtml(n?.FEENARRATIVE))
         .join(' '));
-
       const narrativeHit = narratives.includes(q);
 
-      return clientHit || roleHit || notesHit || narrativeHit;
+      // NEW: “Draft Created” popup text (CREATEDBY + date)
+      const { by: createdBy, onRaw } = deriveCreatedMeta(r);
+      const createdOnPretty = fmtCreatedWhenShort(onRaw);
+      const createdHit =
+        norm(createdBy).includes(q) ||
+        norm(onRaw).includes(q) ||             // raw timestamp string
+        norm(createdOnPretty).includes(q);     // pretty date like "Jul 25, 2025"
+
+      return clientHit || roleHit || notesHit || narrativeHit || createdHit;
     };
+
 
 
     const byOrigin  = r => !originatorFilter || r.ORIGINATOR    === originatorFilter;

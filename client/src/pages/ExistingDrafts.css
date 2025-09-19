@@ -1485,3 +1485,30 @@ button.bare {
 }
 
 .panel--draft .panel-actions { --user-icon-opacity: 0.5; }
+
+/* make each trigger the positioning context */
+.notes-wrap,
+.created-wrap {
+  position: relative;           /* <-- key fix */
+  display: inline-flex;
+  align-items: center;
+}
+
+/* place the card tight under the icon, right-aligned */
+.notes-wrap .note-popover,
+.created-wrap .note-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  transform: none;              /* remove any previous translate hacks */
+  z-index: 30;                  /* above table cells */
+}
+
+/* tiny hover “bridge” to avoid flicker moving from icon to card */
+.notes-wrap .note-popover::before,
+.created-wrap .note-popover::before {
+  content: "";
+  position: absolute;
+  top: -8px; right: 0; left: 0;
+  height: 8px;                  /* invisible buffer */
+}
