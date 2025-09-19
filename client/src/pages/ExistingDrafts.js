@@ -22,7 +22,8 @@ import {
   GetGranularJobData,
   GetBillThroughBlob,
   SetBillThroughBlob,
-  GetInvoiceLineItems
+  GetInvoiceLineItems,
+  CreateInvoiceBulkPrintList
 } from '../services/ExistingDraftsService';
 
 import Loader           from '../components/Loader';
@@ -169,7 +170,7 @@ function DatePicker({ label, date, setDate, onCloseNext }) {
   );
 }
 
-function JobDetailsPanel({ details, pinRequest }) {
+function JobDetailsPanel({ details, pinRequest, setGlobalLoading }) {
   // ===== Helpers =====
   const getJobKey = (d = {}) =>
     d.jobId || d.jobID || d.job?.Id || d.job?.JobId || d.job?.JobID || d.jobCode || d.job?.JobCode ||
@@ -305,157 +306,223 @@ function JobDetailsPanel({ details, pinRequest }) {
 
   const disableOtherTabs = true; // lock non-totals tabs (UI only)
   function TotalsByInvoiceLinePane({ clientCode, cacheRef, rangeRef }) {
-  // defaults: Jan 1 this year → today
-  const today = new Date();
- const jan1  = new Date(today.getFullYear(), 0, 1);
+    // defaults: Jan 1 this year → today
+    const today = new Date();
+    const jan1  = new Date(today.getFullYear(), 0, 1);
 
- // restore per-client range if we have one
- const saved = rangeRef.current.get(clientCode);
- const [startDate, setStartDate] = React.useState(saved?.startDate ?? jan1);
- const [endDate, setEndDate]     = React.useState(saved?.endDate ?? today);
- const [forceOpenEnd, setForceOpenEnd] = React.useState(false);
-  const [loading, setLoading] = React.useState(false);
+    // restore per-client range if we have one
+    const saved = rangeRef.current.get(clientCode);
+    const [startDate, setStartDate] = React.useState(saved?.startDate ?? jan1);
+    const [endDate, setEndDate]     = React.useState(saved?.endDate ?? today);
+    const [forceOpenEnd, setForceOpenEnd] = React.useState(false);
+    const [loading, setLoading] = React.useState(false);
 
-  // read a field regardless of casing (CLIENTCODE vs ClientCode, etc.)
-  const f = (row, name) => row?.[name] ?? row?.[name.toUpperCase()] ?? row?.[name.toLowerCase()] ?? undefined;
+    // NEW: distinct DebtTranIndex values for later API use
+    const [debtTranIndexes, setDebtTranIndexes] = React.useState([]); // integers
 
-  // parse '2024-04-15 00:00:00.000' or ISO, without TZ shifts
-  const parseSqlishDate = (s) => {
-    if (s instanceof Date) return s;
-    const txt = String(s ?? '').trim();
-    if (!txt) return new Date(NaN);
-    // split on space or 'T' then use y-m-d
-    const [ymd] = txt.split(/[ T]/);
-    return parseYmdLocal(ymd);
-  };
+    const handlePrintInvoices = async () => {
+        if (!debtTranIndexes.length) return;
+        try {
+          setGlobalLoading?.(true); // show the same overlay used elsewhere
+          console.log('DebtTranIndexes to print:', debtTranIndexes);
 
+          const listIdText = await CreateInvoiceBulkPrintList(debtTranIndexes);
+          const listId = listIdText.replaceAll('"', '');
 
-  // derived, with simple validation (end >= start)
-  const validRange = endDate >= startDate;
-
-  // simulate API load on any change (swap to real API later)
-  const [rows, setRows] = React.useState([]);
-  React.useEffect(() => {
-    const key = `${clientCode}|${toIsoYmd(startDate)}|${toIsoYmd(endDate)}`;
-    const cached = cacheRef.current.get(key);
-    if (cached) {
-      setRows(cached);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    let cancelled = false;
-    (async () => {
-      try {
-        const dateRange = `'${toIsoYmd(startDate)}' and '${toIsoYmd(endDate)}'`;
-        const apiRows = await GetInvoiceLineItems({ clientCode, dateRange });
-
-        // group by narrative (HTML stripped), sum Net
-        const byNarr = new Map();
-        for (const r of apiRows || []) {
-          const narr = stripHtml(f(r, 'Narrative') || '').trim() || '—';
-          const amt  = Number(f(r, 'Net')) || 0;
-          byNarr.set(narr, (byNarr.get(narr) || 0) + amt);
+          const blob = await DownloadBulkList(listId);
+          const url  = window.URL.createObjectURL(blob);
+          window.open(url);
+        } catch (err) {
+          console.error('Invoice print failed:', err);
+        } finally {
+          setGlobalLoading?.(false);
         }
-        const out = [...byNarr.entries()].map(([narrative, total]) => ({ narrative, total }));
-        if (!cancelled) {
-          cacheRef.current.set(key, out);
-          setRows(out);
-        }
-      } catch (err) {
-        console.error('GetInvoiceLineItems failed, falling back to sample:', err);
-        // fallback to local sample so the UI still shows *something*
-        const start = parseYmdLocal(toIsoYmd(startDate));
-        const end   = parseYmdLocal(toIsoYmd(endDate));
-        const filtered = (sampleInvoiceLineItems || [])
-          .filter(r => String(f(r, 'ClientCode')) === String(clientCode))
-          .filter(r => {
-            const d = parseSqlishDate(f(r, 'DebtTranDate'));
-            return d >= start && d <= end;
-          });
-        const byNarr = new Map();
-        for (const r of filtered) {
-          const narr = stripHtml(f(r, 'Narrative') || '').trim() || '—';
-          const amt  = Number(f(r, 'Net')) || 0;
-          byNarr.set(narr, (byNarr.get(narr) || 0) + amt);
-        }
-        const out = [...byNarr.entries()].map(([narrative, total]) => ({ narrative, total }));
-        if (!cancelled) {
-          cacheRef.current.set(key, out);
-          setRows(out);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
+      };
+
+    // read a field regardless of casing (CLIENTCODE vs ClientCode, etc.)
+    const f = (row, name) =>
+      row?.[name] ?? row?.[name.toUpperCase()] ?? row?.[name.toLowerCase()] ?? undefined;
+
+    // parse '2024-04-15 00:00:00.000' or ISO, without TZ shifts
+    const parseSqlishDate = (s) => {
+      if (s instanceof Date) return s;
+      const txt = String(s ?? '').trim();
+      if (!txt) return new Date(NaN);
+      // split on space or 'T' then use y-m-d
+      const [ymd] = txt.split(/[ T]/);
+      return parseYmdLocal(ymd);
+    };
+
+    // derived, with simple validation (end >= start)
+    const validRange = endDate >= startDate;
+
+    const [rows, setRows] = React.useState([]);
+
+    React.useEffect(() => {
+      const key = `${clientCode}|${toIsoYmd(startDate)}|${toIsoYmd(endDate)}`;
+      const cached = cacheRef.current.get(key);
+      if (cached) {
+        // back-compat if cache previously stored array only
+        setRows(Array.isArray(cached) ? cached : (cached.rows || []));
+        setDebtTranIndexes(Array.isArray(cached?.debtTranIndexes) ? cached.debtTranIndexes : []);
+        setLoading(false);
+        return;
       }
-    })();
-    return () => { cancelled = true; };
-  }, [clientCode, startDate, endDate]);
 
+      setLoading(true);
+      let cancelled = false;
 
-  return (
-    <div className="totals-pane">
-      <div className="pane-subhead">
-        Displays totals by invoice line item for this client for the selected time period.
-        Click the dates to update the period.
-      </div>
+      (async () => {
+        try {
+          const dateRange = `'${toIsoYmd(startDate)}' and '${toIsoYmd(endDate)}'`;
+          const apiRows   = await GetInvoiceLineItems({ clientCode, dateRange });
 
-      <div className="date-range">
-        <DatePicker
-          label="Start"
-          date={startDate}
-          setDate={(d) => {
-            setStartDate(d);
-            if (endDate < d) setEndDate(d);
-            rangeRef.current.set(clientCode, { startDate: d, endDate: endDate < d ? d : endDate });
-          }}
-          onCloseNext={() => setForceOpenEnd(true)}
-        />
+          // distinct DebtTranIndex values (integers)
+          const uniqueIdx = [
+            ...new Set(
+              (apiRows || [])
+                .map(r => Number(f(r, 'DebtTranIndex')))
+                .filter(n => Number.isFinite(n))
+            ),
+          ];
 
-        <DatePicker
-          label="End"
-          date={endDate}
-          setDate={(d) => {
-            setEndDate(d);
-            rangeRef.current.set(clientCode, { startDate, endDate: d });
-          }}
-        />
-      </div>
+          // group by narrative (HTML stripped), sum Net
+          const byNarr = new Map();
+          for (const r of apiRows || []) {
+            const narr = stripHtml(f(r, 'Narrative') || '').trim() || '—';
+            const amt  = Number(f(r, 'Net')) || 0;
+            byNarr.set(narr, (byNarr.get(narr) || 0) + amt);
+          }
+          const out = [...byNarr.entries()].map(([narrative, total]) => ({ narrative, total }));
 
-      {!validRange && (
-        <div className="range-error" role="alert">
-          End date must be on or after the start date.
+          if (!cancelled) {
+            cacheRef.current.set(key, { rows: out, debtTranIndexes: uniqueIdx });
+            setRows(out);
+            setDebtTranIndexes(uniqueIdx);
+          }
+        } catch (err) {
+          console.error('GetInvoiceLineItems failed, falling back to sample:', err);
+
+          // fallback to local sample so the UI still shows *something*
+          const start = parseYmdLocal(toIsoYmd(startDate));
+          const end   = parseYmdLocal(toIsoYmd(endDate));
+          const filtered = (sampleInvoiceLineItems || [])
+            .filter(r => String(f(r, 'ClientCode')) === String(clientCode))
+            .filter(r => {
+              const d = parseSqlishDate(f(r, 'DebtTranDate'));
+              return d >= start && d <= end;
+            });
+
+          const uniqueIdx = [
+            ...new Set(
+              filtered
+                .map(r => Number(f(r, 'DebtTranIndex')))
+                .filter(n => Number.isFinite(n))
+            ),
+          ];
+
+          const byNarr = new Map();
+          for (const r of filtered) {
+            const narr = stripHtml(f(r, 'Narrative') || '').trim() || '—';
+            const amt  = Number(f(r, 'Net')) || 0;
+            byNarr.set(narr, (byNarr.get(narr) || 0) + amt);
+          }
+          const out = [...byNarr.entries()].map(([narrative, total]) => ({ narrative, total }));
+
+          if (!cancelled) {
+            cacheRef.current.set(key, { rows: out, debtTranIndexes: uniqueIdx });
+            setRows(out);
+            setDebtTranIndexes(uniqueIdx);
+          }
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+      })();
+
+      return () => { cancelled = true; };
+    }, [clientCode, startDate, endDate]);
+
+    return (
+      <div className="totals-pane">
+        <div className="pane-subhead">
+          Displays totals by invoice line item for this client for the selected time period.
+          Click the dates to update the period.
         </div>
-      )}
 
-      <div className="totals-table-wrap">
-        {loading ? (
-          <div className="mini-loader" style={{ minHeight: 120, display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <InlineSpinner />
+        <div className="date-range">
+          <DatePicker
+            label="Start"
+            date={startDate}
+            setDate={(d) => {
+              setStartDate(d);
+              if (endDate < d) setEndDate(d);
+              rangeRef.current.set(clientCode, { startDate: d, endDate: endDate < d ? d : endDate });
+            }}
+            onCloseNext={() => setForceOpenEnd(true)}
+          />
+
+          <DatePicker
+            label="End"
+            date={endDate}
+            setDate={(d) => {
+              setEndDate(d);
+              rangeRef.current.set(clientCode, { startDate, endDate: d });
+            }}
+          />
+
+          {/* NEW: “uploaded pages” / download invoices button */}
+          <button
+            type="button"
+            className={`invoices-btn ${rows.length ? '' : 'disabled'}`}
+            title="Click to download related invoices"
+            aria-label="Download related invoices"
+            disabled={!rows.length}
+            onClick={handlePrintInvoices}
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M6 2h7l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" strokeWidth="1.6"/>
+              <path d="M13 2v5h5" fill="none" stroke="currentColor" strokeWidth="1.6"/>
+              <path d="M8 12h8M8 16h8M8 8h3" fill="none" stroke="currentColor" strokeWidth="1.6" />
+            </svg>
+          </button>
+        </div>
+
+        {!validRange && (
+          <div className="range-error" role="alert">
+            End date must be on or after the start date.
           </div>
-        ) : rows.length === 0 ? (
-          <div className="empty-msg">No invoices for this client within the date range selected.</div>
-        ) : (
-          <table className="mini-table mini-table--tight">
-            <thead>
-              <tr>
-                <th style={{ width: '70%' }}>Narrative</th>
-                <th className="num">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={i}>
-                  <td className="narr-cell" title={r.narrative}>{r.narrative}</td>
-                  <td className="num">{currency(r.total)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         )}
+
+        <div className="totals-table-wrap">
+          {loading ? (
+            <div className="mini-loader" style={{ minHeight: 120, display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <InlineSpinner />
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="empty-msg">No invoices for this client within the date range selected.</div>
+          ) : (
+            <table className="mini-table mini-table--tight">
+              <thead>
+                <tr>
+                  <th style={{ width: '70%' }}>Narrative</th>
+                  <th className="num">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i}>
+                    <td className="narr-cell" title={r.narrative}>{r.narrative}</td>
+                    <td className="num">{currency(r.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
+
 
     return (
       <div className="job-details-split">
@@ -1414,6 +1481,7 @@ const Expandable = ({ data }) => {
       <JobDetailsPanel
         details={activeDetails}
         pinRequest={pinRequest}
+        setGlobalLoading={setLoading}
         onMouseEnter={() => { if (hideTimer.current) clearTimeout(hideTimer.current); }}
         onMouseLeave={delayHide}
       />

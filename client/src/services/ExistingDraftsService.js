@@ -136,3 +136,27 @@ export async function GetInvoiceLineItems({ clientCode, startDate, endDate, date
 
   return res.json();
 }
+
+// in services/ExistingDraftsService.js
+
+export async function CreateInvoiceBulkPrintList(debtTranIndexes) {
+  // Same token dance as the draft flow
+  const token = await getToken();
+  setAuthToken(token);
+
+  const res = await fetch('/api/CreateInvoiceBulkPrintList', {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      indexArray: debtTranIndexes,  // array of integers (DebtTranIndex)
+      token
+    })
+  });
+
+  if (!res.ok) {
+    const msg = await res.text();
+    throw new Error(`CreateInvoiceBulkPrintList failed: ${res.status} ${msg}`);
+  }
+  // server returns text listId (like the draft flow)
+  return res.text();
+}
