@@ -42,16 +42,12 @@
   color: #ffffff;
 }
 
-.user-profile {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: #e4f0ef;
-  color: #063941;
-  font-weight: bold;
-  display: flex;
+.topbar .user-profile{
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.9rem;
-  box-shadow: 0 0 0 2px white;
 }

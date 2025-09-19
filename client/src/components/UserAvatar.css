@@ -1,0 +1,58 @@
+/* ---- theme tokens ---- */
+:root {
+  --mint-ink: #2fbfa3;          /* mint text color for initials */
+  --ring-light: rgba(255,255,255,.55);  /* outer ring on photos */
+  --ring-shadow: rgba(0,0,0,.06);       /* soft inner shadow on initials */
+}
+
+/* ---- base avatar ---- */
+.user-avatar{
+  /* sizing is set inline via style={{ width, height }} */
+  aspect-ratio: 1 / 1;
+  border-radius: 9999px;
+  overflow: hidden;
+  display: inline-grid;         /* centers initials perfectly */
+  place-items: center;
+  line-height: 1;
+  font-weight: 700;
+  font-family: Inter, system-ui, Segoe UI, Roboto, Arial, sans-serif;
+  /* remove any default border; TopBar containers sometimes add one */
+  border: 0;
+  padding: 0;
+  background: #fff;             /* default bg (used for initials) */
+}
+
+/* initials fallback — white circle + mint letters + tasteful ring */
+.user-avatar.is-initials{
+  color: var(--mint-ink);
+  box-shadow:
+    0 0 0 1px var(--ring-shadow);       /* hairline ring */
+}
+
+.user-avatar__initials{
+  font-size: 0.9rem;             /* looks good at ~40px */
+  letter-spacing: .4px;
+  user-select: none;
+}
+
+/* photo variant — no inner gap, subtle outer ring to “lift” it */
+.user-avatar.is-photo{
+  background: transparent;       /* image fills, no white halo */
+  box-shadow:
+    0 0 0 1px var(--ring-light); /* thin light ring for contrast */
+}
+
+/* image must fill the circle and not sit on text baseline */
+.user-avatar__img{
+  width: 100%;
+  height: 100%;
+  object-fit: cover;             /* crop to a perfect circle */
+  display: block;                /* removes baseline gap that looks like whitespace */
+  background: transparent;       /* prevents any white bleed */
+}
+
+/* (optional) slightly crisper edge on some displays */
+.user-avatar, .user-avatar__img{
+  -webkit-tap-highlight-color: transparent;
+  image-rendering: auto;
+}

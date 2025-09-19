@@ -21,3 +21,8 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+echo "api/local.settings.json" >> .gitignore
+git rm --cached api/local.settings.json
+git add .gitignore
+git commit -m "chore: ignore local.settings.json (contains secrets)"
