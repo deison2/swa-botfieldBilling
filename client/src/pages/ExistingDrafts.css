@@ -1512,3 +1512,198 @@ button.bare {
   top: -8px; right: 0; left: 0;
   height: 8px;                  /* invisible buffer */
 }
+/* ── Created-by icon filter (from scratch) ───────────────────────────── */
+
+:root {
+  /* palette */
+  --creator-selected-bg: #0d5b56;             /* dark mint/teal for SELECTED */
+  --creator-selected-fg: #ffffff;             /* text on selected */
+
+  --creator-unselected-bg: rgba(47,179,165,.16);  /* base mint (non-selected) */
+  --creator-unselected-hover: rgba(47,179,165,.26); /* hover intensification */
+  --creator-unselected-fg: #0e3034;               /* dark ink on mint */
+
+  --creator-popover-bg: rgba(255,255,255,.97);    /* slightly translucent */
+}
+
+/* anchor popover to the icon */
+.created-filter-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+}
+
+/* compact icon button */
+.created-filter-wrap .user-trigger {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(11,42,48,.06); /* faint housing */
+  cursor: pointer;
+}
+
+/* icon (bumped up 1px) */
+.created-filter-wrap .user-icon {
+  width: 18px;
+  height: 18px;
+  transform: translateY(-1px);
+  color: var(--bubble-green, #2fb3a5);
+}
+
+/* hint when an option is selected */
+.user-trigger.is-active {
+  box-shadow: 0 0 0 1px rgba(47,179,165,.35) inset;
+}
+
+/* popover shell */
+.created-filter-wrap .note-popover.created-filter {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 260px;
+  z-index: 40;
+  background: var(--creator-popover-bg);
+  border-radius: 10px;
+  box-shadow: 0 10px 26px rgba(0,0,0,.12), 0 2px 8px rgba(0,0,0,.08);
+  backdrop-filter: saturate(120%) blur(2px);
+}
+
+/* close button in header */
+.created-filter-close {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  font-size: 20px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 6px;
+  color: rgba(0,0,0,.55);
+  cursor: pointer;
+}
+.created-filter-close:hover {
+  background: rgba(0,0,0,.06);
+  color: rgba(0,0,0,.85);
+}
+
+/* scrollable list */
+.created-filter-list {
+  max-height: 240px;
+  overflow: auto;
+  padding-right: 2px;
+  display: grid;
+  gap: 6px;
+}
+
+/* NON-SELECTED pill (light mint) */
+.created-opt {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: .92rem;
+  line-height: 1.2;
+  cursor: pointer;
+  background: var(--creator-unselected-bg);
+  color: var(--creator-unselected-fg);
+  transition: background-color 120ms ease, color 120ms ease, transform 60ms ease;
+}
+
+/* Hover only intensifies for NON-SELECTED */
+.created-opt:not(.is-selected):hover {
+  background: var(--creator-unselected-hover);
+  color: #07292b;
+}
+
+/* SELECTED pill (dark mint/teal with white text) */
+.created-opt.is-selected {
+  background: var(--creator-selected-bg);
+  color: var(--creator-selected-fg);
+  font-weight: 600;
+}
+
+/* keyboard focus ring */
+.created-opt:focus-visible {
+  outline: 2px solid rgba(47,179,165,.65);
+  outline-offset: 2px;
+}
+
+/* optional: slim scrollbars (WebKit) */
+.created-filter-list::-webkit-scrollbar        { width: 8px; }
+.created-filter-list::-webkit-scrollbar-thumb  { background: rgba(0,0,0,.18); border-radius: 8px; }
+.created-filter-list::-webkit-scrollbar-track  { background: transparent; }
+
+/* ── Created-by popover: beat ".filter-bar button" without !important ── */
+/* Scope tightly so we only affect the creator UI, not other buttons */
+.existing-drafts .filter-bar .note-popover.created-filter .created-filter-list .created-opt {
+  /* wipe the generic .filter-bar button styling and rebuild cleanly */
+  all: unset;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font: inherit;
+  line-height: 1.2;
+  cursor: pointer;
+
+  /* your mint states */
+  background: var(--creator-unselected-bg);
+  color: var(--creator-unselected-fg);
+  transition: background-color 120ms ease, color 120ms ease, transform 60ms ease;
+}
+
+/* hover only intensifies when NOT selected */
+.existing-drafts .filter-bar .note-popover.created-filter .created-filter-list .created-opt:not(.is-selected):hover {
+  background: var(--creator-unselected-hover);
+  color: #07292b;
+}
+
+/* selected pill = dark mint + white text */
+.existing-drafts .filter-bar .note-popover.created-filter .created-filter-list .created-opt.is-selected {
+  background: var(--creator-selected-bg);
+  color: var(--creator-selected-fg);
+  font-weight: 600;
+}
+
+/* keyboard focus ring */
+.existing-drafts .filter-bar .note-popover.created-filter .created-filter-list .created-opt:focus-visible {
+  outline: 2px solid rgba(47,179,165,.65);
+  outline-offset: 2px;
+}
+
+/* The close “x” inside the popover header also lives under .filter-bar, so reset it too */
+.existing-drafts .filter-bar .note-popover.created-filter .created-filter-close {
+  all: unset;
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font: inherit;
+  line-height: 1;
+  color: rgba(0,0,0,.55);
+  cursor: pointer;
+}
+.existing-drafts .filter-bar .note-popover.created-filter .created-filter-close:hover {
+  background: rgba(0,0,0,.06);
+  color: rgba(0,0,0,.85);
+}
+
+/* And the small square icon button housing (also a <button>) */
+.existing-drafts .filter-bar .created-filter-wrap .user-trigger {
+  all: unset;
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: rgba(11,42,48,.06);
+  cursor: pointer;
+}
+.existing-drafts .filter-bar .created-filter-wrap .user-trigger.is-active {
+  box-shadow: 0 0 0 1px rgba(47,179,165,.35) inset;
+}

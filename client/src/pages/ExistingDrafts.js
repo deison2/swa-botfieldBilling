@@ -944,6 +944,16 @@ export default function ExistingDrafts() {
   const [realVal1,        setRealVal1]          = useState('');
   const [realVal2,        setRealVal2]          = useState('');
   const [finalFilter, setFinalFilter] = useState('all');
+  const [createdByFilter, setCreatedByFilter] = useState('');   // '' = All
+  const [showCreatedFilter, setShowCreatedFilter] = useState(false);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') setShowCreatedFilter(false);
+    };
+    if (showCreatedFilter) window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showCreatedFilter]);
 
 
   const onChangeRealOp = (e) => {
@@ -963,7 +973,8 @@ export default function ExistingDrafts() {
     partnerFilter         ||
     managerFilter         ||
     realOp                ||
-    finalFilter !== 'all';
+    finalFilter !== 'all' ||
+    createdByFilter; 
   /* <<< hasChanges END <<< */
   /* >>> pagination-state (NEW) >>> */
   const [currentPage, setCurrentPage]       = useState(1);   // 1-based index
@@ -977,6 +988,27 @@ export default function ExistingDrafts() {
     () => [...new Set(rows.map(r => r.CLIENTPARTNER))].sort(), [rows]);
   const managerOptions = useMemo(
     () => [...new Set(rows.map(r => r.CLIENTMANAGER))].sort(), [rows]);
+  
+    // Distinct CREATEDBY (group-level first, else first matching detail row)
+  const createdByOptions = useMemo(() => {
+    const set = new Set();
+    for (const g of rows) {
+      const groupCreator =
+        g?.CREATEDBY ?? g?.CreatedBy ?? g?.DRAFTCREATEDBY;
+      if (groupCreator) {
+        set.add(String(groupCreator));
+        continue;
+      }
+      const detail = (g.DRAFTDETAIL || []).find(
+        d => d?.CREATEDBY || d?.CreatedBy || d?.DRAFTCREATEDBY
+      );
+      if (detail) {
+        set.add(String(detail.CREATEDBY ?? detail.CreatedBy ?? detail.DRAFTCREATEDBY));
+      }
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  }, [rows]);
+
 
   /* ── CHIP helper ───────────────────────────────────────────── */
   const ChipSet = ({ items, field }) => {
@@ -1677,13 +1709,27 @@ const closeCreated = () => {
       return finalFilter === 'true' ? anyFinal : !anyFinal;
     };
 
+    const byCreatedBy = r => {
+      if (!createdByFilter) return true;
+
+      const groupGb = r?.CREATEDBY ?? r?.CreatedBy ?? r?.DRAFTCREATEDBY;
+      if (String(groupGb || '').toLowerCase() === createdByFilter.toLowerCase()) return true;
+
+      return (r.DRAFTDETAIL || []).some(d => {
+        const gb = d?.CREATEDBY ?? d?.CreatedBy ?? d?.DRAFTCREATEDBY;
+        return String(gb || '').toLowerCase() === createdByFilter.toLowerCase();
+      });
+    };
+
+
     const out = rows
       .filter(bySearch)
       .filter(byOrigin)
       .filter(byPartner)
       .filter(byManager)
       .filter(byReal)
-      .filter(byFinal);
+      .filter(byFinal)
+      .filter(byCreatedBy);
 
     console.log(`UI-FILTER ▶ ${rows.length} → ${out.length}`);
     return out;
@@ -1697,6 +1743,7 @@ const closeCreated = () => {
     realVal1,
     realVal2,
     finalFilter,
+    createdByFilter,
   ]);
 
   /* >>> pageRows (NEW) >>> */
@@ -1716,6 +1763,7 @@ const closeCreated = () => {
     setRealVal1('');
     setRealVal2('');
     setFinalFilter('all');
+    setCreatedByFilter('');
   };
 
 async function handleGeneratePDF(selectedIds) {
@@ -1884,7 +1932,68 @@ console.log('PDF header:', header);
           </div>
 
 
+          {/* Created-by icon filter */}
+          <div
+            className="created-filter-wrap"
+            title="Click to filter drafts by create user"
+          >
+            <button
+              type="button"
+              className={`user-trigger bare ${createdByFilter ? 'is-active' : ''}`}
+              aria-haspopup="dialog"
+              aria-expanded={showCreatedFilter}
+              onClick={() => setShowCreatedFilter(v => !v)}
+            >
+              <svg className="user-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                <g opacity="var(--user-icon-opacity, 0.9)">
+                  <circle cx="12" cy="8" r="4" fill="currentColor" />
+                  <path d="M4 20c0-3.314 3.134-6 8-6s8 2.686 8 6H4z" fill="currentColor" />
+                </g>
+              </svg>
+            </button>
 
+            {showCreatedFilter && (
+              <div className="note-popover created-filter" role="dialog" aria-label="Filter: Created By">
+                <div className="note-head" style={{display:'flex', alignItems:'center', justifyContent:'space-between'}}>
+                  <span>Filter: Created By</span>
+                  <button
+                    type="button"
+                    className="created-filter-close"
+                    aria-label="Close"
+                    onClick={() => setShowCreatedFilter(false)}
+                  >
+                    ×
+                  </button>
+                </div>
+
+                <div className="note-body">
+                  <div className="created-filter-list" role="listbox" aria-label="Creators">
+                    <button
+                      className={`created-opt ${!createdByFilter ? 'is-selected' : ''}`}
+                      onClick={() => { setCreatedByFilter(''); /* keep menu open */ }}
+                      aria-selected={!createdByFilter}
+                    >
+                      All Creators
+                    </button>
+
+                    {createdByOptions.map(name => (
+                      <button
+                        key={name || 'Unknown'}
+                        className={`created-opt ${createdByFilter === name ? 'is-selected' : ''}`}
+                        onClick={() => { setCreatedByFilter(name); /* keep menu open */ }}
+                        aria-selected={createdByFilter === name}
+                        title={name || 'Unknown'}
+                      >
+                        {name || 'Unknown'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+          </div>
+    
           {/* RESET (filters + selections) */}
           <button
             className={`reset-btn ${hasChanges ? 'active' : ''}`}
