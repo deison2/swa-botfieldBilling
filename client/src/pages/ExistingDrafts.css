@@ -1421,3 +1421,27 @@
   animation: kb-spin 0.7s linear infinite;
 }
 @keyframes kb-spin { to { transform: rotate(360deg); } }
+
+.totals-pane .date-range {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.invoices-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  width: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--kb-border, #d6dbe1);
+  background: #fff;
+  cursor: pointer;
+}
+.invoices-btn:hover { background: #f4f7fb; }
+.invoices-btn.disabled,
+.invoices-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
