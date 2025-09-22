@@ -1786,6 +1786,7 @@ button.bare {
   overflow: auto;
 }
 .dtm-body .mini-table th { position: sticky; top: 0; background: #f7fbff; z-index: 1; }
+.dtm-body .mini-table tr { text-align: left;}
 .dtm-body .mini-table .num { text-align: right; }
 .dtm-foot {
   padding: 10px 16px;

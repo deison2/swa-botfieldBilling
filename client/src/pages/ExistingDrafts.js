@@ -1282,6 +1282,12 @@ const Expandable = ({ data }) => {
   const toggleOpen = (key) => setOpenRows(prev => ({ ...prev, [key]: !prev[key] }));
   const setModeFor = (key, mode) => setModeByRow(prev => ({ ...prev, [key]: mode }));
 
+  const getField = (o, k) => o?.[k] ?? o?.[k.toUpperCase()] ?? o?.[k.toLowerCase()];
+  const timeFromRow = (r) => {
+    const d = parseSqlishDate(getField(r, 'WIPDate')); // handles '2025-09-03 00:00:00.000'
+    return isNaN(d) ? Number.POSITIVE_INFINITY : d.getTime();
+  };
+
   const showDetails = (p) => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
     setActiveDetails(p);
@@ -1309,10 +1315,11 @@ const Expandable = ({ data }) => {
   const openDetailFor = (label, mode, wipRows) => {
     const L = String(label).toLowerCase();
     const rows = (wipRows || []).filter(r => {
-      const staff = String(r?.StaffName ?? r?.STAFFNAME ?? '').toLowerCase();
-      const task  = String(r?.Task_Subject ?? r?.TASK_SUBJECT ?? '').toLowerCase();
+      const staff = String(getField(r, 'StaffName') ?? '').toLowerCase();
+      const task  = String(getField(r, 'Task_Subject') ?? '').toLowerCase();
       return mode === 'staff' ? (staff === L) : (task === L);
-    });
+    }).sort((a, b) => timeFromRow(a) - timeFromRow(b)); // ASC by date
+
     setDetailRows(rows);
     setDetailTitle(mode === 'staff' ? `Entries for ${label}` : `Entries for task: ${label}`);
     setDetailOpen(true);
@@ -1650,7 +1657,7 @@ const closeCreated = () => {
                         <tr className="drill-head-row">
                           <td colSpan={6}>
                             <div className="drill-subhead-grid">
-                              <span className="hdr-left">Staff Name</span>
+                              <span className="hdr-left">Name</span>
                               <span className="hdr-hours">Hours</span>
                             </div>
                           </td>
