@@ -1300,6 +1300,24 @@ const Expandable = ({ data }) => {
   });
 };
 
+  // inside Expandable, with other useState hooks
+  const [detailOpen, setDetailOpen]   = React.useState(false);
+  const [detailRows, setDetailRows]   = React.useState([]);
+  const [detailTitle, setDetailTitle] = React.useState('');
+
+  // helper to open modal with filtered wip rows
+  const openDetailFor = (label, mode, wipRows) => {
+    const L = String(label).toLowerCase();
+    const rows = (wipRows || []).filter(r => {
+      const staff = String(r?.StaffName ?? r?.STAFFNAME ?? '').toLowerCase();
+      const task  = String(r?.Task_Subject ?? r?.TASK_SUBJECT ?? '').toLowerCase();
+      return mode === 'staff' ? (staff === L) : (task === L);
+    });
+    setDetailRows(rows);
+    setDetailTitle(mode === 'staff' ? `Entries for ${label}` : `Entries for task: ${label}`);
+    setDetailOpen(true);
+  };
+
   // NOTE POPUP (hover)
   const [showNotes, setShowNotes] = React.useState(false);
   const notesTimer = React.useRef(null);
@@ -1392,6 +1410,71 @@ const closeCreated = () => {
       .map(([label, v]) => ({ label, ...v }))
       .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric:true, sensitivity:'base' }));
   };
+
+  // inside Expandable, before `return ( ... )`:
+
+  function DetailsTableModal({ open, onClose, title, rows }) {
+    if (!open) return null;
+
+    // casing-agnostic accessor
+    const g = (r, k) => r?.[k] ?? r?.[k.toUpperCase()] ?? r?.[k.toLowerCase()];
+
+    const fmtDate = (s) => {
+      const d = parseSqlishDate(s);
+      if (isNaN(d)) return '–';
+      return d.toLocaleDateString('en-US', { year:'numeric', month:'short', day:'2-digit' });
+    };
+
+    return (
+      <PopoverPortal open={open}>
+        <div className="dtm-backdrop" onClick={onClose}>
+          <div className="dtm-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <div className="dtm-head">
+              <div className="dtm-title">{title}</div>
+              <button className="dtm-x" onClick={onClose} aria-label="Close">×</button>
+            </div>
+
+            <div className="dtm-body">
+              <table className="mini-table">
+                <thead>
+                  <tr>
+                    <th>Staff Name</th>
+                    <th>Entry Date</th>
+                    <th>Task</th>
+                    <th className="num">Hours</th>
+                    <th className="num">WIP</th>
+                    <th className="num">Billed</th>
+                    <th>Narrative</th>
+                    <th>Internal Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.length === 0 ? (
+                    <tr><td colSpan={8} className="muted">No rows matched.</td></tr>
+                  ) : rows.map((r, i) => (
+                    <tr key={i}>
+                      <td>{g(r,'StaffName')}</td>
+                      <td>{fmtDate(g(r,'WIPDate'))}</td>
+                      <td>{g(r,'Task_Subject')}</td>
+                      <td className="num">{Number(g(r,'WIPHours') ?? 0).toFixed(2)}</td>
+                      <td className="num">{currency(Number(g(r,'WIPAmount') ?? 0))}</td>
+                      <td className="num">{currency(Number(g(r,'BillAmount') ?? 0))}</td>
+                      <td>{String(g(r,'Narrative') ?? '').trim() || '—'}</td>
+                      <td>{String(g(r,'InternalNotes') ?? '').trim() || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="dtm-foot">
+              <button className="dtm-btn" onClick={onClose}>Close</button>
+            </div>
+          </div>
+        </div>
+      </PopoverPortal>
+    );
+  }
 
   return (
     <div className="expanded-content">
@@ -1567,7 +1650,7 @@ const closeCreated = () => {
                         <tr className="drill-head-row">
                           <td colSpan={6}>
                             <div className="drill-subhead-grid">
-                              <span className="hdr-left">{mode === 'task' ? 'Task Name' : 'Staff Name'}</span>
+                              <span className="hdr-left">Staff Name</span>
                               <span className="hdr-hours">Hours</span>
                             </div>
                           </td>
@@ -1589,6 +1672,26 @@ const closeCreated = () => {
                             <tr key={r.label} className="drill-item">
                               <td colSpan={6}>
                                 <div className="row-left">
+                                  {/* NEW: tiny table icon button */}
+                                  <button
+                                    type="button"
+                                    className="table-pop-btn"
+                                    title="View underlying entries"
+                                    onClick={(e) => { e.stopPropagation(); openDetailFor(r.label, mode, wipRows); }}
+                                    aria-label="View underlying entries"
+                                  >
+                                    {/* Font Awesome table (works if FA is loaded); SVG fallback shows if not */}
+                                    <i className="fa" aria-hidden="true" style={{fontSize: 16, lineHeight: 1}}>&#xf0ce;</i>
+                                    <svg className="fa-fallback" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                                      <rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" strokeWidth="1.6"/>
+                                      <line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" strokeWidth="1.2"/>
+                                      <line x1="3" y1="13" x2="21" y2="13" stroke="currentColor" strokeWidth="1.2"/>
+                                      <line x1="9" y1="5" x2="9" y2="19" stroke="currentColor" strokeWidth="1.2"/>
+                                      <line x1="15" y1="5" x2="15" y2="19" stroke="currentColor" strokeWidth="1.2"/>
+                                    </svg>
+                                  </button>
+
+                                  {/* label shifted right ~10px via CSS gap + spacer in header */}
                                   <span className="lbl">{r.label}</span>
                                   <span className="hrs">{r.hours.toFixed(2)}</span>
                                 </div>
@@ -1641,6 +1744,13 @@ const closeCreated = () => {
         onMouseEnter={() => { if (hideTimer.current) clearTimeout(hideTimer.current); }}
         onMouseLeave={delayHide}
       />
+      <DetailsTableModal
+        open={detailOpen}
+        onClose={() => setDetailOpen(false)}
+        title={detailTitle}
+        rows={detailRows}
+      />
+
     </div>
   );
 };

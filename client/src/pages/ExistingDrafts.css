@@ -1721,3 +1721,133 @@ button.bare {
   color: #fff !important;                 /* for stroke-based icons */
   fill: currentColor;                      /* for fill-based paths */
 }
+
+/* --- Drill section header icon spacer & label shift --- */
+.drill-subhead-grid {
+  display: grid;
+  grid-template-columns: 24px 1fr 80px; /* icon spacer | label | hours */
+  align-items: center;
+  gap: 6px;
+}
+.drill-subhead-grid .hdr-icon-spacer { width: 18px; height: 1px; } /* visual alignment only */
+.drill-subhead-grid .hdr-left { font-weight: 600; color: #274c77; }
+.drill-subhead-grid .hdr-hours { justify-self: end; color: #274c77; }
+
+/* --- Row left area with icon + label + hours --- */
+.drill-item .row-left {
+  display: grid;
+  grid-template-columns: 24px 1fr 80px; /* icon | label | hours */
+  align-items: center;
+  gap: 6px;
+}
+.table-pop-btn {
+  width: 18px; height: 18px;
+  display: inline-grid; place-items: center;
+  border: 0; border-radius: 4px;
+  background: transparent; cursor: pointer;
+}
+.table-pop-btn:hover { background: rgba(0,0,0,0.06); }
+.table-pop-btn .fa-fallback { display: none; }
+.table-pop-btn .fa { font-style: normal; }  /* ensures the FA codepoint renders clean */
+@supports not (font-family: "Font Awesome 6 Free") {
+  .table-pop-btn .fa { display: none; }
+  .table-pop-btn .fa-fallback { display: block; }
+}
+
+/* --- Details Table Modal --- */
+.dtm-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.35);
+  display: grid; place-items: center;
+  z-index: 9999;
+}
+.dtm-modal {
+  width: min(1080px, 92vw);
+  max-height: 84vh;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 18px 40px rgba(0,0,0,0.25);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.dtm-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #e6f6f3, #d2eee9);
+  border-bottom: 1px solid #cfe2f3;
+}
+.dtm-title { font-weight: 600; color: #063941; }
+.dtm-x {
+  border: 0; background: transparent; font-size: 20px; line-height: 1;
+  cursor: pointer; color: #063941;
+}
+.dtm-body {
+  padding: 12px 16px;
+  overflow: auto;
+}
+.dtm-body .mini-table th { position: sticky; top: 0; background: #f7fbff; z-index: 1; }
+.dtm-body .mini-table .num { text-align: right; }
+.dtm-foot {
+  padding: 10px 16px;
+  border-top: 1px solid #eef2f7;
+  display: flex; justify-content: flex-end; gap: 8px;
+}
+.dtm-btn {
+  border: 0; border-radius: 8px; padding: 8px 12px; cursor: pointer;
+  background: #063941; color: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+.dtm-btn:hover { filter: brightness(1.05); }
+
+
+/* Header strip uses flex to avoid grid/justify inheritance quirks */
+.drill-subhead-grid {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.drill-subhead-grid .hdr-icon-spacer {
+  flex: 0 0 18px;   /* fixed icon space */
+  height: 1px;
+}
+
+.drill-subhead-grid .hdr-left {
+  flex: 1 1 auto;   /* takes remaining space */
+  text-align: left;
+}
+
+.drill-subhead-grid .hdr-hours {
+  flex: 0 0 80px;   /* fixed width “Hours” block */
+  text-align: right;
+}
+
+/* ensure the TD doesn’t force right/center alignment */
+.drill-head-row > td {
+  text-align: initial;
+}
+
+/* Ensure the TD that holds the strip doesn't force right/center */
+.drill-head-row > td { text-align: initial; }
+
+/* Header strip: simple flex with label left, hours right */
+.drill-subhead-grid {
+  display: flex;
+  align-items: center;
+  gap: 6px;             /* match row gap */
+}
+
+/* Reserve the icon column visually by padding the label */
+.drill-subhead-grid .hdr-left {
+  flex: 1 1 auto;
+  text-align: left;
+  padding-left: 24px;   /* ≈ 18px icon + 6px gap (tweak 20–26px as needed) */
+}
+
+.drill-subhead-grid .hdr-hours {
+  flex: 0 0 80px;       /* same width you used in rows */
+  text-align: right;
+}
+
+.table-pop-btn{
+  color: rgba(11,140,121,0.9);      /* icon color (transparent mint) */
+}
