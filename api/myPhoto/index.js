@@ -1,5 +1,41 @@
 // /api/myPhoto/index.js
-// Azure Functions (Node 18+) — uses global fetch (no node-fetch)
+// Azure Functions (Node 18+): uses global fetch
+
+// --- Silhouette fallback (mint circle + white ring + teal avatar) ---
+function silhouetteSvg(size = 120) {
+  const ring = "#ffffff";   // white ring to match sidebar avatar
+  const bg   = "#cfe9e4";   // mint
+  const fg   = "#063941";   // deep teal
+
+  return `
+<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+  <defs>
+    <linearGradient id="grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#dff0ed"/>
+      <stop offset="100%" stop-color="#b2d7d0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- backdrop + ring to mirror botfield/keithbot -->
+  <circle cx="${size/2}" cy="${size/2}" r="${size/2 - 1}" fill="url(#grad)"/>
+  <circle cx="${size/2}" cy="${size/2}" r="${size/2 - 2}" fill="${bg}" />
+  <circle cx="${size/2}" cy="${size/2}" r="${size/2 - 2}" fill="none" stroke="${ring}" stroke-width="2"/>
+
+  <!-- your 24x24 silhouette scaled to center -->
+  <g opacity="0.9" transform="translate(${size*0.5 - 12}, ${size*0.5 - 12})" fill="${fg}">
+    <circle cx="12" cy="8" r="4"/>
+    <path d="M4 20c0-3.314 3.134-6 8-6s8 2.686 8 6H4z"/>
+  </g>
+</svg>`.trim();
+}
+
+// Parse ?size=... supporting "64x64" or "120"
+function parseSize(qsSize) {
+  if (!qsSize) return 120;
+  const m = String(qsSize).match(/(\d{2,3})/); // pull first 2-3 digit group
+  const n = m ? parseInt(m[1], 10) : 120;
+  return Math.max(48, Math.min(n, 512));
+}
 
 module.exports = async function (context, req) {
   context.log("[myPhoto] invoked");
@@ -18,7 +54,17 @@ module.exports = async function (context, req) {
 
   if (!email) {
     context.log("[myPhoto] no email on request");
-    context.res = { status: 401, body: "Unauthorized" };
+    // Still return a friendly fallback so the UI never shows a blank
+    const size = parseSize(req.query.size);
+    context.res = {
+      status: 200,
+      headers: {
+        "Content-Type": "image/svg+xml; charset=utf-8",
+        "Cache-Control": "no-store",
+        "x-photo-status": "unauthorized-fallback"
+      },
+      body: silhouetteSvg(size)
+    };
     return;
   }
 
@@ -27,21 +73,7 @@ module.exports = async function (context, req) {
   const clientId     = process.env.AZURE_CLIENT_ID;
   const clientSecret = process.env.AZURE_CLIENT_SECRET;
 
-  if (!tenant || !clientId || !clientSecret) {
-    context.log("[myPhoto] missing env vars", {
-      hasTenant: !!tenant,
-      hasClientId: !!clientId,
-      hasClientSecret: !!clientSecret
-    });
-    context.res = {
-      status: 500,
-      headers: { "x-photo-status": "config-missing" },
-      body: "Server not configured"
-    };
-    return;
-  }
-
-  // --- Optional quick diagnostics: /api/myPhoto?diag=env ---
+  // Quick diagnostics: /api/myPhoto?diag=env
   if ((req.query.diag || "").toString() === "env") {
     context.res = {
       status: 200,
@@ -52,6 +84,26 @@ module.exports = async function (context, req) {
         hasClientSecret: !!clientSecret,
         email
       }
+    };
+    return;
+  }
+
+  // If config missing, serve fallback so avatar is never empty
+  if (!tenant || !clientId || !clientSecret) {
+    context.log("[myPhoto] missing env vars", {
+      hasTenant: !!tenant,
+      hasClientId: !!clientId,
+      hasClientSecret: !!clientSecret
+    });
+    const size = parseSize(req.query.size);
+    context.res = {
+      status: 200,
+      headers: {
+        "Content-Type": "image/svg+xml; charset=utf-8",
+        "Cache-Control": "no-store",
+        "x-photo-status": "config-missing-fallback"
+      },
+      body: silhouetteSvg(size)
     };
     return;
   }
@@ -72,10 +124,15 @@ module.exports = async function (context, req) {
     if (!tokenRes.ok) {
       const t = await tokenRes.text().catch(() => "");
       context.log("[myPhoto] token error", tokenRes.status, t.slice(0, 300));
+      const size = parseSize(req.query.size);
       context.res = {
-        status: 500,
-        headers: { "x-photo-status": "token-failed" },
-        body: "Token acquisition failed"
+        status: 200,
+        headers: {
+          "Content-Type": "image/svg+xml; charset=utf-8",
+          "Cache-Control": "no-store",
+          "x-photo-status": "token-fallback"
+        },
+        body: silhouetteSvg(size)
       };
       return;
     }
@@ -87,23 +144,25 @@ module.exports = async function (context, req) {
     // Sized:    /users/{id}/photos/{size}/$value  (note plural 'photos')
     const allowed = new Set(["48x48", "64x64", "96x96", "120x120", "240x240"]);
     const s = (req.query.size || "").trim();
-    const size = allowed.has(s) ? s : "";
-
-    const path = size ? `photos/${size}/$value` : "photo/$value";
+    const sizeParam = allowed.has(s) ? s : "";
+    const path = sizeParam ? `photos/${sizeParam}/$value` : "photo/$value";
     const url  = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(email)}/${path}`;
 
     const g = await fetch(url, { headers: { Authorization: `Bearer ${access_token}` } });
     context.log("[myPhoto] graph status", g.status, "user", email);
 
+    // --- Fallbacks ---
     if (g.status === 404) {
-      // No photo for this user → graceful fallback on the client
+      const size = parseSize(req.query.size);
       context.res = {
-        status: 204,
+        status: 200,
         headers: {
-          "Cache-Control": "no-store",
-          "x-photo-status": "not-found",
+          "Content-Type": "image/svg+xml; charset=utf-8",
+          "Cache-Control": "public, max-age=600",
+          "x-photo-status": "not-found-fallback",
           "x-graph-status": "404"
-        }
+        },
+        body: silhouetteSvg(size)
       };
       return;
     }
@@ -111,17 +170,22 @@ module.exports = async function (context, req) {
     if (!g.ok) {
       const body = await g.text().catch(() => "");
       context.log("[myPhoto] graph error body", body.slice(0, 300));
+      const size = parseSize(req.query.size);
       context.res = {
-        status: 502,
-        headers: { "x-photo-status": "graph-error", "x-graph-status": String(g.status) },
-        body: "Graph photo fetch failed"
+        status: 200,
+        headers: {
+          "Content-Type": "image/svg+xml; charset=utf-8",
+          "Cache-Control": "no-store",
+          "x-photo-status": "graph-error-fallback",
+          "x-graph-status": String(g.status)
+        },
+        body: silhouetteSvg(size)
       };
       return;
     }
 
+    // --- Success: return JPEG stream ---
     const buf = Buffer.from(await g.arrayBuffer());
-
-    // Cache a bit to avoid hammering Graph; adjust as needed.
     context.res = {
       status: 200,
       isRaw: true,
@@ -135,10 +199,15 @@ module.exports = async function (context, req) {
     };
   } catch (err) {
     context.log("[myPhoto] unexpected error", err);
+    const size = parseSize(req.query.size);
     context.res = {
-      status: 500,
-      headers: { "x-photo-status": "exception" },
-      body: "Unexpected error"
+      status: 200,
+      headers: {
+        "Content-Type": "image/svg+xml; charset=utf-8",
+        "Cache-Control": "no-store",
+        "x-photo-status": "exception-fallback"
+      },
+      body: silhouetteSvg(size)
     };
   }
 };

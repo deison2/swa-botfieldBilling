@@ -42,12 +42,48 @@
   color: #ffffff;
 }
 
-.topbar .user-profile{
-  padding: 0;
-  margin: 0;
-  border: 0;
-  background: transparent;
+/* Topbar avatar: matches botfield/keithbot look */
+.topbar .user-profile {
+  /* outer mint ring */
+  width: 38px;               /* tweak to taste */
+  height: 38px;
+  border-radius: 50%;
+  padding: 0px;              /* ring thickness */
+  background: linear-gradient(135deg, #dff0ed, #b2d7d0);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  border: 0;                 /* keep it clean */
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  position: relative;        /* for optional white halo */
+}
+
+/* optional subtle white halo around the mint ring (like a crisp outline) */
+.topbar .user-profile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px #fff;   /* outside white outline */
+  pointer-events: none;
+}
+
+/* inner content (photo or SVG fallback) */
+.topbar .user-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #cfe9e4;         /* mint fill behind SVG fallback */
+  display: block;
+  object-fit: cover;           /* for <img> */
+}
+
+/* if the fallback is an inline SVG, make it fill the inner circle nicely */
+.topbar .user-avatar svg {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: block;
+  color: #063941;              /* silhouette color */
+  opacity: 0.9;
 }
