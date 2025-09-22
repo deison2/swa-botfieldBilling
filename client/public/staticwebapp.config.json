@@ -5,28 +5,23 @@
   },
 
   "routes": [
-    {
-      "route": "/login",
-      "redirect": "/.auth/login/aad",
-      "statusCode": 302
-    },
-    {
-      "route": "/logout",
-      "redirect": "/.auth/logout?post_logout_redirect_uri=/login",
-      "statusCode": 302
-    },
+    { "route": "/login",  "redirect": "/.auth/login/aad", "statusCode": 302 },
+    { "route": "/logout", "redirect": "/.auth/logout?post_logout_redirect_uri=/login", "statusCode": 302 },
 
-    {
-      "route": "/*",           
-      "allowedRoles": ["authenticated"],
-      "serve": "/index.html"
-    }
+    { "route": "/manifest.json",     "allowedRoles": ["anonymous"] },
+    { "route": "/favicon.ico",       "allowedRoles": ["anonymous"] },
+    { "route": "/logo192.png",       "allowedRoles": ["anonymous"] },
+    { "route": "/logo512.png",       "allowedRoles": ["anonymous"] },
+    { "route": "/service-worker.js", "allowedRoles": ["anonymous"] },
+    { "route": "/icons/*",           "allowedRoles": ["anonymous"] },
+    { "route": "/assets/*",          "allowedRoles": ["anonymous"] },
+
+    { "route": "/api/*", "allowedRoles": ["authenticated"] },
+
+    { "route": "/*", "allowedRoles": ["authenticated"], "serve": "/index.html" }
   ],
 
   "responseOverrides": {
-    "401": {
-      "redirect": "/login",
-      "statusCode": 302
-    }
+    "401": { "redirect": "/login", "statusCode": 302 }
   }
 }
