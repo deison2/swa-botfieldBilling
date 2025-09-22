@@ -4,13 +4,32 @@
   "routes": [
     { "route": "/api/*", "allowedRoles": ["authenticated"] },
 
-    { "route": "/manifest.json",        "allowedRoles": ["anonymous"] },
-    { "route": "/manifest.webmanifest", "allowedRoles": ["anonymous"] },
-    { "route": "/favicon.ico",          "allowedRoles": ["anonymous"] },
-    { "route": "/icons/*",              "allowedRoles": ["anonymous"] },
-    { "route": "/assets/*",             "allowedRoles": ["anonymous"] },
-    { "route": "/service-worker.js",    "allowedRoles": ["anonymous"] }
+    { "route": "/manifest.json",         "methods": ["GET"], "allowedRoles": ["anonymous"] },
+    { "route": "/manifest.webmanifest",  "methods": ["GET"], "allowedRoles": ["anonymous"] },
+    { "route": "/asset-manifest.json",   "methods": ["GET"], "allowedRoles": ["anonymous"] },
+    { "route": "/favicon.ico",           "methods": ["GET"], "allowedRoles": ["anonymous"] },
+    { "route": "/service-worker.js",     "methods": ["GET"], "allowedRoles": ["anonymous"] },
+    { "route": "/logo*",                 "methods": ["GET"], "allowedRoles": ["anonymous"] },
+    { "route": "/icons/*",               "methods": ["GET"], "allowedRoles": ["anonymous"] },
+    { "route": "/static/*",              "methods": ["GET"], "allowedRoles": ["anonymous"] },
+    { "route": "/assets/*",              "methods": ["GET"], "allowedRoles": ["anonymous"] }
   ],
+
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": [
+      "/api/*",
+      "/static/*",
+      "/assets/*",
+      "/icons/*",
+      "/favicon.ico",
+      "/manifest.json",
+      "/manifest.webmanifest",
+      "/asset-manifest.json",
+      "/service-worker.js",
+      "/logo*"
+    ]
+  },
 
   "mimeTypes": {
     ".webmanifest": "application/manifest+json"
