@@ -1,3 +1,18 @@
 {
-  "platform": { "apiRuntime": "node:20" }
+  "platform": { "apiRuntime": "node:20" },
+
+  "routes": [
+    { "route": "/api/*", "allowedRoles": ["authenticated"] },
+
+    { "route": "/manifest.json",        "allowedRoles": ["anonymous"] },
+    { "route": "/manifest.webmanifest", "allowedRoles": ["anonymous"] },
+    { "route": "/favicon.ico",          "allowedRoles": ["anonymous"] },
+    { "route": "/icons/*",              "allowedRoles": ["anonymous"] },
+    { "route": "/assets/*",             "allowedRoles": ["anonymous"] },
+    { "route": "/service-worker.js",    "allowedRoles": ["anonymous"] }
+  ],
+
+  "mimeTypes": {
+    ".webmanifest": "application/manifest+json"
+  }
 }
