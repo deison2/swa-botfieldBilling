@@ -12,7 +12,9 @@
     { "route": "/logo*",                 "methods": ["GET"], "allowedRoles": ["anonymous"] },
     { "route": "/icons/*",               "methods": ["GET"], "allowedRoles": ["anonymous"] },
     { "route": "/static/*",              "methods": ["GET"], "allowedRoles": ["anonymous"] },
-    { "route": "/assets/*",              "methods": ["GET"], "allowedRoles": ["anonymous"] }
+    { "route": "/assets/*",              "methods": ["GET"], "allowedRoles": ["anonymous"] },
+
+    { "route": "/*", "methods": ["GET"], "allowedRoles": ["anonymous"] }
   ],
 
   "navigationFallback": {
