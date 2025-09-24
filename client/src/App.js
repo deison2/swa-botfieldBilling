@@ -5,9 +5,8 @@ import UnderConstructionPage from './components/UnderConstructionPage';
 // Import page components
 //import RecurringRetainers from "./pages/RecurringRetainers";
 //import TechFees from "./pages/TechFees";
-//import BillingGroups from "./pages/BillingGroups";
 import ExistingDrafts from "./pages/ExistingDrafts";
-//import MiscReports from "./pages/MiscReports";
+import MiscReports from "./pages/MiscReports";
 
 // WIP-Based-Billing nested pages
 import GeneralInformation   from './pages/GeneralInformation';
@@ -58,7 +57,7 @@ export default function App() {
           <Route path="Recurring-Retainers" element={<UnderConstructionPage />} />
           <Route path="Tech-Fees" element={<UnderConstructionPage />} />
           <Route path="Billing-Groups" element={<BillingGroups />} />
-          <Route path="Misc-Reports" element={<UnderConstructionPage />} />
+          <Route path="Misc-Reports" element={<MiscReports />} />
 
           {/* 404 fallback */}
           <Route path="*" element={<div>Page not found</div>} />

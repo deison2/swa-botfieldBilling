@@ -1,0 +1,108 @@
+.select-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.date-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* "pill" look to match your existing controls */
+.pill-select,
+.pill-input {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  background-color: #fff;
+  padding-right: 2.25rem;
+  padding: 6px 10px;
+  font: inherit;
+}
+
+.pill-input:focus,
+.pill-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+}
+
+/* Search input width tweak */
+.search-input-misc {
+  width: 20%;
+}
+
+/* Report select hook if you need to size it differently */
+.report-select {
+  min-width: 18rem;
+}
+
+/* ========== Table ========== */
+.table-section {
+  margin-top: 0.75rem;
+}
+
+/* ========== Instruction Card & Errors ========== */
+.instructions-card {
+  border: 1px dashed #d1d5db;
+  background: #f9fafb;
+  padding: 1.25rem;
+  border-radius: 0.75rem;
+  color: #374151;
+}
+
+.instructions-card h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.error-banner {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+}
+
+/* ========== Loader Overlay ========== */
+.loader-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(2px);
+  z-index: 1000;
+}
+
+/* ========== Option Coloring (Report Groups) ========== */
+/* Anything with prefix "Billing Error Check - " should receive this class in JSX */
+.billing-error-opt {
+  color: #49A050; /* red-700-ish */
+  font-weight: 500;
+}
+
+/* Optional: a second style used for WIP clean-up options */
+.wipclean-opt {
+  color: #063941; /* emerald-900-ish */
+  font-weight: 500;
+}
+
+/* ========== A11y Helpers ========== */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

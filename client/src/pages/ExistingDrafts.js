@@ -351,6 +351,8 @@ function JobDetailsPanel({ details, pinRequest, setGlobalLoading }) {
     const [forceOpenEnd, setForceOpenEnd] = React.useState(false);
     const [loading, setLoading] = React.useState(false);
 
+    console.log(forceOpenEnd);
+
     // NEW: distinct DebtTranIndex values for later API use
     const [debtTranIndexes, setDebtTranIndexes] = React.useState([]); // integers
 
@@ -467,7 +469,7 @@ function JobDetailsPanel({ details, pinRequest, setGlobalLoading }) {
       })();
 
       return () => { cancelled = true; };
-    }, [clientCode, startDate, endDate]);
+    }, [clientCode, startDate, endDate, cacheRef]);
 
     return (
       <div className="totals-pane">
@@ -834,7 +836,7 @@ export default function ExistingDrafts() {
   const visibleRawRows = useMemo(() => {
     if (!ready) return [];
 
-    if (isSuperUser || 1 === 1) {   // dev backdoor: set to false to test user filtering
+    if (isSuperUser) {   // dev backdoor: set to false to test user filtering
       console.log('%cAUTH ▶ super-user – no filter', 'color:navy');
       return rawRows;
     }
@@ -1176,43 +1178,9 @@ export default function ExistingDrafts() {
 
   ];
 
-const money = v => v == null ? "–" :
-  Number(v).toLocaleString("en-US", { style: "currency", currency: "USD" });
-const num = v => v == null ? "–" : Number(v).toLocaleString("en-US");
-
-// Renders a compact key/value card
-function JobHoverMatrix({ job }) {
-  return (
-    <div className="job-hover">
-      {/* top summary */}
-      <div className="job-top">
-        <div className="kv"><span className="k">Office - </span><span className="v">{job.ClientOffice}</span></div>
-        <div className="kv"><span className="k">Originator - </span><span className="v">{job.ClientOriginator}</span></div>
-        <div className="kv"><span className="k">Partner - </span><span className="v">{job.JobPartner}</span></div>
-        <div className="kv"><span className="k">Manager - </span><span className="v">{job.JobManager}</span></div>
-      </div>
-
-      {/* matrix */}
-      <table className="hover-matrix" role="table" aria-label={`Job ${job.Job_Idx} summary`}>
-        <thead>
-          <tr>
-            <th />         {/* row labels */}
-            <th>PY</th>
-            <th>CY</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr><th>Hours</th>            <td>{num(job.PYHours)}</td>           <td title={'CY Total Hours (billed and unbilled) to date'}>{num(job.CYHours)}</td></tr>
-          <tr><th>WIP Time</th>         <td>{money(job.PYWIPTime)}</td>       <td title={'CY Total WIP (billed and unbilled) to date'}>{money(job.CYWIPTime)}</td></tr>
-          <tr><th>WIP Exp</th>          <td>{money(job.PYWIPExp)}</td>        <td title={'CY Total Expenses (billed and unbilled) to date'}>{money(job.CYWIPExp)}</td></tr>
-          <tr><th>Billed</th>           <td>{money(job.PYBilled)}</td>        <td title={`CY Total Billed (excluding current draft) to date.\n\nWhen including the current draft\'s bill amount, the CY Billed is ${money(job.CYBilledwDraft)}`}>{money(job.CYBilled)}</td></tr>
-          <tr><th>Realization</th>      <td>{job.PYRealization ?? "–"}</td>   <td title={`CY Total Realization (excluding current draft) to date.\n\nWhen including the current draft\'s bill amount, the CY Realization is ${job.CYRealwDraft}`}>{job.CYRealization ?? "–"}</td></tr>
-          <tr><th>WIP Outstanding</th>  <td>{money(job.PYWIPOutstanding)}</td><td title={'CY WIP Outstanding'}>{money(job.CYWIPOutstanding)}</td></tr>
-        </tbody>
-      </table>
-    </div>
-  );
-}
+//const money = v => v == null ? "–" :
+//  Number(v).toLocaleString("en-US", { style: "currency", currency: "USD" });
+//const num = v => v == null ? "–" : Number(v).toLocaleString("en-US");
 
 function DraftRow({ d, client, granData, onHover, onLeave, onPin, expanded, onToggleExpand }) {
   const payload = {
@@ -2235,7 +2203,7 @@ console.log('PDF header:', header);
                       setBtMonth(new Date(picked.getFullYear(), picked.getMonth(), 1));
                       setBtOpen(false);
                       // (c) refresh data using the new ISO date
-                      const [dRes, gRes, wipRes] = await Promise.allSettled([
+                      const [dRes, gRes] = await Promise.allSettled([
                         GetDrafts(iso),
                         GetGranularJobData(iso),
                         GetGranularWIPData(),
