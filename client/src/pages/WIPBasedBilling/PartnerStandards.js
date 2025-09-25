@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Sidebar from '../../components/Sidebar';
 import GeneralDataTable from '../../components/DataTable';
 import TopBar from '../../components/TopBar';
@@ -9,6 +9,22 @@ import { getStandards, updateStandards } from '../../services/OfficePartnerClien
 export default function PartnerStandards() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchText, setSearchText] = useState('');
+
+    const filteredRows = useMemo(() => {
+  const q = (searchText || '').trim().toLowerCase();
+  if (!q) return rows;
+
+  return rows.filter(row => {
+    // Examine all values in the row. Stringify non-strings.
+    for (const val of Object.values(row || {})) {
+      if (val == null) continue;
+      const s = typeof val === 'string' ? val : JSON.stringify(val);
+      if (s.toLowerCase().includes(q)) return true;
+    }
+    return false;
+  });
+}, [rows, searchText]);
 
 useEffect(() => {
   let alive = true;
@@ -95,6 +111,9 @@ useEffect(() => {
       return clamp((val + step), 0, 150);
     };
 
+
+
+
     return (
       <div className={`percent-field ${invalid ? 'is-invalid' : ''}`}>
         <input
@@ -159,11 +178,19 @@ useEffect(() => {
 
       <main className="main-content">
         <div className="table-section">
+              <input
+  type="search"
+  className="pill-input search-input-misc"
+  placeholder="Search all partners..."
+  value={searchText}
+  onChange={(e) => setSearchText(e.target.value)}
+  aria-label="Search table"
+/>
           <GeneralDataTable
             keyField="PartnerCode" 
             title="Partner Standards"
             columns={columns}
-            data={rows}
+            data={filteredRows}
             progressPending={loading}
             pagination
             highlightOnHover
