@@ -187,6 +187,43 @@ function EditClientStandardModal({ open, onClose, client, onSaved }) {
 }
 
 export default function ClientStandards() {
+
+  const POP_FIELDS = [
+  'ClientCode',
+  'ClientName',
+  'ClientOffice',
+  'ClientPartner',
+  'ClientManager',
+];
+
+// stable key builder (case/whitespace-insensitive)
+const keyOf = (row) =>
+  POP_FIELDS
+    .map(f => (row?.[f] == null ? '' : String(row[f]).trim().toUpperCase()))
+    .join('|');
+
+// keep the first row we see for each key,
+// but prefer a row that has a non-empty `value`
+function dedupePopulationRows(rows) {
+  const seen = new Map();                // key -> row
+  for (const r of rows || []) {
+    const k = keyOf(r);
+    if (!seen.has(k)) {
+      seen.set(k, r);
+    } else {
+      const cur = seen.get(k);
+      const curHas = cur?.value != null && String(cur.value) !== '';
+      const nextHas = r?.value != null && String(r.value) !== '';
+      // if current value is empty but next has a value, take next
+      if (!curHas && nextHas) seen.set(k, r);
+    }
+  }
+  // optional: sort by ClientCode
+  return [...seen.values()].sort((a, b) =>
+    String(a.ClientCode).localeCompare(String(b.ClientCode))
+  );
+}
+
   // Data state
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -220,39 +257,42 @@ export default function ClientStandards() {
 
   // Search-driven loader
   useEffect(() => {
-    let active = true;
-    const reqId = ++requestIdRef.current;
+  let active = true;
+  const reqId = ++requestIdRef.current;
 
-    const run = async () => {
-      setError('');
-      const q = debouncedSearch.trim();
+  const run = async () => {
+    setError('');
+    const q = debouncedSearch.trim();
 
-      if (q.length < MIN_QUERY_LEN) {
-        if (!active || reqId !== requestIdRef.current) return;
+    if (q.length < MIN_QUERY_LEN) {
+      if (!active || reqId !== requestIdRef.current) return;
+      setRows([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const data = await getStandards('client', q);
+      if (!active || reqId !== requestIdRef.current) return;
+
+      const normalized = normalizeRows(data);
+      const distinct = dedupePopulationRows(normalized);
+      setRows(distinct);
+    } catch (e) {
+      console.error('getStandards error:', e);
+      if (active && reqId === requestIdRef.current) {
+        setError('Sorry—there was a problem loading client standards.');
         setRows([]);
-        setLoading(false);
-        return;
       }
+    } finally {
+      if (active && reqId === requestIdRef.current) setLoading(false);
+    }
+  };
 
-      setLoading(true);
-      try {
-        const data = await getStandards('client', q);
-        if (!active || reqId !== requestIdRef.current) return;
-        setRows(normalizeRows(data));
-      } catch (e) {
-        console.error('getStandards error:', e);
-        if (active && reqId === requestIdRef.current) {
-          setError('Sorry—there was a problem loading client standards.');
-          setRows([]);
-        }
-      } finally {
-        if (active && reqId === requestIdRef.current) setLoading(false);
-      }
-    };
-
-    run();
-    return () => { active = false; };
-  }, [debouncedSearch]);
+  run();
+  return () => { active = false; };
+}, [debouncedSearch]);
 
   // Optional: keep a summary column in the grid (e.g., show ALL or average)
   // For now we’ll just provide the edit button.
