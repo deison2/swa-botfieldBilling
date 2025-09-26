@@ -37,22 +37,31 @@ function mapStandards(
     const popVal = normalize(obj?.[popKey]);
     if (popVal == null) continue;
 
-    // collect all blob entries where blobKey matches
+    // find all blob entries where blobKey matches
     const matches = (blobArray || []).filter(
       b => normalize(b?.[blobKey]) === popVal
     );
 
-    for (const match of matches) {
-      // combine the population row + blob row
+    if (matches.length > 0) {
+      // push merged records for each match
+      for (const match of matches) {
+        result.push({
+          ...obj,
+          ...match
+        });
+      }
+    } else {
+      // no match: push population row with null value
       result.push({
         ...obj,
-        ...match
+        value: null
       });
     }
   }
 
   return result;
 }
+
 
 let populationKey = '';
 if (type === 'office')       populationKey = 'OfficeCode';
