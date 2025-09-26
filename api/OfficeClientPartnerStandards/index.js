@@ -5,8 +5,7 @@ const type = context.bindingData.type;
 const url = `https://prod-43.eastus.logic.azure.com/workflows/22d673f179c34ca1a0f03a893180ba74/triggers/When_a_HTTP_request_is_received/paths/invoke/type/${type}Standard?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_a_HTTP_request_is_received%2Frun&sv=1.0&sig=nXcXecHk2xjH_LJEY51DbqSi7nio8-8wJGP9Frth_Ug`;
 const CONTAINER = "container-bmssprod001";
 const BLOB = `htmlData/automatedBilling/${type}/standards.json`;
-  //const conn = process.env.AZURE_STORAGE_CONNECTION_STRING;
-  const conn = "DefaultEndpointsProtocol=https;AccountName=storageacctbmssprod001;AccountKey=KIGQ23HFXL1LxgCuu8BNPgUn4wQ7Hl6wFRWbelUALQo/Bwo+faQNp9VM74WGy/oWm6fsXarapzxz+AStHJuiJw==;EndpointSuffix=core.windows.net";
+  const conn = process.env.AZURE_STORAGE_CONNECTION_STRING;
 
   const blobSvc = BlobServiceClient.fromConnectionString(conn);
   const container = blobSvc.getContainerClient(CONTAINER);
@@ -95,13 +94,6 @@ if (type === 'client') {
     type === 'client'
       ? (body.serv ?? null)
       : null;
-
-  if (type === 'client') {
-    body.blobServ = service;
-    if (body.popServ == null) {
-      body.popServ = service;
-    }
-  }
   const idx =
     type === 'client'
       ? list.findIndex(i =>
