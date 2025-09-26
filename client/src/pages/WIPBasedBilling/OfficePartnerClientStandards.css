@@ -99,7 +99,6 @@
 
 /* new narrative button */
 .add-narrative-btn {
-  margin-left: auto;           /* pushes it to the far right */
   background: #063941;
   color: #ffffff;
   border: none;
@@ -174,4 +173,266 @@
   pointer-events: none;
   opacity: 0.7;
   font-variant-numeric: tabular-nums;
+}
+/* EditNarrativeModal.css - styling to match existing app styles */
+
+/* Overlay covers entire screen with a semi-transparent backdrop */
+.overlay {
+position: fixed;
+top: 0;
+left: 0;
+right: 0;
+bottom: 0;
+background-color: rgba(40, 44, 52, 0.75);
+display: flex;
+align-items: center;
+justify-content: center;
+z-index: 1000;
+}
+
+/* Modal container: fixed & centered in viewport */
+.modal {
+position: fixed;
+top: 50%;
+left: 50%;
+transform: translate(-50%, -50%);
+background-color: #dddddd;
+color: #063941;
+padding: 2rem;
+border: 1px solid #063941;
+border-radius: 8px;
+width: 90%;
+max-width: 600px;
+box-sizing: border-box;
+text-align: left;
+z-index: 1001;
+font: bold;
+font-weight: bold;
+}
+
+/* MultiSelect container */
+.rmsc {
+/* change the main accent color (focus/border) */
+--rmsc-main: #007bff;
+/* option hover background */
+--rmsc-hover: #e9ecef;
+/* selected-item background */
+--rmsc-selected: #cfe2ff;
+/* overall border color */
+--rmsc-border: #ced4da;
+/* text / icon gray */
+--rmsc-gray: #6c757d;
+/* dropdown background */
+--rmsc-bg: #ffffff;
+/* spacing inside items */
+--rmsc-p: 8px;
+/* border‐radius */
+--rmsc-radius: 6px;
+/* control height */
+--rmsc-h: 2.5rem;
+color: #063941;
+}
+
+/* Form labels styled bold and spaced */
+.edit-form label {
+display: block;
+margin-bottom: 0.5rem;
+font-weight: bold;
+}
+
+/* Inputs and textarea adopt dark background and accent borders */
+.edit-form input,
+.edit-form textarea {
+resize: none;
+display: grid;
+grid-template-columns: auto 1fr !important; /* auto for checkbox, 1fr for text */
+white-space: normal;
+  padding: var(--rmsc-p);
+  border: (--rmsc-border);
+background: var(--rmsc-hover);
+  border-radius: var(--rmsc-radius);
+  background-color: #ffffff;
+  color: #063941;
+  height: var(--rmsc-h);
+  font-size: 1rem;            /* or whatever your rmsc default is */
+  box-shadow: none;           /* if rmsc normally drops its shadow */
+  width: 100%;
+  margin-top: 0.25rem;
+  margin-bottom: 1rem;
+  font-weight: bold;
+  justify-items: center;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+/* style any option that’s been selected */
+.edit-form select option:checked {
+background-color: #a6e1dd !important;
+color: #063941 !important;
+font-weight: bold;
+}
+
+/* Focus rings for input, textarea, select */
+.edit-form input:focus,
+.edit-form textarea:focus,
+.edit-form select:focus {
+outline: 2px solid #7f8c8d;
+}
+
+/* Buttons container aligns right */
+.buttons {
+display: flex;
+justify-content: flex-end;
+gap: 1rem;
+}
+
+/* Base button styles */
+.buttons button {
+font: inherit;
+padding: 0.5rem 1rem;
+border: 1px;
+border-radius: 4px;
+cursor: pointer;
+color: #dddddd;
+box-shadow: #282c34;
+background-image: linear-gradient(
+    to right,          /* direction: left → right */
+    #063941 0%,        /* start color */
+    #282c34 100%       /* end color */
+    );
+}
+
+/* Hover state for both buttons */
+.buttons button:hover {
+opacity: 0.8;
+}
+
+/* if you need more fine-grained tweaks, you can reach into its class names: */
+.rmsc .dropdown-container {
+box-shadow: none  !important ;    /* drop the default box-shadow */
+}
+
+.rmsc .select-item {
+display: grid;
+grid-template-columns: auto 1fr !important; /* auto for checkbox, 1fr for text */
+white-space: normal;
+}
+
+.rmsc .select-item:hover {
+background: var(--rmsc-hover);
+}
+.rmsc .search-input {
+font-size: 0.9rem;
+padding: 0 var(--rmsc-p);
+color: #063941;
+}
+
+.rmsc .select-item input[type="checkbox"] {
+display: none !important;
+}
+
+/* 3) highlight anything that’s selected */
+.rmsc .select-item[data-selected="true"] {
+background: var(--rmsc-selected) !important;
+}
+
+/* now reinforce that any select with .rmsc in the edit-form 
+   uses the --rmsc variables and styling */
+.edit-form select {
+display: grid;
+grid-template-columns: auto 1fr !important; /* auto for checkbox, 1fr for text */
+white-space: normal;
+  padding: var(--rmsc-p);
+  border: (--rmsc-border);
+background: var(--rmsc-hover);
+  border-radius: var(--rmsc-radius);
+  background-color: #ffffff;
+  color: #063941;
+  height: var(--rmsc-h);
+  font-size: 1rem;            /* or whatever your rmsc default is */
+  box-shadow: none;           /* if rmsc normally drops its shadow */
+  width: 100%;
+  margin-top: 0.25rem;
+  margin-bottom: 1rem;
+  font-weight: bold;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+/* and on focus, use the rmsc main color */
+.edit-form select.rmsc:focus {
+  outline: 2px solid var(--rmsc-main);
+}
+/* Compact table look */
+.table-clean,
+.service-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  background: #fff;
+  border-radius: 6px;
+  font-size: 0.85rem;              /* slightly smaller text */
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04);
+  background-image: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+}
+
+.table-clean th,
+.service-table th {
+  padding: 6px 8px;               /* smaller header padding */
+  background: #f6f8fa;
+  font-weight: 600;
+  border-bottom: 1px solid #e5e7eb;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.6); /* subtle embossed effect */
+}
+
+.table-clean td,
+.service-table td {
+  padding: 3px 4px;               /* smaller body cell padding */
+  border-bottom: 1px solid #f0f2f4;
+  vertical-align: middle;
+  background-color: #fff;
+  background-image: linear-gradient(180deg, #ffffff 0%, #fcfcfc 100%);
+}
+
+/* Alternate row shading */
+.table-clean tbody tr:nth-child(even),
+.service-table tbody tr:nth-child(even) {
+  background: #fafafa;
+  background-image: linear-gradient(180deg, #fafafa 0%, #f5f7f7 100%);
+}
+
+.table-clean tbody tr:hover,
+.service-table tbody tr:hover {
+  background: #eef6f5;
+  background-image: none; /* hover solid for clarity */
+  box-shadow: inset 0 0 0 9999px rgba(166, 225, 221, 0.15);
+}
+
+.table-clean tbody tr:hover td,
+.service-table tbody tr:hover td {
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+/* Percent input compact but with soft inset look */
+.percent-input {
+  width: 80px;
+  padding: 4px 20px 4px 6px;
+  font-size: 0.85rem;
+  border: 1px solid #d1d9dd;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.06);
+}
+.percent-input:focus {
+  outline: none;
+  border-color: #91c3bf;
+  box-shadow: 0 0 0 2px rgba(166, 225, 221, 0.5);
+}
+.percent-suffix {
+  right: 6px;
+  font-size: 0.75rem;
+  color: #666;
 }

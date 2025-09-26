@@ -98,7 +98,7 @@
 
 /* new narrative button */
 .add-narrative-btn {
-  margin-left: auto;           /* pushes it to the far right */
+  justify-content: center;
   background: #063941;
   color: #ffffff;
   border: none;

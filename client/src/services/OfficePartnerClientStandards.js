@@ -16,13 +16,22 @@ export async function getStandards(type, searchText) {
   return returnBody;
 }
 
-export async function updateStandards(type, id, value) {
+export async function updateStandards(type, id, serv, value) {
+  const body = {
+    id,
+    value,
+  };
+
+  if (serv != null) {
+    body.serv = serv;   // only add when serv is not null
+  }
+
   const res = await fetch(`${baseAPI}/${type}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id: id, 
-                           value: value })
+    body: JSON.stringify(body),
   });
+
   if (!res.ok) throw new Error("Update failed");
   return res.json();
 }

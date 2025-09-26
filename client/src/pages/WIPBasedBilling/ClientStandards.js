@@ -8,6 +8,10 @@ import { getStandards, updateStandards } from '../../services/OfficePartnerClien
 
 // --- constants ---
 const MIN_QUERY_LEN = 3;
+const SERVICES = [
+  'ALL','ACCTG','ATTEST','AUDIT','BUSTAX','EOS','ESTATE','GCC','HR',
+  'INDTAX','MAS','NFP','SALT','TAS','TAS TAX','VAL'
+];
 
 // --- small debounce hook ---
 function useDebouncedValue(value, delay = 500) {
@@ -17,6 +21,169 @@ function useDebouncedValue(value, delay = 500) {
     return () => clearTimeout(t);
   }, [value, delay]);
   return debounced;
+}
+
+// --- Modal ---
+function EditClientStandardModal({ open, onClose, client, onSaved }) {
+  const [rows, setRows] = useState(() => SERVICES.map(s => ({ serv: s, value: '' })));
+  const [initialMap, setInitialMap] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const toNumOrNull = (v) => {
+    if (v === '' || v == null) return null;
+    const n = Number.parseFloat(String(v));
+    return Number.isFinite(n) ? n : null;
+  };
+  const fmt = (n) => (n == null ? '' : Number(n).toFixed(2));
+
+  // load values for this client
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      if (!open || !client?.ClientCode) return;
+      setLoading(true);
+      setError('');
+
+      try {
+        const data = await getStandards('client', client.ClientCode);
+
+        // Build map SERV -> value
+        const apiMap = {};
+        for (const r of (data || [])) {
+          const key = (r.popServ ?? r.blobServ ?? r.serv ?? '').toUpperCase();
+          let v = r.value;
+          if (v == null && Array.isArray(r.standards)) {
+            const first = r.standards[0];
+            v = (first && typeof first === 'object') ? first.value : first;
+          }
+          apiMap[key] = v == null ? '' : String(v);
+        }
+
+        const grid = SERVICES.map(s => ({
+          serv: s,
+          value: fmt(toNumOrNull(apiMap[s]))
+        }));
+
+        if (active) {
+          setRows(grid);
+          setInitialMap(grid.reduce((acc, r) => {
+            acc[r.serv] = r.value;
+            return acc;
+          }, {}));
+        }
+      } catch (e) {
+        console.error('load error', e);
+        if (active) setError('Failed to load standards.');
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    load();
+    return () => { active = false; };
+  }, [open, client?.ClientCode]);
+
+  const hasChanges = useMemo(() => {
+    for (const r of rows) {
+      if ((initialMap[r.serv] ?? '') !== (r.value ?? '')) return true;
+    }
+    return false;
+  }, [rows, initialMap]);
+
+  const onChangeCell = (serv, val) => {
+    setRows(prev => prev.map(r => r.serv === serv ? { ...r, value: val } : r));
+  };
+
+  const saveChanges = async () => {
+    if (!client?.ClientCode) return;
+    setSaving(true);
+    try {
+      let changed = 0;
+      for (const r of rows) {
+        const before = initialMap[r.serv] ?? '';
+        const after = r.value ?? '';
+        if (before === after) continue;
+        const num = toNumOrNull(after);
+        await updateStandards('client', client.ClientCode, r.serv, num);
+        changed++;
+      }
+      setInitialMap(rows.reduce((acc, r) => { acc[r.serv] = r.value; return acc; }, {}));
+      onSaved?.(changed);
+      onClose();
+    } catch (e) {
+      console.error('save error', e);
+      setError('Failed to save changes.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!open) return null;
+
+  return (
+    <div className="overlay">
+      <div className="modal">
+        <div className="modal-header">
+          <h3>Edit Client Standards by Service</h3>
+          <div className="modal-sub">
+            {client?.ClientCode} — {client?.ClientName ?? ''}
+          </div>
+        </div>
+
+        {error && <div className="bg-error" style={{ margin: '8px 0' }}>{error}</div>}
+
+        <div className="modal-body">
+          {loading ? (
+            <div>Loading…</div>
+          ) : (
+            <table className="service-table">
+              <thead>
+                <tr>
+                  <th>Service</th>
+                  <th style={{ textAlign: 'right' }}>Standard (%)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(({ serv, value }) => (
+                  <tr key={serv}>
+                    <td>{serv}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div className="percent-field">
+                        <input
+                          className="percent-input"
+                          type="number"
+                          inputMode="decimal"
+                          min={0}
+                          max={150}
+                          step={1}
+                          value={value}
+                          onChange={(e) => onChangeCell(serv, e.target.value)}
+                          onBlur={(e) => {
+                            const n = Number.parseFloat(e.target.value);
+                            const v = Number.isFinite(n) ? n.toFixed(2) : (e.target.value === '' ? '' : value);
+                            onChangeCell(serv, v);
+                          }}
+                        />
+                        <span className="percent-suffix">%</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <div className="buttons">
+          <button onClick={onClose} disabled={saving}>Cancel</button>
+          <button onClick={saveChanges} disabled={saving || loading || !hasChanges}>
+            {saving ? 'Saving…' : 'Save changes'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function ClientStandards() {
@@ -29,40 +196,37 @@ export default function ClientStandards() {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search, 500);
 
+  // Modal state
+  const [modalOpen, setModalOpen] = useState(false);
+  const [activeClient, setActiveClient] = useState(null);
+
   // Misc
   const hasMinChars = (debouncedSearch.trim().length >= MIN_QUERY_LEN);
   const tableContainerRef = useRef(null);
-  const requestIdRef = useRef(0); // avoid race conditions
+  const requestIdRef = useRef(0);
 
   // Helpers
   const normalizeRows = (data) => {
     return (data || []).map((d) => {
-      // prefer scalar value returned by the backend
       let v = d.value;
-
-      // backward-compat: if no `value`, try to pull it from `standards`
       if (v == null && Array.isArray(d.standards)) {
         const first = d.standards[0];
         v = (first && typeof first === 'object') ? first.value : first;
       }
-
-      // coalesce to '' for the input
       const display = v == null ? '' : String(v);
       return { ...d, value: display };
     });
   };
 
-  // Search-driven loader (initially empty; only load when ≥ MIN_QUERY_LEN)
+  // Search-driven loader
   useEffect(() => {
     let active = true;
     const reqId = ++requestIdRef.current;
 
     const run = async () => {
       setError('');
-
       const q = debouncedSearch.trim();
 
-      // Not enough characters → blank table & stop
       if (q.length < MIN_QUERY_LEN) {
         if (!active || reqId !== requestIdRef.current) return;
         setRows([]);
@@ -72,11 +236,8 @@ export default function ClientStandards() {
 
       setLoading(true);
       try {
-        // IMPORTANT: call getStandards with the user's search text
-        // If your service expects a different signature, adapt this call.
         const data = await getStandards('client', q);
         if (!active || reqId !== requestIdRef.current) return;
-
         setRows(normalizeRows(data));
       } catch (e) {
         console.error('getStandards error:', e);
@@ -93,20 +254,9 @@ export default function ClientStandards() {
     return () => { active = false; };
   }, [debouncedSearch]);
 
-  // Updates (leave last column behavior the same)
-  async function handleUpdate(ClientCode, newValue) {
-    // optimistic UI
-    setRows((prev) =>
-      prev.map((r) => (r.ClientCode === ClientCode ? { ...r, value: newValue } : r))
-    );
-    try {
-      await updateStandards('client', ClientCode, newValue);
-    } catch (e) {
-      console.error('Update client Standard error:', e);
-    }
-  }
+  // Optional: keep a summary column in the grid (e.g., show ALL or average)
+  // For now we’ll just provide the edit button.
 
-  // Columns (last column unchanged)
   const columns = useMemo(() => {
     return [
       {
@@ -145,120 +295,75 @@ export default function ClientStandards() {
         wrap: true,
       },
       {
-        name: 'Client Standard',
+        name: 'Client Standards',
         grow: 1,
-        sortable: true,
-        selector: (row) => Number.parseFloat(row.value) || 0, // numeric sort
-        cell: (row) => {
-          const clientCode = row.ClientCode;
-          const raw = row.value ?? '';
-          const num = Number.parseFloat(String(raw));
-          const invalid = raw !== '' && (!Number.isFinite(num) || num < 0 || num > 100);
-
-          // helpers
-          const toNumber = (s) => {
-            const n = Number.parseFloat(String(s).replace(/[^0-9.+-]/g, ''));
-            return Number.isFinite(n) ? n : '';
-          };
-          const clamp = (n, min = 0, max = 150) => Math.min(max, Math.max(min, n));
-
-          const stepValue = (current, step) => {
-            const val = toNumber(current);
-            if (val === '') return step > 0 ? step : 0;
-            return clamp(val + step, 0, 150);
-          };
-
-          return (
-            <div className={`percent-field ${invalid ? 'is-invalid' : ''}`}>
-              <input
-                className="percent-input"
-                type="number"
-                inputMode="decimal"
-                min={0}
-                max={150}
-                step={1}
-                placeholder=""
-                aria-label="Client standard percentage"
-                value={raw}
-                onChange={(e) => {
-                  const val = e.target.value; // keep raw while typing
-                  setRows((prev) =>
-                    prev.map((r) => (r.ClientCode === clientCode ? { ...r, value: val } : r))
-                  );
-                }}
-                onBlur={(e) => {
-                  const n = toNumber(e.target.value);
-                  const clamped = n === '' ? '' : clamp(n);
-                  const display = clamped === '' ? '' : clamped.toFixed(2);
-                  setRows((prev) =>
-                    prev.map((r) => (r.ClientCode === clientCode ? { ...r, value: display } : r))
-                  );
-                  if (display !== '') {
-                    handleUpdate(clientCode, Number(display));
-                  } else {
-                    handleUpdate(clientCode, null);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    const base = e.shiftKey ? 5 : e.altKey ? 0.1 : 1; // Shift=±5, Alt=±0.1
-                    const next = stepValue(raw, e.key === 'ArrowUp' ? base : -base);
-                    const display = Number.isFinite(next) ? next.toFixed(2) : '';
-                    setRows((prev) =>
-                      prev.map((r) => (r.ClientCode === clientCode ? { ...r, value: display } : r))
-                    );
-                  }
-                }}
-              />
-              <span className="percent-suffix">%</span>
-            </div>
-          );
-        },
+        sortable: false,
+        cell: (row) => (
+          <button
+            className="add-narrative-btn"
+            onClick={() => {
+              setActiveClient(row);
+              setModalOpen(true);
+            }}
+          >
+            Edit services
+          </button>
+        ),
       },
     ];
   }, []);
 
-  return (
-    <div className="app-container">
-      <Sidebar />
-      <TopBar />
+// --- Parent component return ---
+return (
+  <div className="app-container">
+    <Sidebar />
+    <TopBar />
 
-      <main className="main-content">
-        <div className="table-section" ref={tableContainerRef}>
-          <div className="bg-header">
-            <h2>Client Standards</h2>
-            <p className="bg-sub">Search by client code or client name. Results load as you type.</p>
-          </div>
-
-          <input
-            type="text"
-            placeholder={`Search clients by code or name (min ${MIN_QUERY_LEN} chars)…`}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="bg-search"
-          />
-
-          {!hasMinChars && search && (
-            <div className="bg-sub" style={{ marginTop: 6 }}>
-              Keep typing — need at least {MIN_QUERY_LEN} characters.
-            </div>
-          )}
-
-          {error && <div className="bg-error">{error}</div>}
-
-          <GeneralDataTable
-            keyField="ClientCode"
-            title=""
-            columns={columns}
-            data={rows}
-            progressPending={loading}
-            pagination
-            highlightOnHover
-            striped
-          />
+    <main className="main-content">
+      <div className="table-section" ref={tableContainerRef}>
+        <div className="bg-header">
+          <h2>Client Standards</h2>
+          <p className="bg-sub">Search by client code or client name. Results load as you type.</p>
         </div>
-      </main>
+
+        <input
+          type="text"
+          placeholder={`Search clients by code or name (min ${MIN_QUERY_LEN} chars)…`}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="bg-search"
+        />
+
+        {!hasMinChars && search && (
+          <div className="bg-sub" style={{ marginTop: 6 }}>
+            Keep typing — need at least {MIN_QUERY_LEN} characters.
+          </div>
+        )}
+
+        {error && <div className="bg-error">{error}</div>}
+
+        <GeneralDataTable
+          keyField="ClientCode"
+          title=""
+          columns={columns}
+          data={rows}
+          progressPending={loading}
+          pagination
+          highlightOnHover
+          striped
+        />
+      </div>
+    </main>
+
+    <EditClientStandardModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        client={activeClient}
+        onSaved={(changed) => {
+          if (!activeClient || !changed) return;
+          // optional: refresh list
+        }}
+      />
     </div>
-  );
+);
 }
