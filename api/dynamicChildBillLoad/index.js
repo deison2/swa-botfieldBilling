@@ -14,7 +14,6 @@ module.exports = async function (context, req) {
   );
 
   const jsonBody = await mainBody.json();
-    console.log(jsonBody);
 
 
     context.res = {

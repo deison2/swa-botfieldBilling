@@ -13,7 +13,6 @@ const url = `https://prod-46.eastus.logic.azure.com/workflows/17b505b41d014f10be
   );
   
   const returnBody = await mainBody.json();
-  console.log(returnBody);
 
     context.res = {
       status: 200,

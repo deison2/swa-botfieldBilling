@@ -10,7 +10,6 @@ import GeneralDataTable from '../components/DataTable';
 
 import sampleInvoiceLineItems from '../devSampleData/sampleInvoiceLineItems.json';
 import sampleDrafts     from '../devSampleData/sampleExistingDrafts.json';
-import { GetGranularWIPData } from '../services/ExistingDraftsService';
 
 import { useAuth }      from '../auth/AuthContext';
 import './ExistingDrafts.css';
@@ -23,7 +22,10 @@ import {
   GetBillThroughBlob,
   SetBillThroughBlob,
   GetInvoiceLineItems,
-  CreateInvoiceBulkPrintList
+  CreateInvoiceBulkPrintList, 
+  GetGranularWIPData, 
+  lockUnlockDraft, 
+  checkDraftInUse
 } from '../services/ExistingDraftsService';
 
 import Loader           from '../components/Loader';
@@ -203,6 +205,7 @@ function DatePicker({ label, date, setDate, onCloseNext }) {
     </div>
   );
 }
+
 
 function JobDetailsPanel({ details, pinRequest, setGlobalLoading }) {
   // ===== Helpers =====
@@ -775,6 +778,24 @@ export default function ExistingDrafts() {
   const { ready, principal, isSuperUser } = useAuth();
   const email = principal?.userDetails?.toLowerCase() || '';
 
+
+async function DraftLocking(DRAFTFEEIDX, email) {
+  try {
+    const inUse = await checkDraftInUse(DRAFTFEEIDX); // boolean
+    if (inUse) {
+      alert('This draft is currently being edited by another user. Please try again later.');
+      return;
+    }
+
+    await lockUnlockDraft(DRAFTFEEIDX, email);
+    alert('This draft is now locked for editing! Please make sure you unlock it once you finish making changes :)');
+  } catch (err) {
+    console.error('DraftLocking error', err);
+    alert('Sorry—something went wrong locking the draft. Please try again.');
+  }
+}
+
+
   /* ── RAW DATA  (dev stub) ───────────────────────────────────── */
   const [rawRows, setRawRows] = useState([]);
   const [granularData, setGranularData] = useState([]);
@@ -1106,7 +1127,7 @@ export default function ExistingDrafts() {
     /* <<< checkbox-column END <<< */
     { name : 'Code',      width:'120px', grow:0, sortable:true, center: true,
       cell : r => <ChipSet items={r.CLIENTS} field="code" /> },
-    { name : 'Name',      grow:2.6, sortable:true, center: true,
+    { name : 'Name',      grow:1, sortable:true, center: true,
       style: { minWidth: 0 },
       cell : r => <ChipSet items={r.CLIENTS} field="name" /> },
     { name : 'Client Roles', grow: 1, sortable:false, width:'170px', center: true,
@@ -1138,9 +1159,40 @@ export default function ExistingDrafts() {
     { name : 'Actions', ignoreRowClick:true, button:true, grow: 0.5,
       cell : r => {
         const ACTIONS_DISABLED = true; // <— flip to false later when you want them enabled
+        const EDITDRAFT_DISABLED = true;
 
         return (
-          <div className="action-btns">
+          <div className="action-btns pyramid">
+
+
+            {/* Edit Draft Button */}
+            <button
+  className="edit-icon"
+  title={EDITDRAFT_DISABLED ? 'Disabled' : 'Edit draft'}
+  disabled={EDITDRAFT_DISABLED}
+  aria-disabled={EDITDRAFT_DISABLED}
+  aria-label={EDITDRAFT_DISABLED ? 'Edit draft (disabled)' : 'Edit draft'}
+  onClick={EDITDRAFT_DISABLED ? undefined : () => DraftLocking(r.DRAFTFEEIDX)}
+>
+  <svg
+    viewBox="0 0 24 24"
+    width="16"
+    height="16"
+    stroke="#fff"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    fill="none"
+    aria-hidden="true"
+    focusable="false"
+  >
+    {/* pencil (edit) */}
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+  </svg>
+</button>
+
+
             {/* red “Abandon” (disabled) */}
             <button
               className="abandon-icon"
@@ -1157,7 +1209,7 @@ export default function ExistingDrafts() {
               </svg>
             </button>
 
-            {/* green “Confirm” (disabled) */}
+            {/* Confirm Draft Button */}
             <button
               className="confirm-icon"
               title={ACTIONS_DISABLED ? 'Disabled' : 'Confirm draft'}
