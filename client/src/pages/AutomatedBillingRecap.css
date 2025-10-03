@@ -1,0 +1,422 @@
+/* re-use your existing patterns (pill controls, instruction card, overlay) */
+
+.recap .select-bar {
+  margin-top: 0.25rem;
+}
+
+/* ---- Tabs ---- */
+.tab-switch {
+  display: inline-flex;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.tab-btn {
+  appearance: none;
+  border: 1px solid rgba(6, 57, 65, 0.25); /* brand deep teal outline */
+  background: #fff;
+  color: #063941;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  font: inherit;
+  cursor: pointer;
+  transition: box-shadow 120ms ease, background 120ms ease, color 120ms ease;
+}
+
+.tab-btn:hover {
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
+}
+
+.tab-btn.active {
+  background: linear-gradient(180deg, #e6f6f3, #d2eee9); /* mint family you use elsewhere */
+  border-color: #49A050; /* light green edge accent */
+  color: #063941;
+  font-weight: 600;
+}
+
+/* ---- KPI row ---- */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.kpi-card {
+  background: #fff;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(6, 57, 65, 0.14); /* brand-tinted border */
+  box-shadow: 0 1px 8px rgba(6, 57, 65, 0.06);
+  padding: 0.8rem 1rem;
+  position: relative;
+}
+
+.kpi-card::before {
+  /* thin green accent on the left, like your example screenshot */
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  border-radius: 0.75rem 0 0 0.75rem;
+  background: #4f46e5bf; 
+}
+
+.kpi-title {
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #6b7280; /* cool gray */
+  margin-bottom: 0.25rem;
+}
+
+.kpi-value {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0b2a30; /* deep ink */
+}
+
+/* ---- Controls ---- */
+.recap-controls .pill-select {
+  min-width: 14rem;
+}
+
+/* ---- Context chips over table ---- */
+.context-bar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.25rem 0 0.5rem 0;
+  flex-wrap: wrap;
+}
+
+.context-bar .chip {
+  background: #f3f9f8;
+  border: 1px solid rgba(6, 57, 65, 0.14);
+  color: #063941;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+.context-bar .chip .chip-label {
+  opacity: 0.75;
+  margin-right: 0.25rem;
+}
+
+/* ---- number alignment in table ---- */
+.num {
+  display: inline-block;
+  min-width: 6ch;
+  text-align: right;
+}
+
+/* loader overlay reuse */
+.loader-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(2px);
+  z-index: 1000;
+}
+
+.recap-namefilter { min-width: 16rem; }
+
+/* pill-style button to match selects/inputs */
+.pill-btn {
+  padding: 0.5rem 0.9rem;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  background: #fff;
+  font: inherit;
+  cursor: pointer;
+  transition: box-shadow 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+
+.pill-btn:hover {
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
+}
+
+/* brand accent for the clear button */
+.clear-filter-btn {
+  border-color: #49A050;      /* BMSS green accent */
+  color: #063941;             /* deep teal text */
+}
+
+/* widen partner/manager pickers a bit */
+.recap-namefilter { min-width: 16rem; }
+
+/* nice spacing for clear buttons */
+.clear-filter-btn { margin-left: 0.25rem; }
+
+/* Viz card on the right */
+.nb-viz-card {
+  background: #fff;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(6, 57, 65, 0.14);
+  box-shadow: 0 1px 8px rgba(6, 57, 65, 0.06);
+  padding: 1rem 1.1rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.nb-viz-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0b2a30;
+  margin-bottom: 0.6rem;
+}
+
+.nb-viz-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+/* each row: label (fixed) | bar (fills) */
+.nb-viz-row {
+  display: grid;
+  grid-template-columns: 12rem 1fr; /* give labels breathing room */
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.nb-viz-label {
+  font-size: 0.9rem;
+  color: #063941;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nb-viz-bar {
+  position: relative;
+  height: 32px;                       /* taller bars */
+  border-radius: 999px;
+  background: #eef5f7;
+  overflow: hidden;
+  border: 1px solid rgba(6, 57, 65, 0.12);
+}
+
+.nb-viz-fill {
+  height: 100%;
+  /* brand blue gradient */
+  background: linear-gradient(90deg, #3b82f6, #1e40af);
+  border-radius: 999px;
+  transition: width 220ms ease;
+}
+
+.nb-viz-value {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.9rem;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+  pointer-events: none;
+}
+
+
+/* Push "Clear Filters" to the right in the context bar */
+.context-bar .spacer {
+  flex: 1;
+}
+
+/* Two fixed columns: left = controls + KPIs + chips (anchored),
+   right = wide viz */
+.nb-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* left half | right half */
+  gap: 1rem;
+  align-items: start;
+  margin-bottom: 0.75rem;
+}
+
+/* Left column stacks its sections with consistent spacing */
+.nb-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Keep KPIs exactly two across (same sizing as before) */
+.nb-left .kpi-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+/* Viz card fills the right column */
+.nb-viz-card {
+  background: #fff;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(6, 57, 65, 0.14);
+  box-shadow: 0 1px 8px rgba(6, 57, 65, 0.06);
+  padding: 1rem 1.1rem;
+  height: auto;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+}
+
+.nb-viz-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0b2a30;
+  margin-bottom: 0.6rem;
+}
+
+.nb-viz-bars { display: flex; flex-direction: column; gap: 0.6rem; }
+
+/* label | bar */
+.nb-viz-row {
+  display: grid;
+  grid-template-columns: 12rem 1fr;
+  gap: 0.6rem;
+  align-items: center;
+}
+.nb-viz-label { font-size: 0.9rem; color: #063941; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.nb-viz-bar {
+  position: relative;
+  height: 32px;
+  border-radius: 999px;
+  background: #eef5f7;
+  overflow: hidden;
+  border: 1px solid rgba(6, 57, 65, 0.12);
+}
+.nb-viz-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #063941, #547872); /* brand blue gradient */
+  border-radius: 999px;
+  transition: width 220ms ease;
+}
+.nb-viz-value {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.9rem;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+  pointer-events: none;
+}
+
+/* keep Clear Filters to right edge of chip row */
+.context-bar .spacer { flex: 1; }
+
+/* Align the viz card to the top of the filter dropdown row */
+:root {
+  /* Tweak this to match your filter row height (48–64px usually).
+     56px tends to line up well with pill dropdowns. */
+  --nb-align-to-filters: 56px;
+}
+
+/* Two fixed columns remain */
+.nb-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* left half | right half */
+  gap: 1rem;
+  align-items: start;
+  margin-bottom: 0.75rem;
+}
+
+/* Left column: no artificial offset now */
+.nb-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0; /* keep KPIs naturally below the filters */
+}
+
+/* Viz card: pull up to align with the filter dropdowns */
+.nb-viz-card {
+  background: #fff;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(6, 57, 65, 0.14);
+  box-shadow: 0 1px 8px rgba(6, 57, 65, 0.06);
+  padding: 1rem 1.1rem;
+  height: auto;        /* ensure no stretching */
+  align-self: start;   /* don’t grow with the row */
+  margin-top: calc(var(--nb-align-to-filters) * -1);
+}
+
+/* Keep KPIs two-across, unchanged size */
+.nb-left .kpi-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+/* Tighten spacing so “Bill Through” chip hugs the table */
+.nb-left .select-bar { margin-bottom: 0.25rem; }
+.nb-left .kpi-row    { margin-bottom: 0.25rem; }
+.context-bar         { margin-top: 0.25rem; margin-bottom: 0.25rem; }
+.table-section       { margin-top: 0.5rem; }
+
+/* —— Viz internals with PURPLE bars —— */
+.nb-viz-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0b2a30;
+  margin-bottom: 0.6rem;
+}
+.nb-viz-bars { display: flex; flex-direction: column; gap: 0.6rem; }
+
+.nb-viz-row {
+  display: grid;
+  grid-template-columns: 12rem 1fr; /* label | bar */
+  gap: 0.6rem;
+  align-items: center;
+}
+.nb-viz-label {
+  font-size: 0.9rem;
+  color: #063941;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nb-viz-bar {
+  position: relative;
+  height: 32px;
+  border-radius: 999px;
+  background: #eef1ff; /* slightly purple track to match the brand */
+  overflow: hidden;
+  border: 1px solid rgba(79, 70, 229, 0.18); /* purple-ish border */
+}
+
+.nb-viz-fill {
+  height: 100%;
+  /* Purple gradient “pop” using your color */
+  background: linear-gradient(90deg, rgba(167, 139, 250, 0.95), #4f46e5bf);
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25),
+              0 2px 6px rgba(79, 70, 229, 0.25);
+  transition: width 220ms ease;
+}
+
+.nb-viz-value {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.9rem;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+  pointer-events: none;
+}
+
+/* Responsive safety: on narrow screens, don’t pull the viz into the header */
+@media (max-width: 1100px) {
+  :root { --nb-align-to-filters: 0px; }
+  .nb-row { grid-template-columns: 1fr; }
+  .nb-viz-card { margin-top: 0; }
+}
+
+.nb-viz-fill { min-width: 6px; }

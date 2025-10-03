@@ -7,6 +7,7 @@ import UnderConstructionPage from './components/UnderConstructionPage';
 //import TechFees from "./pages/TechFees";
 import ExistingDrafts from "./pages/ExistingDrafts";
 import MiscReports from "./pages/MiscReports";
+import AutomatedBillingRecap from "./pages/AutomatedBillingRecap";
 
 // WIP-Based-Billing nested pages
 import GeneralInformation   from './pages/GeneralInformation';
@@ -54,6 +55,7 @@ export default function App() {
 
           {/* Other top-level routes */}
           <Route path="Existing-Drafts" element={<ExistingDrafts />} />
+          <Route path="Automated-Billing-Recap" element={<AutomatedBillingRecap />} />
           <Route path="Recurring-Retainers" element={<UnderConstructionPage />} />
           <Route path="Tech-Fees" element={<UnderConstructionPage />} />
           <Route path="Billing-Groups" element={<BillingGroups />} />

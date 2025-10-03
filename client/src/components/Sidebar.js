@@ -106,6 +106,11 @@ export default function Sidebar() {
               Existing Drafts
             </NavLink>
           </li>
+          <li>
+            <NavLink to="/Automated-Billing-Recap" className={linkClass}>
+              Automated Billing Recap
+            </NavLink>
+          </li>
           {isSuperUser && (
             <>
               <li>
