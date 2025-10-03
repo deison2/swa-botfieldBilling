@@ -297,43 +297,65 @@ const nbExclusionTotals = useMemo(() => {
 }, [nbFiltered]);
 
 
-  const nbColumns = useMemo(
+  // Table columns for Not Billed (pills + widths)
+    const nbColumns = useMemo(
     () => [
-      {
+        {
+        name: "Client Code",
+        selector: (r) => r.CLIENTCODE,
+        sortable: true,
+        width: "130px", // narrow, fixed
+        cell: (r) => <span className="pill code-pill">{r.CLIENTCODE}</span>,
+        },
+        {
+        name: "Client Name",
+        selector: (r) => r.CLIENTNAME,
+        sortable: true,
+        grow: 2, 
+        cell: (r) => (
+            <span className="pill name-pill" title={r.CLIENTNAME}>
+            <span className="pill-text">{r.CLIENTNAME}</span>
+            </span>
+        ),
+        },
+        {
         name: "Partner",
         selector: (r) => r.CLIENTPARTNERNAME || "Unassigned",
         sortable: true,
-        wrap: true,
-      },
-      {
+        width: "170px", // smaller
+        wrap: false,
+        },
+        {
         name: "Manager",
         selector: (r) => r.CLIENTMANAGERNAME || "Unassigned",
         sortable: true,
-        wrap: true,
-      },
-      { name: "Client Code", selector: (r) => r.CLIENTCODE, sortable: true, wrap: true },
-      { name: "Client Name", selector: (r) => r.CLIENTNAME, sortable: true, wrap: true },
-      {
+        width: "170px", // smaller
+        wrap: false,
+        },
+        {
         name: "WIP Outstanding",
         selector: (r) => Number(r?.WIPOUTSTANDING ?? 0),
         sortable: true,
         right: true,
+        width: "140px", // compact
         cell: (r) => (
-          <span className="num">
+            <span className="num">
             {fmtCurrency(Number(r?.WIPOUTSTANDING ?? 0))}
-          </span>
+            </span>
         ),
-      },
-      {
+        },
+        {
         name: "Exclusion Reason(s)",
         selector: (r) => buildExclusionReasons(r),
         sortable: false,
+        grow: 3, // give this the most room
         wrap: true,
-        cell: (r) => <span>{buildExclusionReasons(r) || "—"}</span>,
-      },
+        cell: (r) => <span className="reason-text">{buildExclusionReasons(r) || "—"}</span>,
+        },
     ],
     []
-  );
+    );
+
 
   /** ---------- table columns (Billed) ---------- */
   const columns = useMemo(
