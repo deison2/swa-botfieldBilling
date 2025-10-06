@@ -88,6 +88,23 @@ function ExclusionBarChart({ totals }) {
   );
 }
 
+// Return an accessor for the current "Aggregate By" pick
+const getGroupAccessor = (key) => {
+  switch (key) {
+    case "Office":
+      return (r) => pick(r, ["CLIENTOFFICE", "BILLINGCLIENTOFFICE"]);
+    case "Originator":
+      return (r) => pick(r, ["CLIENTORIGINATORNAME", "ORIGINATORNAME", "JOBPARTNERNAME"]);
+    case "Partner":
+      return (r) => pick(r, ["CLIENTPARTNERNAME"]);
+    case "Manager":
+      return (r) => pick(r, ["CLIENTMANAGERNAME"]);
+    default:
+      return null;
+  }
+};
+
+
 export default function AutomatedBillingRecap() {
   const [activeTab, setActiveTab] = useState("billed"); // 'billed' | 'notbilled'
 
@@ -163,11 +180,26 @@ export default function AutomatedBillingRecap() {
     return (rows || []).filter((r) => String(r.BEFOREDATE).slice(0, 10) === billingPeriod);
   }, [rows, billingPeriod]);
 
-  /** ---------- Billed: KPIs ---------- */
-  const kpis = useMemo(() => {
+  /** ---------- rows in-scope for KPIs on Billed tab ---------- */
+    const billedKpiRows = useMemo(() => {
+    // always start with the period filter
+    let data = periodFiltered;
+
+    // if a Name is chosen, narrow to that group value
+    if (activeTab === "billed" && billingPeriod && groupKey && nameFilter) {
+        const accessor = getGroupAccessor(groupKey);
+        if (accessor) data = data.filter((r) => accessor(r) === nameFilter);
+    }
+
+    return data;
+    }, [periodFiltered, activeTab, billingPeriod, groupKey, nameFilter]);
+
+  /** ---------- Billed: KPIs (now responsive to filters) ---------- */
+    const kpis = useMemo(() => {
     if (activeTab !== "billed")
-      return { totalBilled: 0, totalWip: 0, uniqueClients: 0, realization: 0 };
-    const data = periodFiltered;
+        return { totalBilled: 0, totalWip: 0, uniqueClients: 0, realization: 0 };
+
+    const data = billedKpiRows;
 
     // E: Total Billed
     const totalBilled = data.reduce((s, r) => s + Number(r?.BILLAMOUNT ?? 0), 0);
@@ -177,14 +209,15 @@ export default function AutomatedBillingRecap() {
 
     // unique clients
     const uniqueClients = new Set(
-      data.map((r) => r.BILLINGCLIENT ?? r.CLIENTCODE ?? r.CONTINDEX)
+        data.map((r) => r.BILLINGCLIENT ?? r.CLIENTCODE ?? r.CONTINDEX)
     ).size;
 
     // G: Realization % = E / F
     const realization = totalWip > 0 ? totalBilled / totalWip : 0;
 
     return { totalBilled, totalWip, uniqueClients, realization };
-  }, [periodFiltered, activeTab]);
+    }, [billedKpiRows, activeTab]);
+
 
   /** ---------- Billed: Aggregation ---------- */
   const aggregated = useMemo(() => {
