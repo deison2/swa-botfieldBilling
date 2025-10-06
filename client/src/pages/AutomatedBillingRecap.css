@@ -456,3 +456,104 @@
   width:20px; height:20px; display:block;
   filter: drop-shadow(0 1px 1px rgba(0,0,0,.15));
 }
+
+/* Shorter KPI tiles */
+.kpi-row {
+  gap: 14px;
+}
+.kpi-card {
+  min-height: 64px;              /* was taller – now compact */
+  padding: 10px 14px;
+}
+.kpi-title {
+  font-size: 11px;
+  letter-spacing: .02em;
+  opacity: .7;
+}
+.kpi-value {
+  font-size: 20px;               /* was larger – trimmed */
+  line-height: 1.2;
+}
+
+/* Exclude drafts checkbox */
+.exclude-drafts {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 10px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #f5f7fb;
+  border: 1px solid #e3e8ef;
+  white-space: nowrap;
+}
+.exclude-drafts input[type="checkbox"] {
+  width: 16px; height: 16px;
+}
+.exclude-drafts.on {
+  background: #eef3ff;
+  border-color: #d6e0ff;
+}
+.exclude-drafts .mini-spinner {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(0,0,0,.15);
+  border-top-color: rgba(0,0,0,.4);
+  animation: spin .75s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ----- KPI compact variant (Not Billed only) ----- */
+.kpi-row--compact {
+  gap: 12px;              /* tighter spacing between cards */
+  margin: 6px 0 8px;      /* small bottom margin to fit checkbox */
+}
+
+.kpi-row--compact .kpi-card {
+  padding: 8px 12px;      /* was ~16-20px on your base style */
+  min-height: 56px;       /* was ~88-112px; keep it short */
+}
+
+.kpi-row--compact .kpi-title {
+  font-size: 12px;        /* down from 13-14 */
+  line-height: 1.1;
+  opacity: 0.85;
+}
+
+.kpi-row--compact .kpi-value {
+  font-size: 22px;        /* down from ~28-32 */
+  line-height: 1.1;
+}
+
+/* ensure the right viz doesn't overlap; align to top */
+.nb-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;   /* you already have a two-col feel; keep even */
+  gap: 16px;
+  align-items: start;               /* <-- important: no vertical stretching/overlap */
+}
+
+/* checkbox pill that sits under the KPI cards */
+.nb-inline-option {
+  margin: 2px 0 10px;               /* tiny gap below KPIs, above chips */
+}
+
+.checkbox-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line, #e6e6ea);
+  background: linear-gradient(#fff, #fafbff);
+  box-shadow: 0 1px 0 rgba(0,0,0,.04);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.checkbox-pill input {
+  width: 16px;
+  height: 16px;
+}

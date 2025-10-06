@@ -8,6 +8,10 @@ import "./AutomatedBillingRecap.css";
 import sampleRecapBilled from "../devSampleData/sampleRecapBilled.json";
 import sampleRecapNotBilled from "../devSampleData/sampleRecapNotBilled.json";
 
+// NEW: drafts service + fallback sample (same as ExistingDrafts page)
+import { GetDrafts } from "../services/ExistingDraftsService";
+import sampleDrafts from "../devSampleData/sampleExistingDrafts.json";
+
 /** ---------- helpers ---------- */
 
 // Currency with cents (tables)
@@ -63,7 +67,7 @@ const pick = (row, keys, fallback = "Unassigned") => {
 
 function ExclusionBarChart({ totals }) {
   // totals is an array of { key, label, value }
-  const max = Math.max(1, ...totals.map(t => t.value || 0));
+  const max = Math.max(1, ...totals.map((t) => t.value || 0));
   return (
     <div className="nb-viz-card" aria-label="WIP from Exclusions by Type">
       <div className="nb-viz-bars">
@@ -84,7 +88,6 @@ function ExclusionBarChart({ totals }) {
   );
 }
 
-
 export default function AutomatedBillingRecap() {
   const [activeTab, setActiveTab] = useState("billed"); // 'billed' | 'notbilled'
 
@@ -101,6 +104,11 @@ export default function AutomatedBillingRecap() {
   const [nbPartner, setNbPartner] = useState("");
   const [nbManager, setNbManager] = useState("");
 
+  // NEW: exclude clients with existing drafts
+  const [excludeDrafts, setExcludeDrafts] = useState(false);
+  const [draftClientCodes, setDraftClientCodes] = useState(new Set());
+  const [loadingDrafts, setLoadingDrafts] = useState(false);
+
   /** ---------- load data (DEV uses local json) ---------- */
   useEffect(() => {
     let cancelled = false;
@@ -110,8 +118,12 @@ export default function AutomatedBillingRecap() {
       try {
         const data =
           activeTab === "billed"
-            ? (Array.isArray(sampleRecapBilled) ? sampleRecapBilled : [])
-            : (Array.isArray(sampleRecapNotBilled) ? sampleRecapNotBilled : []);
+            ? Array.isArray(sampleRecapBilled)
+              ? sampleRecapBilled
+              : []
+            : Array.isArray(sampleRecapNotBilled)
+            ? sampleRecapNotBilled
+            : [];
         if (!cancelled) setRows(data);
       } catch (e) {
         console.error(e);
@@ -137,9 +149,7 @@ export default function AutomatedBillingRecap() {
   /** ---------- choices for Billing Period (from BEFOREDATE) ---------- */
   const periodOptions = useMemo(() => {
     const set = new Set(
-      (rows || []).map((r) =>
-        r.BEFOREDATE ? String(r.BEFOREDATE).slice(0, 10) : ""
-      )
+      (rows || []).map((r) => (r.BEFOREDATE ? String(r.BEFOREDATE).slice(0, 10) : ""))
     );
     const arr = [...set].filter(Boolean);
     // sort desc
@@ -150,14 +160,13 @@ export default function AutomatedBillingRecap() {
   /** ---------- filtered by selected billing period ---------- */
   const periodFiltered = useMemo(() => {
     if (!billingPeriod) return [];
-    return (rows || []).filter(
-      (r) => String(r.BEFOREDATE).slice(0, 10) === billingPeriod
-    );
+    return (rows || []).filter((r) => String(r.BEFOREDATE).slice(0, 10) === billingPeriod);
   }, [rows, billingPeriod]);
 
   /** ---------- Billed: KPIs ---------- */
   const kpis = useMemo(() => {
-    if (activeTab !== "billed") return { totalBilled: 0, totalWip: 0, uniqueClients: 0, realization: 0 };
+    if (activeTab !== "billed")
+      return { totalBilled: 0, totalWip: 0, uniqueClients: 0, realization: 0 };
     const data = periodFiltered;
 
     // E: Total Billed
@@ -183,8 +192,7 @@ export default function AutomatedBillingRecap() {
 
     const keyAccessors = {
       Office: (r) => pick(r, ["CLIENTOFFICE", "BILLINGCLIENTOFFICE"]),
-      Originator: (r) =>
-        pick(r, ["CLIENTORIGINATORNAME", "ORIGINATORNAME", "JOBPARTNERNAME"]),
+      Originator: (r) => pick(r, ["CLIENTORIGINATORNAME", "ORIGINATORNAME", "JOBPARTNERNAME"]),
       Partner: (r) => pick(r, ["CLIENTPARTNERNAME"]),
       Manager: (r) => pick(r, ["CLIENTMANAGERNAME"]),
     };
@@ -239,10 +247,50 @@ export default function AutomatedBillingRecap() {
   /** ---------- Not Billed: per-period rows, filters, KPIs, columns ---------- */
   const nbRows = useMemo(() => {
     if (activeTab !== "notbilled" || !billingPeriod) return [];
-    return (rows || []).filter(
-      (r) => String(r.BEFOREDATE).slice(0, 10) === billingPeriod
-    );
+    return (rows || []).filter((r) => String(r.BEFOREDATE).slice(0, 10) === billingPeriod);
   }, [rows, billingPeriod, activeTab]);
+
+  // Fetch draft client codes when excludeDrafts is on (and when Bill Through changes)
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDraftClientCodes() {
+      if (!excludeDrafts || !billingPeriod) {
+        if (!cancelled) setDraftClientCodes(new Set());
+        return;
+      }
+      setLoadingDrafts(true);
+      try {
+        let draftRows = [];
+        try {
+          draftRows = await GetDrafts(billingPeriod);
+          if (!Array.isArray(draftRows)) draftRows = [];
+        } catch (err) {
+          console.warn("GetDrafts failed; using sampleExistingDrafts.json", err);
+          draftRows = Array.isArray(sampleDrafts) ? sampleDrafts : [];
+        }
+
+        const codes = new Set();
+        for (const r of draftRows) {
+          const code =
+            r?.CLIENTCODE ??
+            r?.ClientCode ??
+            r?.clientCode ??
+            r?.code ??
+            null;
+          if (code) codes.add(String(code));
+        }
+        if (!cancelled) setDraftClientCodes(codes);
+      } finally {
+        if (!cancelled) setLoadingDrafts(false);
+      }
+    }
+
+    loadDraftClientCodes();
+    return () => {
+      cancelled = true;
+    };
+  }, [excludeDrafts, billingPeriod]);
 
   const nbPartnerOptions = useMemo(() => {
     const set = new Set(nbRows.map((r) => r.CLIENTPARTNERNAME).filter(Boolean));
@@ -255,110 +303,104 @@ export default function AutomatedBillingRecap() {
   }, [nbRows]);
 
   const nbFiltered = useMemo(() => {
+    const draftSet = draftClientCodes;
     return nbRows.filter((r) => {
       const pOk = nbPartner ? r.CLIENTPARTNERNAME === nbPartner : true;
       const mOk = nbManager ? r.CLIENTMANAGERNAME === nbManager : true;
-      return pOk && mOk;
+      const dOk = !excludeDrafts || !draftSet.has(String(r.CLIENTCODE));
+      return pOk && mOk && dOk;
     });
-  }, [nbRows, nbPartner, nbManager]);
+  }, [nbRows, nbPartner, nbManager, excludeDrafts, draftClientCodes]);
 
   const nbKpis = useMemo(() => {
-    const totalWip = nbFiltered.reduce(
-      (s, r) => s + Number(r?.WIPOUTSTANDING ?? 0),
-      0
-    );
-    const distinctClients = new Set(
-      nbFiltered.map((r) => r.CLIENTCODE ?? r.CONTINDEX)
-    ).size;
+    const totalWip = nbFiltered.reduce((s, r) => s + Number(r?.WIPOUTSTANDING ?? 0), 0);
+    const distinctClients = new Set(nbFiltered.map((r) => r.CLIENTCODE ?? r.CONTINDEX)).size;
     return { totalWip, distinctClients };
   }, [nbFiltered]);
 
   // Totals by exclusion type (priority: EXCLUDED_CLIENT > ETF_GCC_JOB > RB_CLIENT > ED_CLIENT)
-const nbExclusionTotals = useMemo(() => {
-  const buckets = {
-    excluded: { key: "excluded", label: "Excluded from Automation", value: 0 },
-    etf:      { key: "etf",      label: "ETF or GovCon",          value: 0 },
-    recent:   { key: "recent",   label: "Recent Bill",            value: 0 },
-    draft:    { key: "draft",    label: "Draft Exists",           value: 0 },
-  };
+  const nbExclusionTotals = useMemo(() => {
+    const buckets = {
+      excluded: { key: "excluded", label: "Excluded from Automation", value: 0 },
+      etf: { key: "etf", label: "ETF or GovCon", value: 0 },
+      recent: { key: "recent", label: "Recent Bill", value: 0 },
+      draft: { key: "draft", label: "Draft Exists", value: 0 },
+    };
 
-  for (const r of nbFiltered) {
-    const wip = Number(r?.WIPOUTSTANDING ?? 0);
-    if (!wip) continue;
+    for (const r of nbFiltered) {
+      const wip = Number(r?.WIPOUTSTANDING ?? 0);
+      if (!wip) continue;
 
-    // priority hierarchy (top → bottom)
-    if (r?.EXCLUDED_CLIENT) buckets.excluded.value += wip;
-    else if (r?.ETF_GCC_JOB) buckets.etf.value += wip;
-    else if (r?.RB_CLIENT)   buckets.recent.value += wip;
-    else if (r?.ED_CLIENT)   buckets.draft.value += wip;
-  }
+      // priority hierarchy (top → bottom)
+      if (r?.EXCLUDED_CLIENT) buckets.excluded.value += wip;
+      else if (r?.ETF_GCC_JOB) buckets.etf.value += wip;
+      else if (r?.RB_CLIENT) buckets.recent.value += wip;
+      else if (r?.ED_CLIENT) buckets.draft.value += wip;
+    }
 
-  return [buckets.excluded, buckets.etf, buckets.recent, buckets.draft];
-}, [nbFiltered]);
-
+    return [buckets.excluded, buckets.etf, buckets.recent, buckets.draft];
+  }, [nbFiltered]);
 
   // Public PE logo (your blob)
-    const PE_LOGO_SRC =
+  const PE_LOGO_SRC =
     "https://storageacctbmssprod001.blob.core.windows.net/container-bmssprod001-public/images/PElogo.svg";
 
-    // Table columns for Not Billed (pills + widths)
-    const nbColumns = useMemo(
+  // Table columns for Not Billed (pills + widths)
+  const nbColumns = useMemo(
     () => [
-        {
+      {
         name: "Client Code",
         selector: (r) => r.CLIENTCODE,
         sortable: true,
         width: "130px",
         cell: (r) => <span className="pill code-pill">{r.CLIENTCODE}</span>,
-        },
-        {
+      },
+      {
         name: "Client Name",
         selector: (r) => r.CLIENTNAME,
         sortable: true,
         grow: 2,
         cell: (r) => (
-            <span className="pill name-pill" title={r.CLIENTNAME}>
+          <span className="pill name-pill" title={r.CLIENTNAME}>
             <span className="pill-text">{r.CLIENTNAME}</span>
-            </span>
+          </span>
         ),
-        },
-        {
+      },
+      {
         name: "Partner",
         selector: (r) => r.CLIENTPARTNERNAME || "Unassigned",
         sortable: true,
         width: "170px",
         wrap: false,
-        },
-        {
+      },
+      {
         name: "Manager",
         selector: (r) => r.CLIENTMANAGERNAME || "Unassigned",
         sortable: true,
         width: "170px",
         wrap: false,
-        },
-        {
+      },
+      {
         name: "WIP Outstanding",
         selector: (r) => Number(r?.WIPOUTSTANDING ?? 0),
         sortable: true,
         right: true,
         width: "140px",
         cell: (r) => (
-            <span className="num">
-            {fmtCurrency(Number(r?.WIPOUTSTANDING ?? 0))}
-            </span>
+          <span className="num">{fmtCurrency(Number(r?.WIPOUTSTANDING ?? 0))}</span>
         ),
-        },
-        {
+      },
+      {
         name: "Exclusion Reason(s)",
         selector: (r) => buildExclusionReasons(r),
         sortable: false,
-        grow: 2,                      // ← slightly narrower than before
+        grow: 2, // slightly narrower
         wrap: true,
         cell: (r) => (
-            <span className="reason-text">{buildExclusionReasons(r) || "—"}</span>
+          <span className="reason-text">{buildExclusionReasons(r) || "—"}</span>
         ),
-        },
-        {
+      },
+      {
         name: "PE Link",
         selector: (r) => r.CLIENTCODE,
         sortable: false,
@@ -367,28 +409,27 @@ const nbExclusionTotals = useMemo(() => {
         ignoreRowClick: true,
         button: true,
         cell: (r) => {
-            const code = r?.CLIENTCODE ?? "";
-            const href = `https://bmss.pehosted.com/PE/Client/NewBill/${encodeURIComponent(
+          const code = r?.CLIENTCODE ?? "";
+          const href = `https://bmss.pehosted.com/PE/Client/NewBill/${encodeURIComponent(
             code
-            )}`;
-            return (
+          )}`;
+          return (
             <a
-                className="pe-link-btn"
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={`Open ${code} in Practice Engine`}
-                aria-label={`Open ${code} in Practice Engine`}
+              className="pe-link-btn"
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`Open ${code} in Practice Engine`}
+              aria-label={`Open ${code} in Practice Engine`}
             >
-                <img className="pe-logo" src={PE_LOGO_SRC} alt="PE" />
+              <img className="pe-logo" src={PE_LOGO_SRC} alt="PE" />
             </a>
-            );
+          );
         },
-        },
+      },
     ],
     []
-    );
-
+  );
 
   /** ---------- table columns (Billed) ---------- */
   const columns = useMemo(
@@ -446,8 +487,6 @@ const nbExclusionTotals = useMemo(() => {
             className={`tab-btn ${activeTab === "billed" ? "active" : ""}`}
             onClick={() => {
               setActiveTab("billed");
-              // optional reset when switching back:
-              // setBillingPeriod(""); setGroupKey(""); setNameFilter("");
             }}
           >
             Billed
@@ -559,9 +598,7 @@ const nbExclusionTotals = useMemo(() => {
                 </div>
                 <div className="kpi-card">
                   <div className="kpi-title">Unique Clients</div>
-                  <div className="kpi-value">
-                    {kpis.uniqueClients.toLocaleString()}
-                  </div>
+                  <div className="kpi-value">{kpis.uniqueClients.toLocaleString()}</div>
                 </div>
                 <div className="kpi-card">
                   <div className="kpi-title">Realization %</div>
@@ -576,8 +613,8 @@ const nbExclusionTotals = useMemo(() => {
                 <h2>Pick a billing period, then choose how to aggregate</h2>
                 <p>
                   Use the <strong>Bill Through</strong> dropdown to select a period, then pick{" "}
-                  <strong>Aggregate By</strong> (Office, Originator, Partner, or Manager).
-                  KPI cards will populate and the table will summarize your billed data.
+                  <strong>Aggregate By</strong> (Office, Originator, Partner, or Manager). KPI
+                  cards will populate and the table will summarize your billed data.
                 </p>
               </div>
             ) : (
@@ -611,122 +648,144 @@ const nbExclusionTotals = useMemo(() => {
 
         {/* ==================== NOT BILLED ==================== */}
         {activeTab === "notbilled" && (
-            <>
-                {/* ALWAYS SHOW CONTROLS ON TOP */}
-                <div className="select-bar recap-controls">
-                <select
-                    className="pill-select recap-period"
-                    value={billingPeriod}
-                    onChange={(e) => setBillingPeriod(e.target.value)}
-                    title="Billing period (Bill Through)"
-                >
-                    <option value="">Bill Through…</option>
-                    {periodOptions.map((p) => (
-                    <option key={p} value={p}>{formatYmd(p)}</option>
-                    ))}
-                </select>
+          <>
+            {/* ALWAYS SHOW CONTROLS ON TOP */}
+            <div className="select-bar recap-controls">
+              <select
+                className="pill-select recap-period"
+                value={billingPeriod}
+                onChange={(e) => setBillingPeriod(e.target.value)}
+                title="Billing period (Bill Through)"
+              >
+                <option value="">Bill Through…</option>
+                {periodOptions.map((p) => (
+                  <option key={p} value={p}>
+                    {formatYmd(p)}
+                  </option>
+                ))}
+              </select>
 
-                <select
-                    className="pill-select recap-namefilter"
-                    value={nbPartner}
-                    onChange={(e) => setNbPartner(e.target.value)}
-                    title="Filter by Partner"
-                    disabled={!billingPeriod || !nbPartnerOptions.length}
-                >
-                    <option value="">All Partners</option>
-                    {nbPartnerOptions.map((n) => (
-                    <option key={n} value={n}>{n}</option>
-                    ))}
-                </select>
+              <select
+                className="pill-select recap-namefilter"
+                value={nbPartner}
+                onChange={(e) => setNbPartner(e.target.value)}
+                title="Filter by Partner"
+                disabled={!billingPeriod || !nbPartnerOptions.length}
+              >
+                <option value="">All Partners</option>
+                {nbPartnerOptions.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
 
-                <select
-                    className="pill-select recap-namefilter"
-                    value={nbManager}
-                    onChange={(e) => setNbManager(e.target.value)}
-                    title="Filter by Manager"
-                    disabled={!billingPeriod || !nbManagerOptions.length}
-                >
-                    <option value="">All Managers</option>
-                    {nbManagerOptions.map((n) => (
-                    <option key={n} value={n}>{n}</option>
-                    ))}
-                </select>
-                </div>
+              <select
+                className="pill-select recap-namefilter"
+                value={nbManager}
+                onChange={(e) => setNbManager(e.target.value)}
+                title="Filter by Manager"
+                disabled={!billingPeriod || !nbManagerOptions.length}
+              >
+                <option value="">All Managers</option>
+                {nbManagerOptions.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-                {/* BELOW THE CONTROLS: INSTRUCTIONS or TWO-COLUMN LAYOUT */}
-                {!billingPeriod ? (
-                <div className="instructions-card">
-                    <h2>Pick a billing period to view clients with unbilled WIP</h2>
-                    <p>
-                    Select a <strong>Bill Through</strong> date above. Optional filters for
-                    <strong> Partner</strong> and <strong> Manager</strong> will appear once a period is chosen.
-                    </p>
-                </div>
-                ) : (
-                <>
-                    {/* fixed two-column: left stack | right viz */}
-                    <div className="nb-row">
-                    {/* LEFT HALF: KPIs + chips (no controls here now) */}
-                    <div className="nb-left">
-                        <section className="kpi-row" aria-label="Key Performance Indicators">
-                        <div className="kpi-card">
-                            <div className="kpi-title">WIP</div>
-                            <div className="kpi-value">{fmtCurrency0(nbKpis.totalWip)}</div>
+            {/* BELOW THE CONTROLS: INSTRUCTIONS or TWO-COLUMN LAYOUT */}
+            {!billingPeriod ? (
+              <div className="instructions-card">
+                <h2>Pick a billing period to view clients with unbilled WIP</h2>
+                <p>
+                  Select a <strong>Bill Through</strong> date above. Optional filters for
+                  <strong> Partner</strong> and <strong> Manager</strong> will appear once a
+                  period is chosen.
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* fixed two-column: left stack | right viz */}
+                <div className="nb-row">
+                  {/* LEFT HALF: KPIs + chips (no controls here now) */}
+                  <div className="nb-left">
+                    <section className="kpi-row kpi-row--compact" aria-label="Key Performance Indicators">
+                      <div className="kpi-card">
+                        <div className="kpi-title">WIP</div>
+                        <div className="kpi-value">{fmtCurrency0(nbKpis.totalWip)}</div>
+                      </div>
+                      <div className="kpi-card">
+                        <div className="kpi-title">Distinct Clients</div>
+                        <div className="kpi-value">
+                          {nbKpis.distinctClients.toLocaleString()}
                         </div>
-                        <div className="kpi-card">
-                            <div className="kpi-title">Distinct Clients</div>
-                            <div className="kpi-value">{nbKpis.distinctClients.toLocaleString()}</div>
+                      </div>
+                    </section>
+                    <div className="nb-inline-option">
+                        <label className="checkbox-pill">
+                            <input
+                            type="checkbox"
+                            checked={excludeDrafts}
+                            onChange={(e) => setExcludeDrafts(e.target.checked)}
+                            />
+                            <span>Check here to exclude clients with existing drafts</span>
+                        </label>
                         </div>
-                        </section>
 
-                        {/* chips row with single Clear Filters on the right */}
-                        <div className="context-bar">
+                    {/* chips row with single Clear Filters on the right */}
+                    <div className="context-bar">
+                      <div className="chip">
+                        <span className="chip-label">Bill Through:</span>{" "}
+                        {formatYmd(billingPeriod)}
+                      </div>
+                      {nbPartner && (
                         <div className="chip">
-                            <span className="chip-label">Bill Through:</span> {formatYmd(billingPeriod)}
+                          <span className="chip-label">Partner:</span> {nbPartner}
                         </div>
-                        {nbPartner && (
-                            <div className="chip">
-                            <span className="chip-label">Partner:</span> {nbPartner}
-                            </div>
-                        )}
-                        {nbManager && (
-                            <div className="chip">
-                            <span className="chip-label">Manager:</span> {nbManager}
-                            </div>
-                        )}
-                        <div className="spacer" />
-                        {(nbPartner || nbManager) && (
-                            <button
-                            type="button"
-                            className="pill-btn clear-filter-btn"
-                            onClick={() => { setNbPartner(""); setNbManager(""); }}
-                            title="Clear Partner/Manager filters"
-                            aria-label="Clear filters"
-                            >
-                            Clear Filters
-                            </button>
-                        )}
+                      )}
+                      {nbManager && (
+                        <div className="chip">
+                          <span className="chip-label">Manager:</span> {nbManager}
                         </div>
+                      )}
+                      <div className="spacer" />
+                      {(nbPartner || nbManager) && (
+                        <button
+                          type="button"
+                          className="pill-btn clear-filter-btn"
+                          onClick={() => {
+                            setNbPartner("");
+                            setNbManager("");
+                          }}
+                          title="Clear Partner/Manager filters"
+                          aria-label="Clear filters"
+                        >
+                          Clear Filters
+                        </button>
+                      )}
                     </div>
+                  </div>
 
-                    {/* RIGHT HALF: big viz */}
-                    <ExclusionBarChart totals={nbExclusionTotals} />
-                    </div>
+                  {/* RIGHT HALF: big viz */}
+                  <ExclusionBarChart totals={nbExclusionTotals} />
+                </div>
 
-                    {/* table */}
-                    <div className="table-section">
-                    <GeneralDataTable
-                        columns={nbColumns}
-                        data={nbFiltered}
-                        progressPending={loading}
-                        noDataComponent={<span className="no-rows">No rows to show!</span>}
-                    />
-                    </div>
-                </>
-                )}
-            </>
+                {/* table */}
+                <div className="table-section">
+                  <GeneralDataTable
+                    columns={nbColumns}
+                    data={nbFiltered}
+                    progressPending={loading}
+                    noDataComponent={<span className="no-rows">No rows to show!</span>}
+                  />
+                </div>
+              </>
             )}
-
+          </>
+        )}
       </main>
     </div>
   );
