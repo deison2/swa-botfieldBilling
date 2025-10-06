@@ -420,3 +420,39 @@
 }
 
 .nb-viz-fill { min-width: 6px; }
+
+/* ===== Practice Engine circular link button ===== */
+.pe-link-btn{
+  display:inline-grid;
+  place-items:center;
+  width:36px; height:36px;
+  border-radius:50%;
+  border:1px solid #d7dee5;
+  background:
+    radial-gradient(120% 120% at 30% 20%, rgba(255,255,255,.85) 0%, rgba(255,255,255,.25) 35%, rgba(255,255,255,0) 60%),
+    linear-gradient(135deg, #f1f4f7, #e3e8ee);
+  box-shadow:
+    0 1px 0 rgba(0,0,0,.02),
+    0 4px 10px rgba(0,0,0,.08),
+    inset 0 2px 4px rgba(255,255,255,.6);
+  transition: transform .08s ease, box-shadow .15s ease, filter .15s ease;
+}
+
+.pe-link-btn:hover{
+  box-shadow:
+    0 2px 12px rgba(0,0,0,.16),
+    inset 0 2px 6px rgba(255,255,255,.7);
+  filter: saturate(1.05);
+}
+
+.pe-link-btn:active{
+  transform: translateY(1px);
+  box-shadow:
+    0 1px 6px rgba(0,0,0,.12) inset,
+    0 0 0 rgba(0,0,0,0);
+}
+
+.pe-logo{
+  width:20px; height:20px; display:block;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,.15));
+}

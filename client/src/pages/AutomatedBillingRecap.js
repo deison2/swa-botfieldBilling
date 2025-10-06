@@ -297,21 +297,25 @@ const nbExclusionTotals = useMemo(() => {
 }, [nbFiltered]);
 
 
-  // Table columns for Not Billed (pills + widths)
+  // Public PE logo (your blob)
+    const PE_LOGO_SRC =
+    "https://storageacctbmssprod001.blob.core.windows.net/container-bmssprod001-public/images/PElogo.svg";
+
+    // Table columns for Not Billed (pills + widths)
     const nbColumns = useMemo(
     () => [
         {
         name: "Client Code",
         selector: (r) => r.CLIENTCODE,
         sortable: true,
-        width: "130px", // narrow, fixed
+        width: "130px",
         cell: (r) => <span className="pill code-pill">{r.CLIENTCODE}</span>,
         },
         {
         name: "Client Name",
         selector: (r) => r.CLIENTNAME,
         sortable: true,
-        grow: 2, 
+        grow: 2,
         cell: (r) => (
             <span className="pill name-pill" title={r.CLIENTNAME}>
             <span className="pill-text">{r.CLIENTNAME}</span>
@@ -322,14 +326,14 @@ const nbExclusionTotals = useMemo(() => {
         name: "Partner",
         selector: (r) => r.CLIENTPARTNERNAME || "Unassigned",
         sortable: true,
-        width: "170px", // smaller
+        width: "170px",
         wrap: false,
         },
         {
         name: "Manager",
         selector: (r) => r.CLIENTMANAGERNAME || "Unassigned",
         sortable: true,
-        width: "170px", // smaller
+        width: "170px",
         wrap: false,
         },
         {
@@ -337,7 +341,7 @@ const nbExclusionTotals = useMemo(() => {
         selector: (r) => Number(r?.WIPOUTSTANDING ?? 0),
         sortable: true,
         right: true,
-        width: "140px", // compact
+        width: "140px",
         cell: (r) => (
             <span className="num">
             {fmtCurrency(Number(r?.WIPOUTSTANDING ?? 0))}
@@ -348,9 +352,38 @@ const nbExclusionTotals = useMemo(() => {
         name: "Exclusion Reason(s)",
         selector: (r) => buildExclusionReasons(r),
         sortable: false,
-        grow: 3, // give this the most room
+        grow: 2,                      // ← slightly narrower than before
         wrap: true,
-        cell: (r) => <span className="reason-text">{buildExclusionReasons(r) || "—"}</span>,
+        cell: (r) => (
+            <span className="reason-text">{buildExclusionReasons(r) || "—"}</span>
+        ),
+        },
+        {
+        name: "PE Link",
+        selector: (r) => r.CLIENTCODE,
+        sortable: false,
+        width: "90px",
+        right: true,
+        ignoreRowClick: true,
+        button: true,
+        cell: (r) => {
+            const code = r?.CLIENTCODE ?? "";
+            const href = `https://bmss.pehosted.com/PE/Client/NewBill/${encodeURIComponent(
+            code
+            )}`;
+            return (
+            <a
+                className="pe-link-btn"
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={`Open ${code} in Practice Engine`}
+                aria-label={`Open ${code} in Practice Engine`}
+            >
+                <img className="pe-logo" src={PE_LOGO_SRC} alt="PE" />
+            </a>
+            );
+        },
         },
     ],
     []
