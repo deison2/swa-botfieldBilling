@@ -106,10 +106,18 @@
 }
 
 /* ---- number alignment in table ---- */
-.num {
+.recap .num:not(th):not(td) {
   display: inline-block;
   min-width: 6ch;
   text-align: right;
+}
+
+/* Let table cells that carry .num stay table-cells */
+.recap table th.num,
+.recap table td.num {
+  display: table-cell;
+  min-width: 0;          /* undo 6ch inside tables */
+  text-align: right;     /* keep the alignment */
 }
 
 /* loader overlay reuse */
