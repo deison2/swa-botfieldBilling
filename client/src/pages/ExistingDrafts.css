@@ -377,9 +377,9 @@
 .bt-display .bt-cal { opacity: 0.7; }
 
 .bt-popover {
-  position: absolute; right: 0; top: calc(100% + 8px);
+  position: absolute; left: 0; top: calc(100% + 8px);
   width: 292px; background: #fff; border: 1px solid #d7dee5;
-  border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.12); padding: 10px; z-index: 1000;
+  border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.12); padding: 10px; z-index: 99999;
 }
 .bt-head {
   display: flex; align-items: center; justify-content: space-between; padding: 4px 2px 8px;
@@ -1192,6 +1192,16 @@
 .existing-drafts .panel--job .pin-toggle.is-pinned .pin-outline{ display: none; }
 .existing-drafts .panel--job .pin-toggle.is-pinned .pin-solid{ display: block; }
 
+/* === Fix calendar clipping inside right panel === */
+
+/* Let popovers escape the panel */
+.panel--jobtabs,
+.panel--jobtabs .tab-body,
+.panel--jobtabs .vis-card,
+.job-right {
+  overflow: visible !important;   /* allow child popovers to show */
+}
+
 /* Disabled state for action buttons (keeps tooltip working) */
 .abandon-icon:disabled,
 .confirm-icon:disabled{
@@ -1393,7 +1403,7 @@
 .date-range .through { color: #374151; opacity: 0.8; }
 
 /* reuse bill-through tokens for inline pickers */
-.bt-inline { display: inline-flex; align-items: center; gap: 6px; }
+.bt-inline {position: relative;  display: inline-flex; align-items: center; gap: 6px; }
 .bt-inline .bt-label { font-size: 0.8rem; color: #4b5563; }
 .bt-inline .bt-display { padding: 6px 10px; border-radius: 8px; border: 1px solid var(--panel-ring); background:#fff; }
 .bt-inline .bt-display.readonly { cursor: default; }
