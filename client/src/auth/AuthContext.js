@@ -12,6 +12,7 @@ import { probeManifest } from '../debugNetwork';
 import { logAuthMe } from './logAuth';
 
 const SUPER_USERS = [
+  'hstaggs@bmss.com',
   'tcrawford@bmss.com',
   'deison@bmss.com',
   'chenriksen@bmss.com',
