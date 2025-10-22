@@ -324,8 +324,49 @@ export default function AutomatedBillingRecapComparison() {
   const accessor = useMemo(() => groupAccessorOf(groupKey), [groupKey]);
 
   const grouped = useMemo(() => {
-    const map = new Map();
+    // ---- Narrative mode ----------------------------------------------------
+    if (groupKey === "Narrative") {
+      const byNarr = new Map(); // key = normalized narrative
 
+      for (const d of draftRows) {
+        const clientId =
+          d?.BILLINGCLIENT ?? d?.CONTINDEX ?? d?.CLIENTCODE ?? d?.BILLINGCLIENTCODE ?? "";
+        if (clientId === "" || clientId === null || clientId === undefined) continue;
+        const clientKey = String(clientId).trim().toLowerCase();
+
+        const raw = d?.NARRATIVE ?? d?.NARRATIVE_TEXT ?? "";
+        const narrKey = norm(raw);
+        if (!narrKey) continue;
+
+        // human-ish label (strip tags, keep case)
+        const label = String(raw || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || "(blank)";
+
+        const rec =
+          byNarr.get(narrKey) || { Name: label, TotalDrafts: 0, UnchangedDrafts: 0 };
+        rec.TotalDrafts += 1;
+
+        // For this client + narrative, compare the *totals* draft vs actual.
+        const dAgg = draftsByClient.get(clientKey);
+        const aAgg = actualsByClient.get(clientKey);
+        const dTot = dAgg?.DraftLineTotals?.get(narrKey);
+        const aTot = aAgg?.ActualLineTotals?.get(narrKey);
+        if (dTot !== undefined && aTot !== undefined && Number(dTot) === Number(aTot)) {
+          rec.UnchangedDrafts += 1;
+        }
+        byNarr.set(narrKey, rec);
+      }
+
+      const arr = [...byNarr.values()].map((r) => ({
+        ...r,
+        PctUnchanged: r.TotalDrafts ? r.UnchangedDrafts / r.TotalDrafts : 0,
+      }));
+      // default sort: most common narratives first
+      arr.sort((a, b) => b.TotalDrafts - a.TotalDrafts);
+      return arr;
+    }
+
+    // ---- Existing client-based grouping -----------------------------------
+    const map = new Map();
     for (const r of comparedClients) {
       const name = accessor(r);
       const g =
@@ -339,7 +380,6 @@ export default function AutomatedBillingRecapComparison() {
           NarrativeChanges: 0,
           UnchangedDrafts: 0,
         };
-
       g.Rows += 1;
       g.DraftBill += r.DraftBill;
       g.DraftWip += r.DraftWip;
@@ -349,7 +389,6 @@ export default function AutomatedBillingRecapComparison() {
       g.UnchangedDrafts += r.UnchangedDrafts;
       map.set(name, g);
     }
-
     const arr = [...map.values()].map((g) => {
       const draftReal = g.DraftWip > 0 ? g.DraftBill / g.DraftWip : 0;
       const actualReal = g.ActualWip > 0 ? g.ActualBill / g.ActualWip : 0;
@@ -361,10 +400,9 @@ export default function AutomatedBillingRecapComparison() {
         DeltaReal: actualReal - draftReal,
       };
     });
-
     arr.sort((a, b) => Math.abs(b.DeltaBill) - Math.abs(a.DeltaBill));
     return arr;
-  }, [comparedClients, accessor]);
+  }, [groupKey, draftRows, draftsByClient, actualsByClient, comparedClients, accessor]);
 
   const nameOptions = useMemo(() => {
     const set = new Set(grouped.map((g) => g.Name).filter(Boolean));
@@ -476,8 +514,22 @@ const kpis = useMemo(() => {
   }, [period, nameFilter, groupKey, draftRows, actualsByClient, currentClientKeySet, comparedClients]);
 
   /* columns */
-  const columns = useMemo(
-    () => [
+  const columns = useMemo(() => {
+    if (groupKey === "Narrative") {
+      return [
+        { name: "Narrative", selector: (r) => r.Name, sortable: true, wrap: true },
+        { name: "Total Drafts", selector: (r) => r.TotalDrafts, sortable: true, right: true },
+        { name: "Unchanged Drafts", selector: (r) => r.UnchangedDrafts, sortable: true, right: true },
+        {
+          name: "% Unchanged",
+          selector: (r) => r.PctUnchanged,
+          sortable: true,
+          right: true,
+          cell: (r) => <span className="num">{fmtPct(r.PctUnchanged)}</span>,
+        },
+      ];
+    }
+    return [
       { name: "Name", selector: (r) => r.Name, sortable: true, wrap: true },
       {
         name: "Draft Bill",
@@ -539,9 +591,8 @@ const kpis = useMemo(() => {
         sortable: true,
         right: true,
         },
-    ],
-    []
-  );
+    ];
+  }, [groupKey]);
 
   const showEmpty = !period;
 
@@ -600,6 +651,7 @@ const kpis = useMemo(() => {
           <option value="Office">Office</option>
           <option value="Manager">Manager</option>
           <option value="Service">Service</option>
+          <option value="Narrative">Narrative</option>
         </select>
 
         {period && (
