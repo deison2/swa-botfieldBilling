@@ -17,6 +17,36 @@ import actualInvoicesAll from "../devSampleData/sampleActualBilled.json"; // act
    return true;
  }
 
+ // tighter table look (works with react-data-table-component)
+const tableStyles = {
+  table: { style: { tableLayout: "fixed" } }, // more predictable widths
+  headCells: {
+    style: {
+      paddingTop: "6px",
+      paddingBottom: "6px",
+      paddingLeft: "10px",
+      paddingRight: "10px",
+      fontSize: "12px",
+      lineHeight: 1.1,
+      whiteSpace: "nowrap",
+    },
+  },
+  cells: {
+    style: {
+      paddingTop: "6px",
+      paddingBottom: "6px",
+      paddingLeft: "10px",
+      paddingRight: "10px",
+    },
+  },
+  rows: {
+    style: {
+      minHeight: "34px",
+    },
+  },
+};
+
+
 const fmtCurrency = (n) =>
   (isFinite(n) ? n : 0).toLocaleString(undefined, {
     style: "currency",
@@ -326,11 +356,11 @@ export default function AutomatedBillingRecapComparison() {
   const grouped = useMemo(() => {
     // ---- Narrative mode ----------------------------------------------------
     if (groupKey === "Narrative") {
-      const byNarr = new Map(); // key = normalized narrative
+    const byNarr = new Map(); // key = normalized narrative
 
-      for (const d of draftRows) {
+    for (const d of draftRows) {
         const clientId =
-          d?.BILLINGCLIENT ?? d?.CONTINDEX ?? d?.CLIENTCODE ?? d?.BILLINGCLIENTCODE ?? "";
+        d?.BILLINGCLIENT ?? d?.CONTINDEX ?? d?.CLIENTCODE ?? d?.BILLINGCLIENTCODE ?? "";
         if (clientId === "" || clientId === null || clientId === undefined) continue;
         const clientKey = String(clientId).trim().toLowerCase();
 
@@ -339,10 +369,19 @@ export default function AutomatedBillingRecapComparison() {
         if (!narrKey) continue;
 
         // human-ish label (strip tags, keep case)
-        const label = String(raw || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || "(blank)";
+        const label =
+        String(raw || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || "(blank)";
 
         const rec =
-          byNarr.get(narrKey) || { Name: label, TotalDrafts: 0, UnchangedDrafts: 0 };
+        byNarr.get(narrKey) ||
+        {
+            Name: label,
+            TotalDrafts: 0,
+            UnchangedDrafts: 0,
+            AmountChanges: 0,     // << NEW
+            VerbiageChanges: 0,   // << NEW
+        };
+
         rec.TotalDrafts += 1;
 
         // For this client + narrative, compare the *totals* draft vs actual.
@@ -350,20 +389,31 @@ export default function AutomatedBillingRecapComparison() {
         const aAgg = actualsByClient.get(clientKey);
         const dTot = dAgg?.DraftLineTotals?.get(narrKey);
         const aTot = aAgg?.ActualLineTotals?.get(narrKey);
-        if (dTot !== undefined && aTot !== undefined && Number(dTot) === Number(aTot)) {
-          rec.UnchangedDrafts += 1;
-        }
-        byNarr.set(narrKey, rec);
-      }
 
-      const arr = [...byNarr.values()].map((r) => ({
+        if (dTot !== undefined && aTot !== undefined) {
+        if (Number(dTot) === Number(aTot)) {
+            rec.UnchangedDrafts += 1;         // same wording, same total
+        } else {
+            rec.AmountChanges += 1;           // same wording, different total  << NEW
+        }
+        } else if (dTot !== undefined && aTot === undefined) {
+        rec.VerbiageChanges += 1;           // wording changed / line missing << NEW
+        // (If you also want to count "new in actual" as verbiage change, add:
+        // } else if (dTot === undefined && aTot !== undefined) { rec.VerbiageChanges += 1; }
+        }
+
+        byNarr.set(narrKey, rec);
+    }
+
+    const arr = [...byNarr.values()].map((r) => ({
         ...r,
         PctUnchanged: r.TotalDrafts ? r.UnchangedDrafts / r.TotalDrafts : 0,
-      }));
-      // default sort: most common narratives first
-      arr.sort((a, b) => b.TotalDrafts - a.TotalDrafts);
-      return arr;
+    }));
+    // default sort: most common narratives first
+    arr.sort((a, b) => b.TotalDrafts - a.TotalDrafts);
+    return arr;
     }
+
 
     // ---- Existing client-based grouping -----------------------------------
     const map = new Map();
@@ -517,14 +567,57 @@ const kpis = useMemo(() => {
   const columns = useMemo(() => {
     if (groupKey === "Narrative") {
       return [
-        { name: "Narrative", selector: (r) => r.Name, sortable: true, wrap: true },
-        { name: "Total Drafts", selector: (r) => r.TotalDrafts, sortable: true, right: true },
-        { name: "Unchanged Drafts", selector: (r) => r.UnchangedDrafts, sortable: true, right: true },
+        {
+          name: "Narrative",
+          selector: (r) => r.Name,
+          sortable: true,
+          wrap: true,
+          grow: 4,                // <<— let this column take most of the row width
+          minWidth: "400px",
+          style: {
+            whiteSpace: "normal", // <<— allow true wrapping
+            lineHeight: 1.25,
+          },
+        },
+        {
+          name: "Total Drafts",
+          selector: (r) => r.TotalDrafts,
+          sortable: true,
+          right: true,
+          grow: 0,
+          width: "120px",         // <<— fixed/narrow
+        },
+        {
+          name: "Unchanged Drafts",
+          selector: (r) => r.UnchangedDrafts,
+          sortable: true,
+          right: true,
+          grow: 0,
+          width: "150px",
+        },
+        {
+          name: "Amount Changes",
+          selector: (r) => r.AmountChanges,
+          sortable: true,
+          right: true,
+          grow: 0,
+          width: "150px",
+        },
+        {
+          name: "Verbiage Changes",
+          selector: (r) => r.VerbiageChanges,
+          sortable: true,
+          right: true,
+          grow: 0,
+          width: "150px",
+        },
         {
           name: "% Unchanged",
           selector: (r) => r.PctUnchanged,
           sortable: true,
           right: true,
+          grow: 0,
+          width: "130px",
           cell: (r) => <span className="num">{fmtPct(r.PctUnchanged)}</span>,
         },
       ];
@@ -654,17 +747,18 @@ const kpis = useMemo(() => {
           <option value="Narrative">Narrative</option>
         </select>
 
-        {period && (
-          <select
+        {/* Hide the name filter when in Narrative mode */}
+        {period && groupKey !== "Narrative" && (
+        <select
             className="pill-select recap-namefilter"
             value={nameFilter}
             onChange={(e) => setNameFilter(e.target.value)}
             title="Filter by Name"
             disabled={!nameOptions.length}
-          >
+        >
             <option value="">
-              All{" "}
-              {groupKey === "Office"
+            All{" "}
+            {groupKey === "Office"
                 ? "Offices"
                 : groupKey === "Manager"
                 ? "Managers"
@@ -673,12 +767,13 @@ const kpis = useMemo(() => {
                 : "Partners"}
             </option>
             {nameOptions.map((nm) => (
-              <option key={nm} value={nm}>
+            <option key={nm} value={nm}>
                 {nm}
-              </option>
+            </option>
             ))}
-          </select>
+        </select>
         )}
+
 
         {nameFilter && (
           <button
@@ -748,6 +843,8 @@ const kpis = useMemo(() => {
           <GeneralDataTable
             columns={columns}
             data={groupedFiltered}
+            customStyles={tableStyles}   // <<— add this
+            dense                        // <<— optional: tighter row height
             noDataComponent={<span className="no-rows">No rows to show!</span>}
           />
         </div>
