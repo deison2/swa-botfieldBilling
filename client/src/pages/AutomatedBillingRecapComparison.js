@@ -6,6 +6,17 @@ import draftRowsAll from "../devSampleData/sampleRecapBilled.json";     // autom
 import actualInvoicesAll from "../devSampleData/sampleActualBilled.json"; // actual invoices (client-grain; JOB_SUMMARY[] & NARRATIVE_SUMMARY[])
 
 /* ---------- helpers ---------- */
+ function mapsEqualNum(m1, m2) {
+   if (!m1 || !m2) return false;
+   if (m1.size !== m2.size) return false;
+   for (const [k, v1] of m1.entries()) {
+     const v2 = m2.get(k);
+     if (v2 === undefined) return false;
+     if (Number(v1) !== Number(v2)) return false; // exact match; add tolerance if desired
+   }
+   return true;
+ }
+
 const fmtCurrency = (n) =>
   (isFinite(n) ? n : 0).toLocaleString(undefined, {
     style: "currency",
@@ -182,13 +193,20 @@ export default function AutomatedBillingRecapComparison() {
           DraftBill: 0,
           DraftWip: 0,
           DraftNarrSet: new Set(),
+          DraftLineTotals: new Map(),
         };
 
       cur.DraftBill += Number(d?.BILLAMOUNT ?? 0);
       cur.DraftWip += Number(d?.WIPOUTSTANDING ?? 0);
 
       const dn = d?.NARRATIVE ?? d?.NARRATIVE_TEXT ?? "";
-      if (dn) cur.DraftNarrSet.add(norm(dn));
+      const dnNorm = norm(dn);
+      if (dn) cur.DraftNarrSet.add(dnNorm);
+    
+      // sum draft amounts by normalized narrative text
+      const amt = Number(d?.BILLAMOUNT ?? 0);
+      if (!cur.DraftLineTotals.has(dnNorm)) cur.DraftLineTotals.set(dnNorm, 0);
+      cur.DraftLineTotals.set(dnNorm, cur.DraftLineTotals.get(dnNorm) + amt);
 
       map.set(key, cur);
     }
@@ -220,6 +238,7 @@ export default function AutomatedBillingRecapComparison() {
           ActualBill: 0,
           ActualWip: 0,
           ActualNarrSet: new Set(),
+          ActualLineTotals: new Map(),
           _rawBucket: [], // keep raw invoices included -> for copy
         };
 
@@ -232,8 +251,12 @@ export default function AutomatedBillingRecapComparison() {
       const narrs = Array.isArray(inv?.NARRATIVE_SUMMARY) ? inv.NARRATIVE_SUMMARY : [];
       for (const n of narrs) {
         const t = n?.NARRATIVE ?? "";
-        if (t) cur.ActualNarrSet.add(norm(t));
-      }
+        const tNorm = norm(t);
+        const amt = Number(n?.BILLAMOUNT ?? 0);
+        if (t) cur.ActualNarrSet.add(tNorm);
+        if (!cur.ActualLineTotals.has(tNorm)) cur.ActualLineTotals.set(tNorm, 0);
+        cur.ActualLineTotals.set(tNorm, cur.ActualLineTotals.get(tNorm) + amt);
+    }
 
       cur._rawBucket.push(inv);
       map.set(key, cur);
@@ -264,8 +287,12 @@ export default function AutomatedBillingRecapComparison() {
       const DeltaBill = ActualBill - DraftBill;
       const DeltaReal = ActualReal - DraftReal;
 
-      const NarrativeChanges =
+      // keep your existing change signal as-is
+        const NarrativeChanges =
         d.DraftNarr && (a?.ActualNarr ?? "") && d.DraftNarr !== a.ActualNarr ? 1 : 0;
+
+        // NEW: client-level unchanged flag via line-item (narrative) totals
+        const UnchangedDrafts = mapsEqualNum(d.DraftLineTotals, a?.ActualLineTotals) ? 1 : 0;
 
       out.push({
         ClientId: key,
@@ -287,6 +314,7 @@ export default function AutomatedBillingRecapComparison() {
         DeltaBill,
         DeltaReal,
         NarrativeChanges,
+        UnchangedDrafts,
       });
     }
     return out;
@@ -309,6 +337,7 @@ export default function AutomatedBillingRecapComparison() {
           ActualBill: 0,
           ActualWip: 0,
           NarrativeChanges: 0,
+          UnchangedDrafts: 0,
         };
 
       g.Rows += 1;
@@ -317,7 +346,7 @@ export default function AutomatedBillingRecapComparison() {
       g.ActualBill += r.ActualBill;
       g.ActualWip += r.ActualWip;
       g.NarrativeChanges += r.NarrativeChanges;
-
+      g.UnchangedDrafts += r.UnchangedDrafts;
       map.set(name, g);
     }
 
@@ -354,13 +383,15 @@ const kpis = useMemo(() => {
     actualBill = 0,
     actualWip = 0,
     narrCount = 0,
-    impacted = 0;
+    impacted = 0, 
+    unchangedDrafts = 0;
 
   for (const r of comparedClients) {
     draftBill += r.DraftBill;
     draftWip += r.DraftWip;
     actualBill += r.ActualBill;
     actualWip += r.ActualWip;
+    unchangedDrafts += (r.UnchangedDrafts || 0);
 
     if (r.NarrativeChanges) narrCount += 1;
     if (r.DeltaBill !== 0 || r.NarrativeChanges > 0) impacted += 1;
@@ -382,6 +413,7 @@ const kpis = useMemo(() => {
     // other tiles:
     narrCount,
     impacted,
+    unchangedDrafts,
   };
 }, [comparedClients]);
 
@@ -501,6 +533,12 @@ const kpis = useMemo(() => {
         sortable: true,
         right: true,
       },
+      {
+        name: "Unchanged Drafts",
+        selector: (r) => r.UnchangedDrafts,
+        sortable: true,
+        right: true,
+        },
     ],
     []
   );
@@ -636,8 +674,8 @@ const kpis = useMemo(() => {
             <div className="kpi-value">{kpis.narrCount.toLocaleString()}</div>
             </div>
             <div className="kpi-card">
-            <div className="kpi-title">Clients Impacted</div>
-            <div className="kpi-value">{kpis.impacted.toLocaleString()}</div>
+                <div className="kpi-title">Drafts Unchanged</div>
+                <div className="kpi-value">{(kpis.unchangedDrafts || 0).toLocaleString()}</div>
             </div>
         </section>
         )}
