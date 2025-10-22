@@ -478,7 +478,7 @@
   letter-spacing: .02em;
   opacity: .7;
 }
-.kpi-value {
+.rotkpi-value, .kpi-value {
   font-size: 20px;               /* was larger – trimmed */
   line-height: 1.2;
 }
@@ -569,3 +569,148 @@
 .checkbox-pill input[type="checkbox"] {
   accent-color: #4f46e5bf;
 }
+
+/* Make negative deltas read clearly (optional) */
+.recap .table-section .num {
+  font-variant-numeric: tabular-nums;
+}
+.recap .table-section .num:has(+ .delta-neg),
+.recap .table-section .delta-neg {
+  color: #b91c1c; /* red-700 */
+}
+
+/* Optional: subtle badge look for the third tab when active is already defined */
+.tab-btn.active {
+  /* you already style .active; this ensures consistency if theme differs */
+  background: linear-gradient(180deg, #e6f6f3, #d2eee9);
+  border-color: #49A050;
+  font-weight: 600;
+}
+
+/* Split KPI (Draft | Actual | Δ) */
+.kpi-split .kpi-split-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  align-items: end;
+  margin-top: 6px;
+}
+
+.kpi-mini-label {
+  font-size: 11px;
+  opacity: .75;
+  letter-spacing: .01em;
+  margin-bottom: 2px;
+}
+
+.kpi-mini-value {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #0b2a30;
+}
+
+.kpi-mini--delta .kpi-mini-value {
+  display: inline-block;
+}
+
+.kpi-delta-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(6,57,65,0.14);
+  background: #f7fafe;
+}
+
+.kpi-delta-badge.pos {
+  background: #eaf9f0;
+  border-color: rgba(73,160,80,0.35);
+}
+
+.kpi-delta-badge.neg {
+  background: #fff1f1;
+  border-color: rgba(220,38,38,0.3);
+}
+
+/* Rotating KPI (Draft -> Actual -> Δ) */
+.rotkpi { position: relative; overflow: hidden; }
+.rotkpi .rotkpi-stagewrap {
+  position: relative;
+  min-height: 44px;         /* keeps card steady while text swaps */
+}
+.rotkpi-stage {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 320ms ease, transform 320ms ease;
+  display: grid;
+  align-content: start;
+  gap: 4px;
+}
+.rotkpi-stage.is-active {
+  opacity: 1;
+  transform: translateY(0);
+}
+.rotkpi-label {
+  font-size: 11px;
+  letter-spacing: .02em;
+  color: #6b7280;
+}
+.rotkpi-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0b2a30;
+  line-height: 1.1;
+}
+.rotkpi-value.pos { color: #166534; }  /* green-ish for positive Δ */
+.rotkpi-value.neg { color: #b91c1c; }  /* red-ish for negative Δ */
+
+/* header row in KPI: title left, sublabel right */
+.kpi-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.kpi-sub {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.8;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+/* subtle badge tone; Δ gets green/red border with the pos/neg classes already in use */
+.kpi-sub.pos { border-color: rgba(16, 185, 129, .35); }
+.kpi-sub.neg { border-color: rgba(239, 68, 68, .35); }
+
+/* keep your existing rotating fade for values; if you don't have it, this will do */
+.rotkpi-stagewrap {
+  position: relative;
+  height: 2.2em; /* keeps card height stable */
+}
+.rotkpi-stage {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 240ms ease, transform 240ms ease;
+}
+.rotkpi-stage.is-active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Make non-rotating and rotating KPIs identical */
+.kpi-value,
+.rotkpi-value {
+  font-size: 20px;
+  line-height: 1.2;
+  font-weight: 700;
+  color: #0b2a30;
+}
+

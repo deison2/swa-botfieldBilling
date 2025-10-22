@@ -3,6 +3,7 @@ import Sidebar from "../components/Sidebar";
 import TopBar from "../components/TopBar";
 import GeneralDataTable from "../components/DataTable";
 import "./AutomatedBillingRecap.css";
+import AutomatedBillingRecapComparison from "./AutomatedBillingRecapComparison";
 
 // DEV: local sample data (billed / not billed)
 import sampleRecapBilled from "../devSampleData/sampleRecapBilled.json";
@@ -540,6 +541,16 @@ export default function AutomatedBillingRecap() {
           >
             Not Billed
           </button>
+          <button
+            type="button"
+            className={`tab-btn ${activeTab === "draftchanges" ? "active" : ""}`}
+            onClick={() => {
+              setActiveTab("draftchanges");
+              // this tab is self-contained; no resets needed here
+            }}
+          >
+            Draft Changes
+          </button>
         </div>
 
         {/* ====================== BILLED ====================== */}
@@ -819,6 +830,10 @@ export default function AutomatedBillingRecap() {
             )}
           </>
         )}
+      {/* ==================== DRAFT CHANGES (Comparison) ==================== */}
+      {activeTab === "draftchanges" && (
+        <AutomatedBillingRecapComparison />
+      )}  
       </main>
     </div>
   );
