@@ -87,3 +87,118 @@
   color: #063941;              /* silhouette color */
   opacity: 0.9;
 }
+
+/* --- Help Modal --- */
+.help-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.help-content {
+  background-color: #ffffff;
+  padding: 2rem;
+  border-radius: 10px;
+  max-width: 55em;
+  width: 90%;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+  font-family: monospace;
+  color: #333;
+  font-size: 1.25rem;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+}
+
+/* Title styling — matches the app's clean, blue-accented style */
+.help-title {
+  margin-top: 0;
+  font-size: 1.5rem;
+  color: #063941;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  border-bottom: 2px solid #547872;
+  padding-bottom: 0.4rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+/* Bulleted list, styled to match your spacing & typography */
+.help-list {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-top: 1rem;
+  margin-bottom: 1.5rem;
+  font-size: 1.25rem;
+  line-height: 1.5;
+}
+
+.help-list li {
+  margin-bottom: 0.4rem;
+  white-space: pre-wrap;
+}
+
+/* Navigation buttons — match existing button style */
+.help-controls {
+  display: flex;
+  justify-content: space-between;
+}
+
+.help-controls button {
+  padding: 0.5rem 1.25rem;
+  border: none;
+  border-radius: 6px;
+  background-color: #547872;
+  color: #fff;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.help-controls button:hover:not(:disabled) {
+  background-color: #547872;
+}
+
+.help-controls button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+/* --- Pulse animation for the Help button --- */
+.pulse {
+  position: relative;
+  animation: pulseGlow 1.8s infinite;
+}
+
+/* Subtle glowing pulse effect */
+@keyframes pulseGlow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(25, 118, 210, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(25, 118, 210, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(25, 118, 210, 0);
+  }
+}
+
+/* Optional: make the icon color shift slightly while pulsing */
+.pulse i {
+  color: black;
+  animation: pulseIcon 2.8s infinite;
+}
+
+@keyframes pulseIcon {
+  0%, 100% {
+    color: #063941;
+    transform: scale(1);
+  }
+  50% {
+    color: #ffffff;
+    transform: scale(1.25);
+  }
+}

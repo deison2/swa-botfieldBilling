@@ -3,13 +3,11 @@
  *************************************************************************/
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-
 import Sidebar          from '../components/Sidebar';
 import TopBar           from '../components/TopBar';
 import GeneralDataTable from '../components/DataTable';
 
 import sampleInvoiceLineItems from '../devSampleData/sampleInvoiceLineItems.json';
-import sampleDrafts     from '../devSampleData/sampleExistingDrafts.json';
 import { GetGranularWIPData } from '../services/ExistingDraftsService';
 
 import { useAuth }      from '../auth/AuthContext';
@@ -93,13 +91,6 @@ const deriveCreatedMeta = (group) => {
     by: String(d?.CREATEDBY ?? d?.CreatedBy ?? d?.DRAFTCREATEDBY ?? 'Unknown'),
     onRaw: String(d?.DRAFT_CREATED_ON ?? d?.CreatedOn ?? d?.CREATED_ON ?? ''),
   };
-};
-
-// Short, human date for search (matches popup’s feel)
-const fmtCreatedWhenShort = (val) => {
-  const dt = parseSqlishDate(val);
-  if (isNaN(dt)) return '';
-  return dt.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' });
 };
 
 
@@ -238,7 +229,6 @@ function JobDetailsPanel({ details, pinRequest, setGlobalLoading }) {
       addPin(pinRequest);          // stick it
     }
   }, [pinRequest]);                 // runs only when a new request arrives
-
 
   React.useEffect(() => {
     clearTimeout(graceTimer.current);
@@ -717,6 +707,21 @@ function JobDetailsPanel({ details, pinRequest, setGlobalLoading }) {
 /* ─── page ────────────────────────────────────────────────────────── */
 export default function ExistingDrafts() {
 
+function saveFiltersToStorage(filters) {
+  localStorage.setItem('tableFilters', JSON.stringify(filters));
+}
+
+function loadFiltersFromStorage() {
+  try {
+    const stored = localStorage.getItem('tableFilters');
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+}
+
+
+
   useEffect(() => {
   let cancelled = false;
   (async () => {
@@ -737,7 +742,6 @@ export default function ExistingDrafts() {
       if (cancelled) return;
 
       setBillThrough(bt);
-      setBtMonth(new Date(bt.getFullYear(), bt.getMonth(), 1));
 
       const iso = toIsoYmd(bt);
 
@@ -752,7 +756,6 @@ export default function ExistingDrafts() {
       if (dRes.status === 'fulfilled') setRawRows(Array.isArray(dRes.value) ? dRes.value : []);
       else {
         console.error('GetDrafts failed:', dRes.reason);
-        setRawRows(sampleDrafts); // graceful fallback
       }
 
       if (gRes.status === 'fulfilled') setGranularData(Array.isArray(gRes.value) ? gRes.value : []);
@@ -765,7 +768,25 @@ export default function ExistingDrafts() {
     }
   })();
   return () => { cancelled = true; };
-}, []); // run once
+}, []);
+
+useEffect(() => {
+  const saved = loadFiltersFromStorage();
+  if (saved) {
+    setOriginatorFilter(saved.originatorFilter ?? '');
+    setPartnerFilter(saved.partnerFilter ?? '');
+    setManagerFilter(saved.managerFilter ?? '');
+    setSearchText(saved.searchText ?? '');
+    setRealOp(saved.realOp ?? '');
+    setRealVal1(saved.realVal1 ?? '');
+    setRealVal2(saved.realVal2 ?? '');
+    setFinalFilter(saved.finalFilter ?? 'all');
+    if (saved.createdByFilter) {
+      setCreatedByFilter(new Set(saved.createdByFilter));
+    }
+  }
+}, []);
+
 
 
 
@@ -863,8 +884,8 @@ export default function ExistingDrafts() {
       if (!map.has(key)) {
         map.set(key, {
           ...r,
-          CLIENTS : [{ code : r.CLIENTCODE, name : r.CLIENTNAME, cont : r.CONTINDEX }],
-          codeMap : { [r.CONTINDEX] : { code : r.CLIENTCODE, name : r.CLIENTNAME } },
+          CLIENTS : [{ code : r.CLIENTCODE, name : r.CLIENTNAME, cont : r.CONTINDEX, client : r.CLIENT }],
+          codeMap : { [r.CONTINDEX] : { code : r.CLIENTCODE, name : r.CLIENTNAME, client : r.CLIENT } },
           DRAFTDETAIL     : [...r.DRAFTDETAIL],
           NARRATIVEDETAIL : [...r.NARRATIVEDETAIL],
         });
@@ -872,8 +893,8 @@ export default function ExistingDrafts() {
         const agg = map.get(key);
 
         if (!agg.codeMap[r.CONTINDEX]) {
-          agg.CLIENTS.push({ code : r.CLIENTCODE, name : r.CLIENTNAME, cont : r.CONTINDEX });
-          agg.codeMap[r.CONTINDEX] = { code : r.CLIENTCODE, name : r.CLIENTNAME };
+          agg.CLIENTS.push({ code : r.CLIENTCODE, name : r.CLIENTNAME, cont : r.CONTINDEX, client : r.CLIENT });
+          agg.codeMap[r.CONTINDEX] = { code : r.CLIENTCODE, name : r.CLIENTNAME, client : r.CLIENT };
         }
         agg.DRAFTDETAIL.push(...r.DRAFTDETAIL);
         agg.NARRATIVEDETAIL.push(...r.NARRATIVEDETAIL);
@@ -903,6 +924,7 @@ export default function ExistingDrafts() {
 
   /* Bill Through (value comes from blob on load; super users can change it) */
   const [billThrough, setBillThrough] = useState(endOfPrevMonth());
+  const [removeBTFilter, setRemoveBTFilter] = useState(false);
   const [btOpen, setBtOpen] = useState(false);
   const [btMonth, setBtMonth] = useState(() =>
     new Date(billThrough.getFullYear(), billThrough.getMonth(), 1)
@@ -949,6 +971,33 @@ export default function ExistingDrafts() {
   // Multi-select: empty Set = "All Creators"
   const [createdByFilter, setCreatedByFilter] = useState(() => new Set());
   const [showCreatedFilter, setShowCreatedFilter] = useState(false);
+
+  
+useEffect(() => {
+  const filters = {
+    originatorFilter,
+    partnerFilter,
+    managerFilter,
+    searchText,
+    realOp,
+    realVal1,
+    realVal2,
+    finalFilter,
+    createdByFilter: Array.from(createdByFilter || []),
+  };
+  saveFiltersToStorage(filters);
+}, [
+  originatorFilter,
+  partnerFilter,
+  managerFilter,
+  searchText,
+  realOp,
+  realVal1,
+  realVal2,
+  finalFilter,
+  createdByFilter,
+]);
+
 
   // helper: toggle one creator in the Set
   const toggleCreator = (name) =>
@@ -1103,13 +1152,23 @@ export default function ExistingDrafts() {
         />
       ),
     },
-    /* <<< checkbox-column END <<< */
-    { name : 'Code',      width:'120px', grow:0, sortable:true, center: true,
-      cell : r => <ChipSet items={r.CLIENTS} field="code" /> },
-    { name : 'Name',      grow:2.6, sortable:true, center: true,
+{ 
+  name: 'Billed Client', grow: 1.4, sortable: true, center: true,
+  cell: r => (
+    <div className="chipset-bubble-wrapper">
+      <div className="chip">{r.BILLEDCLIENT}</div>
+      {r.TOTALFINALJOBS > 0 && (
+        <span className="job-bubble">
+          {r.TOTALFINALJOBS} final job{r.TOTALFINALJOBS > 1 ? 's' : ''}
+        </span>
+      )}
+    </div>
+  )
+},
+    { name : 'Clients(s)',      grow:1.4, sortable:true, center: true,
       style: { minWidth: 0 },
-      cell : r => <ChipSet items={r.CLIENTS} field="name" /> },
-    { name : 'Client Roles', grow: 1, sortable:false, width:'170px', center: true,
+      cell : r => <ChipSet items={r.CLIENTS} field="client" /> },
+    { name : 'Client Roles', grow: .75, sortable:false, center: true,
       cell : r => (
         <RoleChips
           originator={r.ORIGINATOR}
@@ -1118,11 +1177,13 @@ export default function ExistingDrafts() {
         />
       )
     }, 
-    { name : 'Office',    selector: r => r.CLIENTOFFICE, sortable:true, width:'80px', grow: 0 },
+    { name : 'Office',    selector: r => r.CLIENTOFFICE, sortable:true, width:'80px', grow: 0.4 },
     { name : 'WIP',       selector: r => r.WIP,    sortable:true, format: r => currency(r.WIP) , grow: 0.4},
     { name : 'Bill',      selector: r => r.BILLED, sortable:true, format: r => currency(r.BILLED) , grow: 0.4},
     { name : 'W/Off',     selector: r => r.WRITEOFFUP, sortable:true,
                           format: r => currency(r.WRITEOFFUP) , grow: 0.4},
+    { name : 'C/F',     selector: r => r.CARRYFORWARD, sortable:true,
+                          format: r => currency(r.CARRYFORWARD) , grow: 0.4},
     { name : 'Real.%',    selector: r => r.BILLED / (r.WIP || 1), sortable:true,
                           format: r => `${((r.BILLED / (r.WIP || 1))*100).toFixed(1)}%`,
                           width:'84px', grow: 0 },
@@ -1135,13 +1196,13 @@ export default function ExistingDrafts() {
           />
         </a>
       )},
+      /*
     { name : 'Actions', ignoreRowClick:true, button:true, grow: 0.5,
       cell : r => {
         const ACTIONS_DISABLED = true; // <— flip to false later when you want them enabled
 
         return (
           <div className="action-btns">
-            {/* red “Abandon” (disabled) */}
             <button
               className="abandon-icon"
               title={ACTIONS_DISABLED ? 'Disabled' : 'Abandon draft'}
@@ -1157,7 +1218,6 @@ export default function ExistingDrafts() {
               </svg>
             </button>
 
-            {/* green “Confirm” (disabled) */}
             <button
               className="confirm-icon"
               title={ACTIONS_DISABLED ? 'Disabled' : 'Confirm draft'}
@@ -1174,7 +1234,8 @@ export default function ExistingDrafts() {
           </div>
         );
       }
-    },
+    }
+    */
 
   ];
 
@@ -1186,6 +1247,7 @@ function DraftRow({ d, client, granData, onHover, onLeave, onPin, expanded, onTo
   const payload = {
     clientCode : client.code,
     clientName : client.name,
+    client     : client.client,
     jobTitle   : d.JOBTITLE,
     job        : Array.isArray(granData) ? granData[0] : undefined
   };
@@ -1730,123 +1792,137 @@ const closeCreated = () => {
   );
 };
 
-  
+
+
 
   /* ── UI-FILTERED rows (after search / dropdowns) ───────────── */
-  const filteredRows = useMemo(() => {
-    const bySearch = r => {
-      const q = norm(searchText).trim();
-      if (!q) return true;
+ const filteredRows = useMemo(() => {
+  const btDateStr = billThrough
+    ? billThrough.toISOString().split('T')[0]
+    : null;
 
-      // client codes & names
-      const clientHit = (r.CLIENTS || []).some(c =>
-        norm(c.code).includes(q) || norm(c.name).includes(q)
-      );
+  // --- Search filter ---
+  const bySearch = (r) => {
+    const q = norm(searchText).trim();
+    if (!q) return true; // empty search → don't filter out
+    if (q.length < 2) return true; // keep all if not enough characters
 
-      // roles
-      const roleHit =
-        norm(r.ORIGINATOR).includes(q) ||
-        norm(r.CLIENTPARTNER).includes(q) ||
-        norm(r.CLIENTMANAGER).includes(q);
+    const billedClientHit = (norm(r.BILLEDCLIENT) || '').includes(q);
 
-      // draft notes (group-level or any detail row)
-      const groupNotes = norm(r.DRAFTNOTES);
-      const detailNotes = norm((r.DRAFTDETAIL || [])
-        .map(d => d?.DRAFTNOTES ?? '')
-        .join(' '));
-      const notesHit = groupNotes.includes(q) || detailNotes.includes(q);
+    const clientHit = (r.CLIENTS || []).some(
+      (c) => norm(c.code).includes(q) || norm(c.name).includes(q)
+    );
 
-      // narratives (strip HTML first)
-      const narratives = norm((r.NARRATIVEDETAIL || [])
-        .map(n => stripHtml(n?.FEENARRATIVE))
-        .join(' '));
-      const narrativeHit = narratives.includes(q);
+    const roleHit =
+      norm(r.ORIGINATOR).includes(q) ||
+      norm(r.CLIENTPARTNER).includes(q) ||
+      norm(r.CLIENTMANAGER).includes(q);
 
-      // NEW: “Draft Created” popup text (CREATEDBY + date)
-      const { by: createdBy, onRaw } = deriveCreatedMeta(r);
-      const createdOnPretty = fmtCreatedWhenShort(onRaw);
-      const createdHit =
-        norm(createdBy).includes(q) ||
-        norm(onRaw).includes(q) ||             // raw timestamp string
-        norm(createdOnPretty).includes(q);     // pretty date like "Jul 25, 2025"
+    const groupNotes = norm(r.DRAFTNOTES);
+    const detailNotes = norm(
+      (r.DRAFTDETAIL || []).map((d) => d?.DRAFTNOTES ?? '').join(' ')
+    );
+    const notesHit = groupNotes.includes(q) || detailNotes.includes(q);
 
-      return clientHit || roleHit || notesHit || narrativeHit || createdHit;
-    };
+    const narratives = norm(
+      (r.NARRATIVEDETAIL || [])
+        .map((n) => stripHtml(n?.FEENARRATIVE))
+        .join(' ')
+    );
+    const narrativeHit = narratives.includes(q);
 
+    const { by: createdBy } = deriveCreatedMeta(r);
+    const createdHit = norm(createdBy).includes(q);
 
+    return (
+      billedClientHit ||
+      clientHit ||
+      roleHit ||
+      notesHit ||
+      narrativeHit ||
+      createdHit
+    );
+  };
 
-    const byOrigin  = r => !originatorFilter || r.ORIGINATOR    === originatorFilter;
-    const byPartner = r => !partnerFilter   || r.CLIENTPARTNER === partnerFilter;
-    const byManager = r => !managerFilter   || r.CLIENTMANAGER === managerFilter;
+  // --- New date filter ---
+  const byBillThrough = (r) => {
+    if (removeBTFilter === true) return true;
+    if (!btDateStr) return true;
+    return r.DEBTTRANDATE === btDateStr;
+  };
 
-    const byReal    = r => {
-      if (!realOp || realVal1 === '') return true;
-      const pct = (r.BILLED / (r.WIP || 1)) * 100;
-      const v   = Math.round(pct);
+  // --- Other filters (unchanged) ---
+  const byOrigin = (r) => !originatorFilter || r.ORIGINATOR === originatorFilter;
+  const byPartner = (r) => !partnerFilter || r.CLIENTPARTNER === partnerFilter;
+  const byManager = (r) => !managerFilter || r.CLIENTMANAGER === managerFilter;
 
-      switch (realOp) {
-        case 'lt' : return v <  +realVal1;
-        case 'lte': return v <= +realVal1;
-        case 'eq' : return v === +realVal1;
-        case 'gte': return v >= +realVal1;
-        case 'gt' : return v >  +realVal1;
-        case 'btw':
-          if (realVal2 === '') return true;
-          const min = Math.min(+realVal1, +realVal2);
-          const max = Math.max(+realVal1, +realVal2);
-          return v >= min && v <= max;
-        default: return true;
-      }
-    };
+  const byReal = (r) => {
+    if (!realOp || realVal1 === '') return true;
+    const pct = (r.BILLED / (r.WIP || 1)) * 100;
+    const v = Math.round(pct);
+    switch (realOp) {
+      case 'lt': return v < +realVal1;
+      case 'lte': return v <= +realVal1;
+      case 'eq': return v === +realVal1;
+      case 'gte': return v >= +realVal1;
+      case 'gt': return v > +realVal1;
+      case 'btw':
+        if (realVal2 === '') return true;
+        const min = Math.min(+realVal1, +realVal2);
+        const max = Math.max(+realVal1, +realVal2);
+        return v >= min && v <= max;
+      default:
+        return true;
+    }
+  };
 
-    const byFinal = r => {
-      if (finalFilter === 'all') return true;
-      const anyFinal =
-        Array.isArray(r.DRAFTDETAIL) &&
-        r.DRAFTDETAIL.some(d => d.finalCheck === 'X');
-      return finalFilter === 'true' ? anyFinal : !anyFinal;
-    };
+  const byFinal = (r) => {
+    if (finalFilter === 'all') return true;
+    const anyFinal =
+      Array.isArray(r.DRAFTDETAIL) &&
+      r.DRAFTDETAIL.some((d) => d.finalCheck === 'X');
+    return finalFilter === 'true' ? anyFinal : !anyFinal;
+  };
 
-    const byCreatedBy = r => {
-      if (!createdByFilter || createdByFilter.size === 0) return true; // no filter ⇒ all pass
+  const byCreatedBy = (r) => {
+    if (!createdByFilter || createdByFilter.size === 0) return true;
+    const wanted = new Set([...createdByFilter].map((s) => String(s).toLowerCase()));
+    const groupGb = r?.CREATEDBY ?? r?.CreatedBy ?? r?.DRAFTCREATEDBY;
+    if (groupGb && wanted.has(String(groupGb).toLowerCase())) return true;
+    return (r.DRAFTDETAIL || []).some((d) => {
+      const gb = d?.CREATEDBY ?? d?.CreatedBy ?? d?.DRAFTCREATEDBY;
+      return gb && wanted.has(String(gb).toLowerCase());
+    });
+  };
 
-      // normalize wanted names to lowercase for case-insensitive matching
-      const wanted = new Set([...createdByFilter].map(s => String(s).toLowerCase()));
+  // --- Combine all filters ---
+  const out = rows
+    .filter(byBillThrough)
+    .filter(bySearch)
+    .filter(byOrigin)
+    .filter(byPartner)
+    .filter(byManager)
+    .filter(byReal)
+    .filter(byFinal)
+    .filter(byCreatedBy);
 
-      const groupGb = r?.CREATEDBY ?? r?.CreatedBy ?? r?.DRAFTCREATEDBY;
-      if (groupGb && wanted.has(String(groupGb).toLowerCase())) return true;
+  console.log(`UI-FILTER ▶ ${rows.length} → ${out.length}`);
+  return out;
+}, [
+  rows,
+  billThrough,
+  searchText,
+  originatorFilter,
+  partnerFilter,
+  managerFilter,
+  realOp,
+  realVal1,
+  realVal2,
+  finalFilter,
+  createdByFilter,
+  removeBTFilter
+]);
 
-      return (r.DRAFTDETAIL || []).some(d => {
-        const gb = d?.CREATEDBY ?? d?.CreatedBy ?? d?.DRAFTCREATEDBY;
-        return gb && wanted.has(String(gb).toLowerCase());
-      });
-    };
-
-
-
-    const out = rows
-      .filter(bySearch)
-      .filter(byOrigin)
-      .filter(byPartner)
-      .filter(byManager)
-      .filter(byReal)
-      .filter(byFinal)
-      .filter(byCreatedBy);
-
-    console.log(`UI-FILTER ▶ ${rows.length} → ${out.length}`);
-    return out;
-  }, [
-    rows,
-    searchText,
-    originatorFilter,
-    partnerFilter,
-    managerFilter,
-    realOp,
-    realVal1,
-    realVal2,
-    finalFilter,
-    createdByFilter,
-  ]);
 
   /* >>> pageRows (NEW) >>> */
   const pageRows = useMemo(() => {
@@ -2156,11 +2232,11 @@ console.log('PDF header:', header);
         <span className="bt-label">Bill Through:</span>
         <button
           type="button"
-          className={`bt-display ${!isSuperUser ? 'readonly' : ''}`}
-          onClick={() => isSuperUser && setBtOpen(v => !v)}
+          className={'bt-display'}
+          onClick={() => setBtOpen(v => !v)}
           aria-haspopup="dialog"
-          aria-expanded={btOpen && isSuperUser}
-          title={isSuperUser ? 'Choose bill-through date' : 'Bill-through date (read-only)'}
+          aria-expanded={btOpen}
+          title={'Choose bill-through date'}
         >
 
           {fmtMMDDYYYY(billThrough)}
@@ -2189,29 +2265,20 @@ console.log('PDF header:', header);
                   key={i}
                   type="button"
                   className={`bt-day ${cell.muted ? 'muted' : ''}`}
-                  disabled={!isSuperUser}
                   onClick={async () => {
-                    if (!isSuperUser) return;  // extra guard
                     const picked = cell.date;
                     const iso = toIsoYmd(picked);
                     try {
-                      setLoading(true);
-                      // (a) write blob
-                      await SetBillThroughBlob({ billThroughDate: iso, updatedBy: email });
+                      if (isSuperUser) {
+                       await SetBillThroughBlob({ billThroughDate: iso, updatedBy: email });
+                       console.log('Updating blob for bill through date');
+                      }
                       // (b) update UI + close popover
+                      await setRemoveBTFilter(false);
                       setBillThrough(picked);
                       setBtMonth(new Date(picked.getFullYear(), picked.getMonth(), 1));
                       setBtOpen(false);
-                      // (c) refresh data using the new ISO date
-                      const [dRes, gRes] = await Promise.allSettled([
-                        GetDrafts(iso),
-                        GetGranularJobData(iso),
-                        GetGranularWIPData(),
-                      ]);
-                      if (dRes.status === 'fulfilled') setRawRows(Array.isArray(dRes.value) ? dRes.value : []);
-                      else console.error('GetDrafts failed after bill-through change:', dRes.reason);
-                      if (gRes.status === 'fulfilled') setGranularData(Array.isArray(gRes.value) ? gRes.value : []);
-                      else console.error('GetGranularJobData failed after bill-through change:', gRes.reason);
+                      console.log(removeBTFilter);
                     } finally {
                       setLoading(false);
                     }
@@ -2223,7 +2290,7 @@ console.log('PDF header:', header);
             </div>
 
             <div className="bt-footer">
-              <button type="button" className="bt-link" onClick={() => setBtMonth(new Date())}>Jump to Today</button>
+              <button type="button" className="bt-link" onClick={() => setRemoveBTFilter(true)}>Remove Date Filter</button>
               <button type="button" className="bt-link" onClick={() => setBtOpen(false)}>Close</button>
             </div>
           </div>
