@@ -65,8 +65,8 @@ function mapStandards(
 
 let populationKey = '';
 if (type === 'office')       populationKey = 'OfficeCode';
-else if (type === 'partner') populationKey = 'PartnerCode';
-else if (type === 'manager') populationKey = 'ManagerCode';
+else if (type === 'partner') populationKey = 'StaffCode';
+else if (type === 'manager') populationKey = 'StaffCode';
 else if (type === 'client')  populationKey = 'ClientCode';
 
 if (type === 'office' || type === 'partner'|| type === 'manager') {
