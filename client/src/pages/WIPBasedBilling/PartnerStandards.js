@@ -286,7 +286,7 @@ onBlur={e => {
               <input
   type="search"
   className="pill-input search-input-misc"
-  placeholder="Search all partners..."
+  placeholder="Search all staff..."
   value={searchText}
   onChange={(e) => setSearchText(e.target.value)}
   aria-label="Search table"
