@@ -76,7 +76,7 @@ export default function Sidebar() {
                     to="/WIP-Based-Billing/Partner-Standards"
                     className={linkClass}
                   >
-                    Partner Standards
+                    Staff Standards
                   </NavLink>
                 </li>
                 <li>

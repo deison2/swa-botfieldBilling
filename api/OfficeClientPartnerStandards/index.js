@@ -66,9 +66,10 @@ function mapStandards(
 let populationKey = '';
 if (type === 'office')       populationKey = 'OfficeCode';
 else if (type === 'partner') populationKey = 'PartnerCode';
+else if (type === 'manager') populationKey = 'ManagerCode';
 else if (type === 'client')  populationKey = 'ClientCode';
 
-if (type === 'office' || type === 'partner') {
+if (type === 'office' || type === 'partner'|| type === 'manager') {
   const mainBody = await fetch(url, { method: 'POST' });
   const population = await mainBody.json();
 

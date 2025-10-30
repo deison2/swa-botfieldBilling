@@ -30,26 +30,34 @@ useEffect(() => {
   let alive = true;
   (async () => {
     try {
-      const data = await getStandards('partner');
+  const [partnerData, managerData] = await Promise.all([
+    getStandards('partner'),
+    getStandards('manager'),
+  ]);
 
-      // Do NOT overwrite an existing scalar `value`.
-      const normalized = (data || []).map(d => {
-        // prefer scalar value returned by the backend
-        let v = d.value;
 
-        // backward-compat: if no `value`, try to pull it from `standards`
-        if (v == null && Array.isArray(d.standards)) {
-          const first = d.standards[0];
-          v = (first && typeof first === 'object') ? first.value : first;
-        }
+const mergedMap = new Map();
 
-        // coalesce to '' for the input
-        const display = v == null ? '' : String(v);
-        return { ...d, value: display };
-      });
+const normalizeValue = v => (v == null ? '' : String(v));
 
-      if (alive) setRows(normalized);
-    } catch (e) {
+const taggedPartnerData = (partnerData || []).map(d => ({ ...d, role: 'partner' }));
+const taggedManagerData = (managerData || []).map(d => ({ ...d, role: 'manager' }));
+
+for (const d of [...taggedPartnerData, ...taggedManagerData]) {
+  const code = d.StaffCode;
+  const existing = mergedMap.get(code) || { ...d };
+  if (d.role === 'partner') existing.partnerValue = normalizeValue(d.value);
+  if (d.role === 'manager') existing.managerValue = normalizeValue(d.value);
+  mergedMap.set(code, existing);
+}
+
+
+const normalized = Array.from(mergedMap.values());
+
+
+  if (alive) setRows(normalized);
+}
+ catch (e) {
       console.error('getStandards error:', e);
     } finally {
       if (alive) setLoading(false);
@@ -60,28 +68,35 @@ useEffect(() => {
 
 
   // Update by partnerCode; optimistic onBlur commit
-  async function handleUpdate(PartnerCode, newValue) {
+  async function handleUpdate(staffCode, type, newValue) {
     // optimistic UI
     setRows(prev =>
-      prev.map(r => (r.PartnerCode === PartnerCode ? { ...r, value: newValue } : r))
-    );
+  prev.map(r =>
+    r.StaffCode === staffCode
+      ? type === 'partner'
+        ? { ...r, partnerValue: newValue }
+        : { ...r, managerValue: newValue }
+      : r
+  )
+);
+
     try {
-      await updateStandards('partner', PartnerCode, newValue);
+      await updateStandards(type, staffCode, newValue);
     } catch (e) {
-      console.error('Update partner Standard error:', e);
+      console.error(`Update ${type}, Standard error: `, e);
     }
   }
 
   const columns = [
     {
-      name: 'Partner',
+      name: 'Staff',
       grow: 3,
       selector: row => row.StaffName,
       sortable: true,
       wrap: true,
     },
     {
-      name: 'Partner Office',
+      name: 'Staff Office',
       grow: 3,
       selector: row => row.StaffOffice,
       sortable: true,
@@ -91,12 +106,12 @@ useEffect(() => {
   name: 'Partner Standard',
   grow: 1,
   sortable: true,
-  selector: row => Number.parseFloat(row.value) || 0, // numeric sort
+  selector: row => Number.parseFloat(row.partnerValue) || 0, // numeric sort
   cell: row => {
-    const partnerCode = row.PartnerCode;
-    const raw = row.value ?? '';
+    const staffCode = row.StaffCode;
+    const raw = row.partnerValue ?? '';
     const num = Number.parseFloat(String(raw));
-    const invalid = raw !== '' && (!Number.isFinite(num) || num < 0 || num > 100);
+    const invalid = raw !== '' && (!Number.isFinite(num) || num < 0 || num > 150);
 
     // helpers
     const toNumber = (s) => {
@@ -127,28 +142,31 @@ useEffect(() => {
           aria-label="Partner standard percentage"
           value={raw}
           onChange={e => {
-            const val = e.target.value; // keep raw while typing
-            setRows(prev =>
-              prev.map(r =>
-                r.PartnerCode === partnerCode ? { ...r, value: val } : r
-              )
-            );
-          }}
-          onBlur={e => {
-            const num = toNumber(e.target.value);
-            const clamped = num === '' ? '' : clamp(num);
-            const display = clamped === '' ? '' : clamped.toFixed(2);
-            setRows(prev =>
-              prev.map(r =>
-                r.PartnerCode === partnerCode ? { ...r, value: display } : r
-              )
-            );
-            if (display !== '') {
-              handleUpdate(partnerCode, Number(display));
-            } else {
-              handleUpdate(partnerCode, null);
-            }
-          }}
+  const val = e.target.value; // keep raw while typing
+  setRows(prev =>
+    prev.map(r =>
+      r.StaffCode === staffCode ? { ...r, partnerValue: val } : r
+    )
+  );
+}}
+onBlur={e => {
+  const num = toNumber(e.target.value);
+  const clamped = num === '' ? '' : clamp(num);
+  const display = clamped === '' ? '' : clamped.toFixed(2);
+
+  setRows(prev =>
+    prev.map(r =>
+      r.StaffCode === staffCode ? { ...r, partnerValue: display } : r
+    )
+  );
+
+  if (display !== '') {
+    handleUpdate(staffCode, 'partner', Number(display));
+  } else {
+    handleUpdate(staffCode, 'partner', null);
+  }
+}}
+
           onKeyDown={e => {
             if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
               e.preventDefault();
@@ -157,7 +175,7 @@ useEffect(() => {
               const display = Number.isFinite(next) ? next.toFixed(2) : '';
               setRows(prev =>
                 prev.map(r =>
-                  r.PartnerCode === partnerCode ? { ...r, value: display } : r
+                  r.StaffCode === staffCode ? { ...r, partnerValue: display } : r
                 )
               );
             }
@@ -169,6 +187,91 @@ useEffect(() => {
   },
 }
 ,
+
+    {
+  name: 'Manager Standard',
+  grow: 1,
+  sortable: true,
+  selector: row => Number.parseFloat(row.managerValue) || 0, // numeric sort
+  cell: row => {
+    const staffCode = row.StaffCode;
+    const raw = row.managerValue ?? '';
+    const num = Number.parseFloat(String(raw));
+    const invalid = raw !== '' && (!Number.isFinite(num) || num < 0 || num > 150);
+
+    // helpers
+    const toNumber = (s) => {
+      const n = Number.parseFloat(String(s).replace(/[^0-9.+-]/g, ''));
+      return Number.isFinite(n) ? n : '';
+    };
+    const clamp = (n, min=0, max=150) => Math.min(max, Math.max(min, n));
+
+    const stepValue = (current, step) => {
+      const val = toNumber(current);
+      if (val === '') return step > 0 ? step : 0;
+      return clamp((val + step), 0, 150);
+    };
+
+
+
+
+    return (
+      <div className={`percent-field ${invalid ? 'is-invalid' : ''}`}>
+        <input
+          className="percent-input"
+          type="number"
+          inputMode="decimal"
+          min={0}
+          max={150}
+          step={1}
+          placeholder=""
+          aria-label="Manager standard percentage"
+          value={raw}
+          onChange={e => {
+  const val = e.target.value;
+  setRows(prev =>
+    prev.map(r =>
+      r.StaffCode === staffCode ? { ...r, managerValue: val } : r
+    )
+  );
+}}
+onBlur={e => {
+  const num = toNumber(e.target.value);
+  const clamped = num === '' ? '' : clamp(num);
+  const display = clamped === '' ? '' : clamped.toFixed(2);
+
+  setRows(prev =>
+    prev.map(r =>
+      r.StaffCode === staffCode ? { ...r, managerValue: display } : r
+    )
+  );
+
+  if (display !== '') {
+    handleUpdate(staffCode, 'manager', Number(display));
+  } else {
+    handleUpdate(staffCode, 'manager', null);
+  }
+}}
+
+          onKeyDown={e => {
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+              e.preventDefault();
+              const base = e.shiftKey ? 5 : e.altKey ? 0.1 : 1; // Shift=±5, Alt=±0.1
+              const next = stepValue(raw, e.key === 'ArrowUp' ? base : -base);
+              const display = Number.isFinite(next) ? next.toFixed(2) : '';
+              setRows(prev =>
+                prev.map(r =>
+                  r.StaffCode === staffCode ? { ...r, managerValue: display } : r
+                )
+              );
+            }
+          }}
+        />
+        <span className="percent-suffix">%</span>
+      </div>
+    );
+  },
+}
   ];
 
   return (
@@ -187,8 +290,8 @@ useEffect(() => {
   aria-label="Search table"
 />
           <GeneralDataTable
-            keyField="PartnerCode" 
-            title="Partner Standards"
+            keyField="StaffCode" 
+            title="Staff Standards"
             columns={columns}
             data={filteredRows}
             progressPending={loading}
