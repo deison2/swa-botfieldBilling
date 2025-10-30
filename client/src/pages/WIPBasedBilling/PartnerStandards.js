@@ -53,7 +53,9 @@ for (const d of [...taggedPartnerData, ...taggedManagerData]) {
 
 
 const normalized = Array.from(mergedMap.values());
-
+console.log(taggedPartnerData);
+console.log(taggedManagerData);
+console.log(normalized);
 
   if (alive) setRows(normalized);
 }
