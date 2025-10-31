@@ -7,6 +7,8 @@ import AutomatedBillingRecapComparison from "./AutomatedBillingRecapComparison";
 
 // DEV: local sample data (billed / not billed)
 import sampleRecapBilled from "../devSampleData/sampleRecapBilled.json";
+import { listBilledPeriods, getBilledData } from "../services/AutomatedBillingBilledService";
+
 import sampleRecapNotBilled from "../devSampleData/sampleRecapNotBilled.json";
 
 // NEW: drafts service + fallback sample (same as ExistingDrafts page)
@@ -108,6 +110,7 @@ const getGroupAccessor = (key) => {
 
 export default function AutomatedBillingRecap() {
   const [activeTab, setActiveTab] = useState("billed"); // 'billed' | 'notbilled'
+  const [billedPeriods, setBilledPeriods] = useState([]); // [{ymd,label}, ...]
 
   // selections (shared)
   const [billingPeriod, setBillingPeriod] = useState("");
@@ -130,31 +133,46 @@ export default function AutomatedBillingRecap() {
   /** ---------- load data (DEV uses local json) ---------- */
   useEffect(() => {
     let cancelled = false;
-
-    async function load() {
+    if (activeTab !== "billed") return;
+    (async () => {
       setLoading(true);
       try {
-        const data =
-          activeTab === "billed"
-            ? Array.isArray(sampleRecapBilled)
-              ? sampleRecapBilled
-              : []
-            : Array.isArray(sampleRecapNotBilled)
-            ? sampleRecapNotBilled
-            : [];
-        if (!cancelled) setRows(data);
+        const list = await listBilledPeriods();
+        if (!cancelled) setBilledPeriods(Array.isArray(list) ? list : []);
       } catch (e) {
-        console.error(e);
-        if (!cancelled) setRows([]);
+        console.warn("listBilledPeriods failed, leaving selector empty", e);
+        if (!cancelled) setBilledPeriods([]);
       } finally {
         if (!cancelled) setLoading(false);
       }
-    }
-
-    load();
-    return () => {
-      cancelled = true;
-    };
+    })();
+    return () => { cancelled = true; };
+  }, [activeTab]);
+  
+  // Load billed data for the selected period (with fallback)
+  useEffect(() => {
+    let cancelled = false;
+    if (activeTab !== "billed") return;
+    if (!billingPeriod) { setRows([]); return; }
+    (async () => {
+      setLoading(true);
+      try {
+        const data = await getBilledData(billingPeriod);
+        if (!cancelled) setRows(Array.isArray(data) ? data : []);
+      } catch (e) {
+        console.warn("getBilledData failed, using sampleRecapBilled fallback", e);
+        if (!cancelled) setRows(Array.isArray(sampleRecapBilled) ? sampleRecapBilled : []);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeTab, billingPeriod]);
+  
+  // Not Billed tab still uses the local sample (unchanged behavior)
+  useEffect(() => {
+    if (activeTab !== "notbilled") return;
+    setRows(Array.isArray(sampleRecapNotBilled) ? sampleRecapNotBilled : []);
   }, [activeTab]);
 
   // Reset dependent filters when upstream changes
@@ -162,24 +180,29 @@ export default function AutomatedBillingRecap() {
     setNameFilter("");
     setNbPartner("");
     setNbManager("");
+    if (activeTab !== "billed") setBillingPeriod("");
   }, [billingPeriod, groupKey, activeTab]);
 
   /** ---------- choices for Billing Period (from BEFOREDATE) ---------- */
   const periodOptions = useMemo(() => {
-    const set = new Set(
-      (rows || []).map((r) => (r.BEFOREDATE ? String(r.BEFOREDATE).slice(0, 10) : ""))
-    );
+    if (activeTab === "billed") {
+      return billedPeriods.map(p => p.ymd); // already sorted desc by API
+    }
+    const set = new Set((rows || []).map(r => r.BEFOREDATE ? String(r.BEFOREDATE).slice(0,10) : ""));
     const arr = [...set].filter(Boolean);
-    // sort desc
     arr.sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
     return arr;
-  }, [rows]);
+  }, [activeTab, billedPeriods, rows]);
 
   /** ---------- filtered by selected billing period ---------- */
   const periodFiltered = useMemo(() => {
+    if (activeTab === "billed") return rows || [];       // <- don't re-filter billed data
     if (!billingPeriod) return [];
-    return (rows || []).filter((r) => String(r.BEFOREDATE).slice(0, 10) === billingPeriod);
-  }, [rows, billingPeriod]);
+    return (rows || []).filter(
+      (r) => String(r.BEFOREDATE).slice(0, 10) === billingPeriod
+    );
+  }, [rows, billingPeriod, activeTab]);
+
 
   /** ---------- rows in-scope for KPIs on Billed tab ---------- */
     const billedKpiRows = useMemo(() => {
