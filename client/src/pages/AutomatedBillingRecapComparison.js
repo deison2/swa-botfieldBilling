@@ -1,9 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import GeneralDataTable from "../components/DataTable";
+import Loader from "../components/Loader"; // <-- add this line
 
-// data
-import draftRowsAll from "../devSampleData/sampleRecapBilled.json";     // automation proposal (job-grain; has BEFOREDATE)
-import actualInvoicesAll from "../devSampleData/sampleActualBilled.json"; // actual invoices (client-grain; JOB_SUMMARY[] & NARRATIVE_SUMMARY[])
+
+// data (fallbacks only)
+import sampleRecapBilled from "../devSampleData/sampleRecapBilled.json";     // fallback: automation proposal (job-grain; has BEFOREDATE)
+import sampleActualInvoicesAll from "../devSampleData/sampleActualBilled.json"; // fallback only
+
+// NEW: periods + billed data from same service as main Recap
+import { listBilledPeriods, getBilledData } from "../services/AutomatedBillingBilledService";
+
 
 /* ---------- helpers ---------- */
  function mapsEqualNum(m1, m2) {
@@ -175,6 +181,10 @@ function RotatingKpi({
   );
 }
 
+const ACTUAL_INVOICES_URL =
+  "https://prod-43.eastus.logic.azure.com/workflows/22d673f179c34ca1a0f03a893180ba74/triggers/When_a_HTTP_request_is_received/paths/invoke/type/actualInvoices?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_a_HTTP_request_is_received%2Frun&sv=1.0&sig=nXcXecHk2xjH_LJEY51DbqSi7nio8-8wJGP9Frth_Ug";
+
+
 /* ---------- main ---------- */
 export default function AutomatedBillingRecapComparison() {
   const [period, setPeriod] = useState("");
@@ -182,25 +192,238 @@ export default function AutomatedBillingRecapComparison() {
   const [nameFilter, setNameFilter] = useState("");
   const [toast, setToast] = useState(""); // tiny “Copied!” message
 
-  /* periods from the draft file (same as your billed tab) */
-  const periodOptions = useMemo(() => {
-    const set = new Set(
-      (draftRowsAll || []).map((r) =>
-        r.BEFOREDATE ? String(r.BEFOREDATE).slice(0, 10) : ""
-      )
-    );
-    const arr = [...set].filter(Boolean);
-    arr.sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
-    return arr;
-  }, []);
+    // NEW: periods (from listBilledPeriods) + dynamic actual invoices
+  const [periods, setPeriods] = useState([]); // [{ ymd, label? }, ...]
+  const [actualInvoicesAll, setActualInvoicesAll] = useState([]);
+  const [loadingActuals, setLoadingActuals] = useState(false);
+  const [loadingPeriods, setLoadingPeriods] = useState(false);   // NEW
 
-  /* period-filtered drafts (the baseline for the view) */
-  const draftRows = useMemo(() => {
-    if (!period) return [];
-    return (draftRowsAll || []).filter(
-      (r) => String(r.BEFOREDATE).slice(0, 10) === period
-    );
-  }, [period]);
+    // NEW: live draft rows (billed automation) for the selected period
+  const [draftRows, setDraftRows] = useState([]);
+  const [loadingDrafts, setLoadingDrafts] = useState(false);
+
+
+    /* periods from backend (same logic as main Recap: listBilledPeriods) */
+    useEffect(() => {
+      let cancelled = false;
+
+      (async () => {
+        setLoadingPeriods(true);  // NEW: start periods loading
+        try {
+          const list = await listBilledPeriods();
+          if (!cancelled && Array.isArray(list) && list.length) {
+            // list is expected to be like [{ ymd: "2025-09-30", label: "09/30/2025" }, ...]
+            setPeriods(list);
+            return; // success path, skip fallback
+          }
+        } catch (e) {
+          console.warn(
+            "[Comparison] listBilledPeriods failed, falling back to local draftRowsAll",
+            e
+          );
+        }
+
+        // Fallback: derive periods from the local sampleRecapBilled file
+        if (!cancelled) {
+          const setY = new Set(
+            (sampleRecapBilled || []).map((r) =>
+              r.BEFOREDATE ? String(r.BEFOREDATE).slice(0, 10) : ""
+            )
+          );
+          const arr = [...setY].filter(Boolean);
+          arr.sort((a, b) => (a < b ? 1 : a > b ? -1 : 0)); // desc
+          setPeriods(arr.map((ymd) => ({ ymd }))); // minimal shape
+        }
+
+      })()
+        .finally(() => {
+          if (!cancelled) setLoadingPeriods(false);   // NEW: stop periods loading
+        });
+
+      return () => {
+        cancelled = true;
+      };
+    }, []);
+
+
+
+    // Actual list of "YYYY-MM-DD" strings for the dropdown
+    // but EXCLUDE the max (most recent) date
+    const periodOptions = useMemo(() => {
+      if (!periods || !periods.length) return [];
+
+      // Collect all ymd strings (ignore any missing)
+      const ymds = periods
+        .map((p) => p.ymd)
+        .filter(Boolean);
+
+      if (!ymds.length) return [];
+
+      // ISO "YYYY-MM-DD" compares correctly as strings
+      const maxYmd = ymds.reduce(
+        (max, cur) => (max && max > cur ? max : cur),
+        ""
+      );
+
+      // Return all dates except the max
+      return ymds.filter((ymd) => ymd !== maxYmd);
+    }, [periods]);
+
+
+      /* live draft rows for the selected period (baseline for the view) */
+      useEffect(() => {
+        let cancelled = false;
+
+        if (!period) {
+          setDraftRows([]);
+          return;
+        }
+
+        (async () => {
+          setLoadingDrafts(true);
+          try {
+            // same endpoint as the Billed tab
+            const data = await getBilledData(period);
+            if (!cancelled) {
+              if (Array.isArray(data)) {
+                setDraftRows(data);
+              } else {
+                setDraftRows([]);
+              }
+            }
+          } catch (e) {
+            console.warn(
+              "[Comparison] getBilledData failed; falling back to sampleRecapBilled.json",
+              e
+            );
+            if (!cancelled) {
+              const fallback = (sampleRecapBilled || []).filter(
+                (r) => String(r.BEFOREDATE).slice(0, 10) === period
+              );
+              setDraftRows(fallback);
+            }
+          } finally {
+            if (!cancelled) setLoadingDrafts(false);
+          }
+        })();
+
+        return () => {
+          cancelled = true;
+        };
+      }, [period]);
+
+  
+
+    // Fetch actual invoices for the selected period, normalize stringified arrays
+    useEffect(() => {
+      let cancelled = false;
+
+      // No period selected -> clear actuals
+      if (!period) {
+        setActualInvoicesAll([]);
+        return;
+      }
+
+      async function loadActualInvoices() {
+        setLoadingActuals(true);
+        try {
+          // POST with JSON body: { "billThrough": "YYYY-MM-DD" }
+          // (spelling matches what you specified)
+          const resp = await fetch(ACTUAL_INVOICES_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              billThrough: period,
+            }),
+          });
+
+          if (!resp.ok) {
+            throw new Error(`HTTP ${resp.status}`);
+          }
+
+          const raw = await resp.json();
+
+          const normalized = (Array.isArray(raw) ? raw : []).map((r) => {
+            // Parse job_summary (stringified JSON: "[{...}, {...}]")
+            let jobs = [];
+            if (Array.isArray(r.JOB_SUMMARY)) {
+              jobs = r.JOB_SUMMARY;
+            } else if (typeof r.job_summary === "string" && r.job_summary.trim()) {
+              try {
+                jobs = JSON.parse(r.job_summary);
+              } catch (err) {
+                console.warn(
+                  "[Comparison] Failed to parse job_summary JSON",
+                  err,
+                  r.job_summary
+                );
+              }
+            }
+
+            // Parse narrative_summary (stringified JSON)
+            let narrs = [];
+            if (Array.isArray(r.NARRATIVE_SUMMARY)) {
+              narrs = r.NARRATIVE_SUMMARY;
+            } else if (
+              typeof r.narrative_summary === "string" &&
+              r.narrative_summary.trim()
+            ) {
+              try {
+                narrs = JSON.parse(r.narrative_summary);
+              } catch (err) {
+                console.warn(
+                  "[Comparison] Failed to parse narrative_summary JSON",
+                  err,
+                  r.narrative_summary
+                );
+              }
+            }
+
+            return {
+              ...r,
+              // Normalize client field so existing logic keeps working:
+              BILLINGCLIENT:
+                r.BILLINGCLIENT ??
+                r.billingclient ??
+                r.CONTINDEX ??
+                r.contindex ??
+                null,
+              // Normalize to the structure your comparison code already expects:
+              JOB_SUMMARY: jobs,
+              NARRATIVE_SUMMARY: narrs,
+            };
+          });
+
+          if (!cancelled) {
+            setActualInvoicesAll(normalized);
+          }
+        } catch (err) {
+          console.warn(
+            "[Comparison] actualInvoices fetch failed; using sampleActualBilled fallback",
+            err
+          );
+          if (!cancelled) {
+            setActualInvoicesAll(
+              Array.isArray(sampleActualInvoicesAll)
+                ? sampleActualInvoicesAll
+                : []
+            );
+          }
+        } finally {
+          if (!cancelled) setLoadingActuals(false);
+        }
+      }
+
+      loadActualInvoices();
+
+      return () => {
+        cancelled = true;
+      };
+    }, [period]);
+
+    const loadingCombined = loadingPeriods || loadingActuals || loadingDrafts;
 
   /* 1) Aggregate DRAFTS per client (sum Bill, sum WIP, concat unique narratives) */
   const draftsByClient = useMemo(() => {
@@ -298,7 +521,7 @@ export default function AutomatedBillingRecapComparison() {
       delete v.ActualNarrSet;
     }
     return map;
-  }, [draftClientKeySet]);
+    }, [actualInvoicesAll, draftClientKeySet]);
 
   /* 3) Build per-client comparison rows (before grouping) */
   const comparedClients = useMemo(() => {
@@ -709,10 +932,12 @@ const kpis = useMemo(() => {
     });
   };
 
-  return (
-    <>
-      {/* controls */}
-      <div className="select-bar recap-controls" style={{ gap: "8px", alignItems: "center" }}>
+    return (
+      <>
+        {loadingCombined && <Loader />}
+
+        {/* controls */}
+        <div className="select-bar recap-controls" style={{ gap: "8px", alignItems: "center" }}>
         <select
           className="pill-select recap-period"
           value={period}
