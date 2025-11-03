@@ -10,6 +10,8 @@ import sampleRecapBilled from "../devSampleData/sampleRecapBilled.json";
 import { listBilledPeriods, getBilledData } from "../services/AutomatedBillingBilledService";
 
 import sampleRecapNotBilled from "../devSampleData/sampleRecapNotBilled.json";
+import { listExcludedPeriods, getExcludedData } from "../services/AutomatedBillingExcludedService";
+
 
 // NEW: drafts service + fallback sample (same as ExistingDrafts page)
 import { GetDrafts } from "../services/ExistingDraftsService";
@@ -111,6 +113,8 @@ const getGroupAccessor = (key) => {
 export default function AutomatedBillingRecap() {
   const [activeTab, setActiveTab] = useState("billed"); // 'billed' | 'notbilled'
   const [billedPeriods, setBilledPeriods] = useState([]); // [{ymd,label}, ...]
+  const [excludedPeriods, setExcludedPeriods] = useState([]); // [{ymd,label}, ...]
+
 
   // selections (shared)
   const [billingPeriod, setBillingPeriod] = useState("");
@@ -169,30 +173,82 @@ export default function AutomatedBillingRecap() {
     return () => { cancelled = true; };
   }, [activeTab, billingPeriod]);
   
-  // Not Billed tab still uses the local sample (unchanged behavior)
+  // NOT BILLED: load available periods from blob names
   useEffect(() => {
+    let cancelled = false;
     if (activeTab !== "notbilled") return;
-    setRows(Array.isArray(sampleRecapNotBilled) ? sampleRecapNotBilled : []);
+
+    (async () => {
+      setLoading(true);
+      try {
+        console.log("[UI] listExcludedPeriods: start");
+        const list = await listExcludedPeriods();
+        console.log("[UI] listExcludedPeriods: result", list);
+
+        if (!cancelled) setExcludedPeriods(Array.isArray(list) ? list : []);
+
+        // auto-pick newest if none chosen
+        if (!cancelled && !billingPeriod && Array.isArray(list) && list.length) {
+          console.log("[UI] auto-pick billingPeriod", list[0].ymd);
+          setBillingPeriod(list[0].ymd);
+        }
+      } catch (e) {
+        console.warn("[UI] listExcludedPeriods failed", e);
+        if (!cancelled) setExcludedPeriods([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
   }, [activeTab]);
+
+
+  // NOT BILLED: load rows for selected period
+  useEffect(() => {
+    let cancelled = false;
+    if (activeTab !== "notbilled") return;
+    if (!billingPeriod) { setRows([]); return; }
+
+    console.log("[UI] getExcludedData start", { billingPeriod });
+    (async () => {
+      setLoading(true);
+      try {
+        const data = await getExcludedData(billingPeriod);
+        console.log("[UI] getExcludedData ok", { rows: Array.isArray(data) ? data.length : -1 });
+        if (!cancelled) setRows(Array.isArray(data) ? data : []);
+      } catch (e) {
+        console.warn("[UI] getExcludedData failed; using local sampleRecapNotBilled fallback", e);
+        if (!cancelled) setRows(Array.isArray(sampleRecapNotBilled) ? sampleRecapNotBilled : []);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [activeTab, billingPeriod]);
 
   // Reset dependent filters when upstream changes
   useEffect(() => {
     setNameFilter("");
     setNbPartner("");
     setNbManager("");
-    if (activeTab !== "billed") setBillingPeriod("");
   }, [billingPeriod, groupKey, activeTab]);
 
   /** ---------- choices for Billing Period (from BEFOREDATE) ---------- */
   const periodOptions = useMemo(() => {
     if (activeTab === "billed") {
-      return billedPeriods.map(p => p.ymd); // already sorted desc by API
+      return billedPeriods.map(p => p.ymd); // already sorted by API
     }
+    if (activeTab === "notbilled") {
+      return excludedPeriods.map(p => p.ymd); // already sorted by API
+    }
+    // draftchanges tab fallback (unchanged)
     const set = new Set((rows || []).map(r => r.BEFOREDATE ? String(r.BEFOREDATE).slice(0,10) : ""));
-    const arr = [...set].filter(Boolean);
-    arr.sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
+    const arr = [...set].filter(Boolean).sort((a,b)=> (a<b?1:a>b?-1:0));
     return arr;
-  }, [activeTab, billedPeriods, rows]);
+  }, [activeTab, billedPeriods, excludedPeriods, rows]);
+
 
   /** ---------- filtered by selected billing period ---------- */
   const periodFiltered = useMemo(() => {
@@ -303,9 +359,10 @@ export default function AutomatedBillingRecap() {
 
   /** ---------- Not Billed: per-period rows, filters, KPIs, columns ---------- */
   const nbRows = useMemo(() => {
-    if (activeTab !== "notbilled" || !billingPeriod) return [];
-    return (rows || []).filter((r) => String(r.BEFOREDATE).slice(0, 10) === billingPeriod);
-  }, [rows, billingPeriod, activeTab]);
+    if (activeTab !== "notbilled") return [];
+    return rows || [];  // no BEFOREDATE re-filter
+  }, [rows, activeTab]);
+
 
   // Fetch draft client codes when excludeDrafts is on (and when Bill Through changes)
   useEffect(() => {
