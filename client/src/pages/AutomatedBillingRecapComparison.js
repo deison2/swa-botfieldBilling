@@ -201,6 +201,9 @@ export default function AutomatedBillingRecapComparison() {
     // NEW: live draft rows (billed automation) for the selected period
   const [draftRows, setDraftRows] = useState([]);
   const [loadingDrafts, setLoadingDrafts] = useState(false);
+    // Show only clients that have both Draft + Actual
+  const [onlyApiDrafts, setOnlyApiDrafts] = useState(false);
+
 
 
     /* periods from backend (same logic as main Recap: listBilledPeriods) */
@@ -472,22 +475,27 @@ export default function AutomatedBillingRecapComparison() {
     return map;
   }, [draftRows]);
 
-  /* A handy Set of client keys present in the drafts (so “actuals matched” mirrors our join) */
-  const draftClientKeySet = useMemo(() => new Set(draftsByClient.keys()), [draftsByClient]);
+  
 
   /* 2) Aggregate ACTUALS per client (sum JOB_SUMMARY WIP/BILL; concat narrative text).
         Restricted to clients present in drafts for this period. */
-  const actualsByClient = useMemo(() => {
+    const actualsByClient = useMemo(() => {
     const map = new Map();
+
     for (const inv of actualInvoicesAll || []) {
-      const clientId = inv?.BILLINGCLIENT ?? inv?.CONTINDEX ?? "";
+      const clientId = inv?.BILLINGCLIENT ?? inv?.CONTINDEX ?? inv?.billingclient ?? "";
       if (clientId === "" || clientId === null || clientId === undefined) continue;
       const key = String(clientId).trim().toLowerCase();
 
-      if (!draftClientKeySet.has(key)) continue;
-
       const cur =
         map.get(key) || {
+          ClientId: key,
+          ClientCode: pick(inv, ["CLIENTCODE", "BILLINGCLIENT", "billingclient", "CONTINDEX", "contindex"], String(clientId)),
+          ClientName: pick(inv, ["CLIENTNAME", "BILLINGCLIENTNAME"]),
+          Office: pick(inv, ["CLIENTOFFICE", "BILLINGCLIENTOFFICE"]),
+          Partner: pick(inv, ["CLIENTPARTNERNAME"]),
+          Manager: pick(inv, ["CLIENTMANAGERNAME"]),
+          Service: pick(inv, ["SERVINDEX"]),
           ActualBill: 0,
           ActualWip: 0,
           ActualNarrSet: new Set(),
@@ -509,7 +517,7 @@ export default function AutomatedBillingRecapComparison() {
         if (t) cur.ActualNarrSet.add(tNorm);
         if (!cur.ActualLineTotals.has(tNorm)) cur.ActualLineTotals.set(tNorm, 0);
         cur.ActualLineTotals.set(tNorm, cur.ActualLineTotals.get(tNorm) + amt);
-    }
+      }
 
       cur._rawBucket.push(inv);
       map.set(key, cur);
@@ -520,41 +528,50 @@ export default function AutomatedBillingRecapComparison() {
       v.ActualNarr = [...v.ActualNarrSet].filter(Boolean).join(" || ");
       delete v.ActualNarrSet;
     }
+
     return map;
-    }, [actualInvoicesAll, draftClientKeySet]);
+  }, [actualInvoicesAll]);
+
 
   /* 3) Build per-client comparison rows (before grouping) */
-  const comparedClients = useMemo(() => {
+    const comparedClients = useMemo(() => {
     const out = [];
-    for (const [key, d] of draftsByClient.entries()) {
+
+    // union of all client keys in drafts and actuals
+    const allKeys = new Set([
+      ...draftsByClient.keys(),
+      ...actualsByClient.keys(),
+    ]);
+
+    for (const key of allKeys) {
+      const d = draftsByClient.get(key);
       const a = actualsByClient.get(key);
 
-      const DraftBill = d.DraftBill;
-      const DraftWip = d.DraftWip;
-      const DraftReal = d.DraftReal;
+      const DraftBill = d?.DraftBill ?? 0;
+      const DraftWip = d?.DraftWip ?? 0;
+      const DraftReal = d?.DraftReal ?? (DraftWip > 0 ? DraftBill / DraftWip : 0);
 
       const ActualBill = a?.ActualBill ?? 0;
       const ActualWip = a?.ActualWip ?? 0;
-      const ActualReal = a?.ActualReal ?? 0;
+      const ActualReal = a?.ActualReal ?? (ActualWip > 0 ? ActualBill / ActualWip : 0);
 
       const DeltaBill = ActualBill - DraftBill;
       const DeltaReal = ActualReal - DraftReal;
 
-      // keep your existing change signal as-is
-        const NarrativeChanges =
-        d.DraftNarr && (a?.ActualNarr ?? "") && d.DraftNarr !== a.ActualNarr ? 1 : 0;
+      const NarrativeChanges =
+        d && a && d.DraftNarr && a.ActualNarr && d.DraftNarr !== a.ActualNarr ? 1 : 0;
 
-        // NEW: client-level unchanged flag via line-item (narrative) totals
-        const UnchangedDrafts = mapsEqualNum(d.DraftLineTotals, a?.ActualLineTotals) ? 1 : 0;
+      const UnchangedDrafts =
+        d && a ? mapsEqualNum(d.DraftLineTotals, a.ActualLineTotals) ? 1 : 0 : 0;
 
       out.push({
         ClientId: key,
-        ClientCode: d.ClientCode,
-        ClientName: d.ClientName,
-        Office: d.Office,
-        Partner: d.Partner,
-        Manager: d.Manager,
-        Service: d.Service,
+        ClientCode: d?.ClientCode ?? a?.ClientCode ?? key,
+        ClientName: d?.ClientName ?? a?.ClientName ?? "",
+        Office: d?.Office ?? a?.Office ?? "Unassigned",
+        Partner: d?.Partner ?? a?.Partner ?? "Unassigned",
+        Manager: d?.Manager ?? a?.Manager ?? "Unassigned",
+        Service: d?.Service ?? a?.Service ?? "Unassigned",
 
         DraftBill,
         DraftWip,
@@ -568,24 +585,40 @@ export default function AutomatedBillingRecapComparison() {
         DeltaReal,
         NarrativeChanges,
         UnchangedDrafts,
+
+        HasDraft: !!d,
+        HasActual: !!a,
       });
     }
+
     return out;
   }, [draftsByClient, actualsByClient]);
+
+    // Optionally restrict to clients that have BOTH draft + actual
+    const filteredClients = useMemo(() => {
+      if (!onlyApiDrafts) return comparedClients;
+      return comparedClients.filter((r) => r.HasDraft && r.HasActual);
+    }, [comparedClients, onlyApiDrafts]);
+
 
   /* 4) Grouped table data using ratio-of-sums (matches Billed tab) */
   const accessor = useMemo(() => groupAccessorOf(groupKey), [groupKey]);
 
-  const grouped = useMemo(() => {
+    const grouped = useMemo(() => {
     // ---- Narrative mode ----------------------------------------------------
     if (groupKey === "Narrative") {
-    const byNarr = new Map(); // key = normalized narrative
+      const byNarr = new Map(); // key = normalized narrative
 
-    for (const d of draftRows) {
+      // Only consider clients in the current filtered set
+      const allowedKeys = new Set(filteredClients.map((c) => c.ClientId));
+
+      for (const d of draftRows) {
         const clientId =
-        d?.BILLINGCLIENT ?? d?.CONTINDEX ?? d?.CLIENTCODE ?? d?.BILLINGCLIENTCODE ?? "";
+          d?.BILLINGCLIENT ?? d?.CONTINDEX ?? d?.CLIENTCODE ?? d?.BILLINGCLIENTCODE ?? "";
         if (clientId === "" || clientId === null || clientId === undefined) continue;
         const clientKey = String(clientId).trim().toLowerCase();
+
+        if (!allowedKeys.has(clientKey)) continue;
 
         const raw = d?.NARRATIVE ?? d?.NARRATIVE_TEXT ?? "";
         const narrKey = norm(raw);
@@ -593,17 +626,17 @@ export default function AutomatedBillingRecapComparison() {
 
         // human-ish label (strip tags, keep case)
         const label =
-        String(raw || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || "(blank)";
+          String(raw || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || "(blank)";
 
         const rec =
-        byNarr.get(narrKey) ||
-        {
+          byNarr.get(narrKey) ||
+          {
             Name: label,
             TotalDrafts: 0,
             UnchangedDrafts: 0,
-            AmountChanges: 0,     // << NEW
-            VerbiageChanges: 0,   // << NEW
-        };
+            AmountChanges: 0,
+            VerbiageChanges: 0,
+          };
 
         rec.TotalDrafts += 1;
 
@@ -614,33 +647,31 @@ export default function AutomatedBillingRecapComparison() {
         const aTot = aAgg?.ActualLineTotals?.get(narrKey);
 
         if (dTot !== undefined && aTot !== undefined) {
-        if (Number(dTot) === Number(aTot)) {
+          if (Number(dTot) === Number(aTot)) {
             rec.UnchangedDrafts += 1;         // same wording, same total
-        } else {
-            rec.AmountChanges += 1;           // same wording, different total  << NEW
-        }
+          } else {
+            rec.AmountChanges += 1;           // same wording, different total
+          }
         } else if (dTot !== undefined && aTot === undefined) {
-        rec.VerbiageChanges += 1;           // wording changed / line missing << NEW
-        // (If you also want to count "new in actual" as verbiage change, add:
-        // } else if (dTot === undefined && aTot !== undefined) { rec.VerbiageChanges += 1; }
+          rec.VerbiageChanges += 1;           // wording changed / line missing
         }
 
         byNarr.set(narrKey, rec);
-    }
+      }
 
-    const arr = [...byNarr.values()].map((r) => ({
+      const arr = [...byNarr.values()].map((r) => ({
         ...r,
         PctUnchanged: r.TotalDrafts ? r.UnchangedDrafts / r.TotalDrafts : 0,
-    }));
-    // default sort: most common narratives first
-    arr.sort((a, b) => b.TotalDrafts - a.TotalDrafts);
-    return arr;
-    }
+      }));
 
+      // default sort: most common narratives first
+      arr.sort((a, b) => b.TotalDrafts - a.TotalDrafts);
+      return arr;
+    }
 
     // ---- Existing client-based grouping -----------------------------------
     const map = new Map();
-    for (const r of comparedClients) {
+    for (const r of filteredClients) {
       const name = accessor(r);
       const g =
         map.get(name) || {
@@ -675,7 +706,7 @@ export default function AutomatedBillingRecapComparison() {
     });
     arr.sort((a, b) => Math.abs(b.DeltaBill) - Math.abs(a.DeltaBill));
     return arr;
-  }, [groupKey, draftRows, draftsByClient, actualsByClient, comparedClients, accessor]);
+  }, [groupKey, draftRows, draftsByClient, actualsByClient, filteredClients, accessor]);
 
   const nameOptions = useMemo(() => {
     const set = new Set(grouped.map((g) => g.Name).filter(Boolean));
@@ -697,7 +728,7 @@ const kpis = useMemo(() => {
     impacted = 0, 
     unchangedDrafts = 0;
 
-  for (const r of comparedClients) {
+  for (const r of filteredClients) {
     draftBill += r.DraftBill;
     draftWip += r.DraftWip;
     actualBill += r.ActualBill;
@@ -712,29 +743,25 @@ const kpis = useMemo(() => {
   const actualReal = actualWip > 0 ? actualBill / actualWip : 0;
 
   return {
-    // what the rotating widgets read:
     draftBill,
     actualBill,
     deltaBill: actualBill - draftBill,
-
     draftReal,
     actualReal,
     deltaReal: actualReal - draftReal,
-
-    // other tiles:
     narrCount,
     impacted,
     unchangedDrafts,
   };
-}, [comparedClients]);
+}, [filteredClients]);
 
 
   /* -------- copy payloads (FILTERED by current group+name) -------- */
   // Build a Set of client keys that belong to the current selection (e.g., current Partner).
-  const currentClientKeySet = useMemo(() => {
+    const currentClientKeySet = useMemo(() => {
     if (!period || !nameFilter) return new Set(); // require a specific name
     const set = new Set();
-    for (const r of comparedClients) {
+    for (const r of filteredClients) {
       const name =
         groupKey === "Office"
           ? r.Office || "Unassigned"
@@ -747,7 +774,8 @@ const kpis = useMemo(() => {
       if (name === nameFilter) set.add(r.ClientId);
     }
     return set;
-  }, [period, nameFilter, groupKey, comparedClients]);
+  }, [period, nameFilter, groupKey, filteredClients]);
+
 
   const copyFilteredPayloads = useMemo(() => {
     if (!period || !nameFilter) {
@@ -781,10 +809,10 @@ const kpis = useMemo(() => {
     }
 
     // Joined client rows for those clients (before grouping)
-    const joined = comparedClients.filter((r) => currentClientKeySet.has(r.ClientId));
+    const joined = filteredClients.filter((r) => currentClientKeySet.has(r.ClientId));
 
     return { draftsRaw, actualsMatched, comparedClients: joined };
-  }, [period, nameFilter, groupKey, draftRows, actualsByClient, currentClientKeySet, comparedClients]);
+    }, [period, nameFilter, groupKey, draftRows, actualsByClient, currentClientKeySet, filteredClients]);
 
   /* columns */
   const columns = useMemo(() => {
@@ -1051,6 +1079,19 @@ const kpis = useMemo(() => {
             </div>
         </section>
         )}
+
+        {period && (
+        <div className="nb-inline-option" style={{ marginTop: "8px" }}>
+          <label className="checkbox-pill">
+            <input
+              type="checkbox"
+              checked={onlyApiDrafts}
+              onChange={(e) => setOnlyApiDrafts(e.target.checked)}
+            />
+            <span>Check to see only invoices originally drafted by the API</span>
+          </label>
+        </div>
+      )}
 
 
       {/* table or empty */}
