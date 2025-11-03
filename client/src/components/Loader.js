@@ -8,6 +8,7 @@ const css = `
     width:100vw;height:100vh;
     background:linear-gradient(135deg,#063941 0%,#547872 100%);
     display:flex;align-items:center;justify-content:center;
+    opacity: 0.92; /* <-- makes the whole overlay slightly see-through */
   }
 
   /* shared constants */
