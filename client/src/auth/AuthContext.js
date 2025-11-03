@@ -16,7 +16,8 @@ const SUPER_USERS = [
   'tcrawford@bmss.com',
   'deison@bmss.com',
   'chenriksen@bmss.com',
-  'lambrose@bmss.com'
+  'lambrose@bmss.com',
+  'dbrown@bmss.com'
 ];
 
 /* ---------- context + helper hook ---------- */
