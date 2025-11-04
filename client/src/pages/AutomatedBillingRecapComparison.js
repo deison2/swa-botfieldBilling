@@ -663,6 +663,15 @@ export default function AutomatedBillingRecapComparison() {
       return comparedClients.filter((r) => r.HasDraft && r.HasActual);
     }, [comparedClients, onlyApiDrafts]);
 
+    // Clients that have BOTH a draft and an actual (inner join on client)
+    const innerClientIds = useMemo(() => {
+      const ids = new Set();
+      for (const key of draftsByClient.keys()) {
+        if (actualsByClient.has(key)) ids.add(key);
+      }
+      return ids;
+    }, [draftsByClient, actualsByClient]);
+
 
   /* 4) Grouped table data using ratio-of-sums (matches Billed tab) */
   const accessor = useMemo(() => groupAccessorOf(groupKey), [groupKey]);
@@ -672,8 +681,8 @@ export default function AutomatedBillingRecapComparison() {
     if (groupKey === "Narrative") {
       const byNarr = new Map(); // key = normalized narrative
 
-      // Only consider clients in the current filtered set
-      const allowedKeys = new Set(filteredClients.map((c) => c.ClientId));
+      // Only consider clients that have BOTH draft + actual (inner join)
+      const allowedKeys = innerClientIds;
 
       for (const d of draftRows) {
         const clientId =
@@ -769,7 +778,7 @@ export default function AutomatedBillingRecapComparison() {
     });
     arr.sort((a, b) => Math.abs(b.DeltaBill) - Math.abs(a.DeltaBill));
     return arr;
-  }, [groupKey, draftRows, draftsByClient, actualsByClient, filteredClients, accessor]);
+  }, [groupKey, draftRows, draftsByClient, actualsByClient, filteredClients, accessor, innerClientIds]);
 
   const nameOptions = useMemo(() => {
     const set = new Set(grouped.map((g) => g.Name).filter(Boolean));
@@ -782,41 +791,99 @@ export default function AutomatedBillingRecapComparison() {
   }, [grouped, nameFilter]);
 
   /* KPIs for the period (ratio-of-sums, like Billed tab) */
-const kpis = useMemo(() => {
-  let draftBill = 0,
-    draftWip = 0,
-    actualBill = 0,
-    actualWip = 0,
-    narrCount = 0,
-    impacted = 0, 
-    unchangedDrafts = 0;
+  const kpis = useMemo(() => {
+    // 1) Bill / Realization based on filteredClients (respects checkbox + filters)
+    let draftBill = 0,
+      draftWip = 0,
+      actualBill = 0,
+      actualWip = 0;
 
-  for (const r of filteredClients) {
-    draftBill += r.DraftBill;
-    draftWip += r.DraftWip;
-    actualBill += r.ActualBill;
-    actualWip += r.ActualWip;
-    unchangedDrafts += (r.UnchangedDrafts || 0);
+    for (const r of filteredClients) {
+      draftBill += r.DraftBill;
+      draftWip += r.DraftWip;
+      actualBill += r.ActualBill;
+      actualWip += r.ActualWip;
+    }
 
-    if (r.NarrativeChanges) narrCount += 1;
-    if (r.DeltaBill !== 0 || r.NarrativeChanges > 0) impacted += 1;
-  }
+    const draftReal = draftWip > 0 ? draftBill / draftWip : 0;
+    const actualReal = actualWip > 0 ? actualBill / actualWip : 0;
 
-  const draftReal = draftWip > 0 ? draftBill / draftWip : 0;
-  const actualReal = actualWip > 0 ? actualBill / actualWip : 0;
+    // 2) Draft-level classification (INNER JOIN only)
+    let totalDrafts = 0;
+    let unchangedDrafts = 0; // drafts where ALL narratives + amounts match
+    let narrCount = 0;       // drafts with verbiage changes
+    let amountChanges = 0;   // drafts with same narratives but different amounts
 
-  return {
-    draftBill,
-    actualBill,
-    deltaBill: actualBill - draftBill,
-    draftReal,
-    actualReal,
-    deltaReal: actualReal - draftReal,
-    narrCount,
-    impacted,
-    unchangedDrafts,
-  };
-}, [filteredClients]);
+    for (const key of innerClientIds) {
+      const dAgg = draftsByClient.get(key);
+      const aAgg = actualsByClient.get(key);
+      if (!dAgg || !aAgg) continue;
+
+      totalDrafts++;
+
+      const dMap = dAgg.DraftLineTotals || new Map();
+      const aMap = aAgg.ActualLineTotals || new Map();
+
+      // If maps are fully equal (same keys + same numbers) ⇒ draft unchanged
+      if (mapsEqualNum(dMap, aMap)) {
+        unchangedDrafts++;
+        continue;
+      }
+
+      // Otherwise, decide whether it’s a pure amount change or a narrative change
+      const dKeys = Array.from(dMap.keys());
+      const aKeys = Array.from(aMap.keys());
+
+      let keyMismatch = false;
+
+      // any draft narrative key missing on the actual side?
+      for (const k of dKeys) {
+        if (!aMap.has(k)) {
+          keyMismatch = true;
+          break;
+        }
+      }
+      // any actual narrative key missing on the draft side?
+      if (!keyMismatch) {
+        for (const k of aKeys) {
+          if (!dMap.has(k)) {
+            keyMismatch = true;
+            break;
+          }
+        }
+      }
+
+      if (keyMismatch) {
+        // narratives/lines changed (verbiage added/removed/rewritten)
+        narrCount++;
+      } else {
+        // same narrative keys, but at least one amount differs
+        amountChanges++;
+      }
+    }
+
+    const pct = (num) => (totalDrafts > 0 ? num / totalDrafts : 0);
+
+    return {
+      // bill side
+      draftBill,
+      actualBill,
+      deltaBill: actualBill - draftBill,
+      draftReal,
+      actualReal,
+      deltaReal: actualReal - draftReal,
+
+      // draft-change buckets
+      narrCount,
+      amountChanges,
+      unchangedDrafts,
+      totalDrafts,
+      narrPct: pct(narrCount),
+      amtPct: pct(amountChanges),
+      unchPct: pct(unchangedDrafts),
+    };
+  }, [filteredClients, innerClientIds, draftsByClient, actualsByClient]);
+
 
 
   /* -------- copy payloads (FILTERED by current group+name) -------- */
@@ -1106,41 +1173,59 @@ const kpis = useMemo(() => {
 
       {/* KPIs */}
       {period && (
-        <section className="kpi-row" aria-label="Key Performance Indicators">
-            {/* BILL: Draft -> Actual -> Δ */}
-            <RotatingKpi
+        <section className="kpi-row kpi-5wide" aria-label="Key Performance Indicators">
+          {/* BILL: Draft -> Actual -> Δ */}
+          <RotatingKpi
             title="Bill"
             items={[
-                { label: "Draft",  value: kpis.draftBill },
-                { label: "Actual", value: kpis.actualBill },
-                { label: "Δ",      value: kpis.deltaBill },
+              { label: "Draft", value: kpis.draftBill },
+              { label: "Actual", value: kpis.actualBill },
+              { label: "Δ", value: kpis.deltaBill },
             ]}
             format={fmtCurrency0}
             intervalMs={4000}
-            />
+          />
 
-            {/* REALIZATION %: Draft -> Actual -> Δ */}
-            <RotatingKpi
+          {/* REALIZATION %: Draft -> Actual -> Δ */}
+          <RotatingKpi
             title="Realization %"
             items={[
-                { label: "Draft",  value: kpis.draftReal },
-                { label: "Actual", value: kpis.actualReal },
-                { label: "Δ",      value: kpis.deltaReal },
+              { label: "Draft", value: kpis.draftReal },
+              { label: "Actual", value: kpis.actualReal },
+              { label: "Δ", value: kpis.deltaReal },
             ]}
             format={fmtPct}
             intervalMs={4000}
-            />
+          />
 
-            {/* unchanged tiles */}
-            <div className="kpi-card">
+          {/* NARRATIVE CHANGES */}
+          <div className="kpi-card">
             <div className="kpi-title">Narrative Changes</div>
-            <div className="kpi-value">{kpis.narrCount.toLocaleString()}</div>
+            <div className="kpi-value">
+              {kpis.narrCount.toLocaleString()}
+              <span className="kpi-subvalue">{fmtPct(kpis.narrPct)}</span>
             </div>
-            <div className="kpi-card">
-                <div className="kpi-title">Drafts Unchanged</div>
-                <div className="kpi-value">{(kpis.unchangedDrafts || 0).toLocaleString()}</div>
+          </div>
+
+          {/* AMOUNT CHANGES */}
+          <div className="kpi-card">
+            <div className="kpi-title">Amount Changes</div>
+            <div className="kpi-value">
+              {kpis.amountChanges.toLocaleString()}
+              <span className="kpi-subvalue">{fmtPct(kpis.amtPct)}</span>
             </div>
+          </div>
+
+          {/* DRAFTS UNCHANGED */}
+          <div className="kpi-card">
+            <div className="kpi-title">Drafts Unchanged</div>
+            <div className="kpi-value">
+              {kpis.unchangedDrafts.toLocaleString()}
+              <span className="kpi-subvalue">{fmtPct(kpis.unchPct)}</span>
+            </div>
+          </div>
         </section>
+
         )}
 
         {period && (

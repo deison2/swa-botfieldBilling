@@ -868,4 +868,17 @@
   color: #6b7280;
 }
 
+.kpi-row.kpi-5wide {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+}
+
+.kpi-subvalue {
+  font-size: 0.6em;
+  color: #7a7a7a;
+  margin-left: 20px;
+  vertical-align: middle;
+}
+
 
