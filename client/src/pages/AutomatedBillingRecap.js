@@ -3,10 +3,17 @@ import Sidebar from "../components/Sidebar";
 import TopBar from "../components/TopBar";
 import GeneralDataTable from "../components/DataTable";
 import "./AutomatedBillingRecap.css";
+import AutomatedBillingRecapComparison from "./AutomatedBillingRecapComparison";
+import AutomatedBillingRecapMetrics from "./AutomatedBillingRecapMetrics";
+
 
 // DEV: local sample data (billed / not billed)
 import sampleRecapBilled from "../devSampleData/sampleRecapBilled.json";
+import { listBilledPeriods, getBilledData } from "../services/AutomatedBillingBilledService";
+
 import sampleRecapNotBilled from "../devSampleData/sampleRecapNotBilled.json";
+import { listExcludedPeriods, getExcludedData } from "../services/AutomatedBillingExcludedService";
+
 
 // NEW: drafts service + fallback sample (same as ExistingDrafts page)
 import { GetDrafts } from "../services/ExistingDraftsService";
@@ -107,6 +114,9 @@ const getGroupAccessor = (key) => {
 
 export default function AutomatedBillingRecap() {
   const [activeTab, setActiveTab] = useState("billed"); // 'billed' | 'notbilled'
+  const [billedPeriods, setBilledPeriods] = useState([]); // [{ymd,label}, ...]
+  const [excludedPeriods, setExcludedPeriods] = useState([]); // [{ymd,label}, ...]
+
 
   // selections (shared)
   const [billingPeriod, setBillingPeriod] = useState("");
@@ -129,32 +139,96 @@ export default function AutomatedBillingRecap() {
   /** ---------- load data (DEV uses local json) ---------- */
   useEffect(() => {
     let cancelled = false;
-
-    async function load() {
+    if (activeTab !== "billed") return;
+    (async () => {
       setLoading(true);
       try {
-        const data =
-          activeTab === "billed"
-            ? Array.isArray(sampleRecapBilled)
-              ? sampleRecapBilled
-              : []
-            : Array.isArray(sampleRecapNotBilled)
-            ? sampleRecapNotBilled
-            : [];
-        if (!cancelled) setRows(data);
+        const list = await listBilledPeriods();
+        if (!cancelled) setBilledPeriods(Array.isArray(list) ? list : []);
       } catch (e) {
-        console.error(e);
-        if (!cancelled) setRows([]);
+        console.warn("listBilledPeriods failed, leaving selector empty", e);
+        if (!cancelled) setBilledPeriods([]);
       } finally {
         if (!cancelled) setLoading(false);
       }
-    }
-
-    load();
-    return () => {
-      cancelled = true;
-    };
+    })();
+    return () => { cancelled = true; };
   }, [activeTab]);
+  
+  // Load billed data for the selected period (with fallback)
+  useEffect(() => {
+    let cancelled = false;
+    if (activeTab !== "billed") return;
+    if (!billingPeriod) { setRows([]); return; }
+    (async () => {
+      setLoading(true);
+      try {
+        const data = await getBilledData(billingPeriod);
+        if (!cancelled) setRows(Array.isArray(data) ? data : []);
+      } catch (e) {
+        console.warn("getBilledData failed, using sampleRecapBilled fallback", e);
+        if (!cancelled) setRows(Array.isArray(sampleRecapBilled) ? sampleRecapBilled : []);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeTab, billingPeriod]);
+  
+  // NOT BILLED: load available periods from blob names
+  useEffect(() => {
+    let cancelled = false;
+    if (activeTab !== "notbilled") return;
+
+    (async () => {
+      setLoading(true);
+      try {
+        console.log("[UI] listExcludedPeriods: start");
+        const list = await listExcludedPeriods();
+        console.log("[UI] listExcludedPeriods: result", list);
+
+        if (!cancelled) setExcludedPeriods(Array.isArray(list) ? list : []);
+
+        // auto-pick newest if none chosen
+        if (!cancelled && !billingPeriod && Array.isArray(list) && list.length) {
+          console.log("[UI] auto-pick billingPeriod", list[0].ymd);
+          setBillingPeriod(list[0].ymd);
+        }
+      } catch (e) {
+        console.warn("[UI] listExcludedPeriods failed", e);
+        if (!cancelled) setExcludedPeriods([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [activeTab]);
+
+
+  // NOT BILLED: load rows for selected period
+  useEffect(() => {
+    let cancelled = false;
+    if (activeTab !== "notbilled") return;
+    if (!billingPeriod) { setRows([]); return; }
+
+    console.log("[UI] getExcludedData start", { billingPeriod });
+    (async () => {
+      setLoading(true);
+      try {
+        const data = await getExcludedData(billingPeriod);
+        console.log("[UI] getExcludedData ok", { rows: Array.isArray(data) ? data.length : -1 });
+        if (!cancelled) setRows(Array.isArray(data) ? data : []);
+      } catch (e) {
+        console.warn("[UI] getExcludedData failed; using local sampleRecapNotBilled fallback", e);
+        if (!cancelled) setRows(Array.isArray(sampleRecapNotBilled) ? sampleRecapNotBilled : []);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [activeTab, billingPeriod]);
 
   // Reset dependent filters when upstream changes
   useEffect(() => {
@@ -165,20 +239,28 @@ export default function AutomatedBillingRecap() {
 
   /** ---------- choices for Billing Period (from BEFOREDATE) ---------- */
   const periodOptions = useMemo(() => {
-    const set = new Set(
-      (rows || []).map((r) => (r.BEFOREDATE ? String(r.BEFOREDATE).slice(0, 10) : ""))
-    );
-    const arr = [...set].filter(Boolean);
-    // sort desc
-    arr.sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
+    if (activeTab === "billed") {
+      return billedPeriods.map(p => p.ymd); // already sorted by API
+    }
+    if (activeTab === "notbilled") {
+      return excludedPeriods.map(p => p.ymd); // already sorted by API
+    }
+    // draftchanges tab fallback (unchanged)
+    const set = new Set((rows || []).map(r => r.BEFOREDATE ? String(r.BEFOREDATE).slice(0,10) : ""));
+    const arr = [...set].filter(Boolean).sort((a,b)=> (a<b?1:a>b?-1:0));
     return arr;
-  }, [rows]);
+  }, [activeTab, billedPeriods, excludedPeriods, rows]);
+
 
   /** ---------- filtered by selected billing period ---------- */
   const periodFiltered = useMemo(() => {
+    if (activeTab === "billed") return rows || [];       // <- don't re-filter billed data
     if (!billingPeriod) return [];
-    return (rows || []).filter((r) => String(r.BEFOREDATE).slice(0, 10) === billingPeriod);
-  }, [rows, billingPeriod]);
+    return (rows || []).filter(
+      (r) => String(r.BEFOREDATE).slice(0, 10) === billingPeriod
+    );
+  }, [rows, billingPeriod, activeTab]);
+
 
   /** ---------- rows in-scope for KPIs on Billed tab ---------- */
     const billedKpiRows = useMemo(() => {
@@ -279,9 +361,10 @@ export default function AutomatedBillingRecap() {
 
   /** ---------- Not Billed: per-period rows, filters, KPIs, columns ---------- */
   const nbRows = useMemo(() => {
-    if (activeTab !== "notbilled" || !billingPeriod) return [];
-    return (rows || []).filter((r) => String(r.BEFOREDATE).slice(0, 10) === billingPeriod);
-  }, [rows, billingPeriod, activeTab]);
+    if (activeTab !== "notbilled") return [];
+    return rows || [];  // no BEFOREDATE re-filter
+  }, [rows, activeTab]);
+
 
   // Fetch draft client codes when excludeDrafts is on (and when Bill Through changes)
   useEffect(() => {
@@ -539,6 +622,22 @@ export default function AutomatedBillingRecap() {
             }}
           >
             Not Billed
+          </button>
+          <button
+            type="button"
+            className={`tab-btn ${activeTab === "draftchanges" ? "active" : ""}`}
+            onClick={() => {
+              setActiveTab("draftchanges");
+              // this tab is self-contained; no resets needed here
+            }}
+          >
+            Draft Changes
+          </button>
+          <button
+            className={`tab-btn ${activeTab === "Metrics" ? "active" : ""}`}
+            onClick={() => setActiveTab("Metrics")}
+          >
+            Metrics
           </button>
         </div>
 
@@ -819,6 +918,11 @@ export default function AutomatedBillingRecap() {
             )}
           </>
         )}
+      {/* ==================== DRAFT CHANGES (Comparison) ==================== */}
+      {activeTab === "draftchanges" && (
+        <AutomatedBillingRecapComparison />
+      )}  
+      {activeTab === "Metrics" && <AutomatedBillingRecapMetrics />}
       </main>
     </div>
   );
