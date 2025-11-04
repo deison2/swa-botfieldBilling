@@ -4,6 +4,8 @@ import TopBar from "../components/TopBar";
 import GeneralDataTable from "../components/DataTable";
 import "./AutomatedBillingRecap.css";
 import AutomatedBillingRecapComparison from "./AutomatedBillingRecapComparison";
+import AutomatedBillingRecapMetrics from "./AutomatedBillingRecapMetrics";
+
 
 // DEV: local sample data (billed / not billed)
 import sampleRecapBilled from "../devSampleData/sampleRecapBilled.json";
@@ -631,6 +633,12 @@ export default function AutomatedBillingRecap() {
           >
             Draft Changes
           </button>
+          <button
+            className={`tab-btn ${activeTab === "Metrics" ? "active" : ""}`}
+            onClick={() => setActiveTab("Metrics")}
+          >
+            Metrics
+          </button>
         </div>
 
         {/* ====================== BILLED ====================== */}
@@ -914,6 +922,7 @@ export default function AutomatedBillingRecap() {
       {activeTab === "draftchanges" && (
         <AutomatedBillingRecapComparison />
       )}  
+      {activeTab === "Metrics" && <AutomatedBillingRecapMetrics />}
       </main>
     </div>
   );
