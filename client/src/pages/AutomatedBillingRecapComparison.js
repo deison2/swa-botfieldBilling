@@ -384,8 +384,23 @@ export default function AutomatedBillingRecapComparison() {
               }
             }
 
+            // helper to derive a service label from jobs if we need it
+            const svcSet = new Set(
+              (jobs || [])
+                .map((j) => j.SERVICE ?? j.Service ?? j.service)
+                .filter(Boolean)
+                .map(String)
+            );
+            let derivedService = "Unassigned";
+            if (svcSet.size === 1) {
+              derivedService = [...svcSet][0];
+            } else if (svcSet.size > 1) {
+              derivedService = "Multiple";
+            }
+
             return {
               ...r,
+
               // Normalize client field so existing logic keeps working:
               BILLINGCLIENT:
                 r.BILLINGCLIENT ??
@@ -393,6 +408,30 @@ export default function AutomatedBillingRecapComparison() {
                 r.CONTINDEX ??
                 r.contindex ??
                 null,
+
+              // Normalize office / partner / manager so they match draft-side names
+              CLIENTOFFICE:
+                r.CLIENTOFFICE ??
+                r.clientoffice ??
+                r.BILLINGCLIENTOFFICE ??
+                r.billingclientoffice ??
+                null,
+
+              CLIENTPARTNERNAME:
+                r.CLIENTPARTNERNAME ??
+                r.CLIENTPARTNER ??
+                r.clientpartner ??
+                null,
+
+              CLIENTMANAGERNAME:
+                r.CLIENTMANAGERNAME ??
+                r.CLIENTMANAGER ??
+                r.clientmanager ??
+                null,
+
+              // Give ourselves a SERVINDEX-ish value for grouping by Service
+              SERVINDEX: r.SERVINDEX ?? r.SERVICE ?? r.service ?? derivedService,
+
               // Normalize to the structure your comparison code already expects:
               JOB_SUMMARY: jobs,
               NARRATIVE_SUMMARY: narrs,
@@ -480,28 +519,52 @@ export default function AutomatedBillingRecapComparison() {
   /* 2) Aggregate ACTUALS per client (sum JOB_SUMMARY WIP/BILL; concat narrative text).
         Restricted to clients present in drafts for this period. */
     const actualsByClient = useMemo(() => {
-    const map = new Map();
+      const map = new Map();
 
-    for (const inv of actualInvoicesAll || []) {
-      const clientId = inv?.BILLINGCLIENT ?? inv?.CONTINDEX ?? inv?.billingclient ?? "";
-      if (clientId === "" || clientId === null || clientId === undefined) continue;
-      const key = String(clientId).trim().toLowerCase();
+      for (const inv of actualInvoicesAll || []) {
+        const clientId =
+          inv?.BILLINGCLIENT ?? inv?.CONTINDEX ?? inv?.billingclient ?? "";
+        if (clientId === "" || clientId === null || clientId === undefined)
+          continue;
+        const key = String(clientId).trim().toLowerCase();
 
-      const cur =
-        map.get(key) || {
-          ClientId: key,
-          ClientCode: pick(inv, ["CLIENTCODE", "BILLINGCLIENT", "billingclient", "CONTINDEX", "contindex"], String(clientId)),
-          ClientName: pick(inv, ["CLIENTNAME", "BILLINGCLIENTNAME"]),
-          Office: pick(inv, ["CLIENTOFFICE", "BILLINGCLIENTOFFICE"]),
-          Partner: pick(inv, ["CLIENTPARTNERNAME"]),
-          Manager: pick(inv, ["CLIENTMANAGERNAME"]),
-          Service: pick(inv, ["SERVINDEX"]),
-          ActualBill: 0,
-          ActualWip: 0,
-          ActualNarrSet: new Set(),
-          ActualLineTotals: new Map(),
-          _rawBucket: [], // keep raw invoices included -> for copy
-        };
+        const cur =
+          map.get(key) || {
+            ClientId: key,
+            ClientCode: pick(
+              inv,
+              ["CLIENTCODE", "BILLINGCLIENT", "billingclient", "CONTINDEX", "contindex"],
+              String(clientId)
+            ),
+            ClientName: pick(inv, [
+              "CLIENTNAME",
+              "BILLINGCLIENTNAME",
+              "clientname",
+              "billingclientname",
+            ]),
+            Office: pick(inv, [
+              "CLIENTOFFICE",
+              "BILLINGCLIENTOFFICE",
+              "clientoffice",
+              "billingclientoffice",
+            ]),
+            Partner: pick(inv, [
+              "CLIENTPARTNERNAME",
+              "CLIENTPARTNER",
+              "clientpartner",
+            ]),
+            Manager: pick(inv, [
+              "CLIENTMANAGERNAME",
+              "CLIENTMANAGER",
+              "clientmanager",
+            ]),
+            Service: pick(inv, ["SERVINDEX", "SERVICE", "service"]),
+            ActualBill: 0,
+            ActualWip: 0,
+            ActualNarrSet: new Set(),
+            ActualLineTotals: new Map(),
+            _rawBucket: [], // keep raw invoices included -> for copy
+          };
 
       const jobs = Array.isArray(inv?.JOB_SUMMARY) ? inv.JOB_SUMMARY : [];
       for (const j of jobs) {
