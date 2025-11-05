@@ -62,76 +62,107 @@ module.exports = async function (context, req) {
       return;
     }
 
-    // ===== GET MODE =====
-    const ymd = req.query.date; // YYYY-MM-DD
-    context.log("GET: requested date", { ymd });
+        // ===== GET MODE =====
+    // Supports a single date:  "2025-10-15"
+    // or multiple dates:       "2025-09-15,2025-09-30"
+    const dateParam = req.query.date;
+    context.log("GET: requested date(s)", { dateParam });
 
-    if (!ymd) {
-      context.res = { status: 400, body: "Missing query parameter: date=YYYY-MM-DD or list=1" };
-      return;
-    }
-
-    const [Y, M, D] = String(ymd).split("-");
-    if (!Y || !M || !D) {
-      context.res = { status: 400, body: "Invalid date format; expected YYYY-MM-DD" };
-      return;
-    }
-
-    // Build draftsBilled_MM.DD.YY.json
-    const yy = String(Number(Y) % 100).padStart(2, "0");
-    const mm = String(Number(M)).padStart(2, "0");
-    const dd = String(Number(D)).padStart(2, "0");
-    const blobName = `${PREFIX}draftsBilled_${mm}.${dd}.${yy}.json`;
-    const blob = container.getBlockBlobClient(blobName);
-
-    context.log("GET: resolved blob", { blobName, url: blob.url });
-
-    const exists = await blob.exists();
-    context.log("GET: exists?", { exists });
-
-    if (!exists) {
-      context.res = { status: 404, body: `Blob not found: ${blobName}` };
-      return;
-    }
-
-    const props = await blob.getProperties();
-    context.log("GET: properties", {
-      contentLength: props.contentLength,
-      contentType: props.contentType,
-      lastModified: props.lastModified
-    });
-
-    let text = "[]";
-    try {
-      const dl = await blob.download();
-      const bytes = await streamToBuffer(dl.readableStreamBody);
-      text = bytes.toString("utf8") || "[]";
-      context.log("GET: downloaded", { length: text.length });
-    } catch (e) {
-      context.log.error("GET: download/stream error", e?.message || e);
-      throw e;
-    }
-
-    // parse JSON with guard
-    try {
-      const json = JSON.parse(text);
-      const length = Array.isArray(json) ? json.length : (json ? 1 : 0);
-      context.log("GET: JSON parsed ok", { arrayLength: length, type: typeof json });
+    if (!dateParam) {
       context.res = {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-        body: json
+        status: 400,
+        body: "Missing query parameter: date=YYYY-MM-DD (or comma-separated list) or list=1"
       };
-    } catch (e) {
-      context.log.error("GET: JSON parse error", e?.message || e);
-      // Return the raw text so we can inspect if needed
-      context.res = {
-        status: 502,
-        headers: { "Content-Type": "text/plain" },
-        body: `Invalid JSON in ${blobName} (${text.length} bytes). First 400 chars:\n` +
-              text.slice(0, 400)
-      };
+      return;
     }
+
+    // Turn "2025-09-15,2025-09-30" or "'2025-09-15', '2025-09-30'" into ["2025-09-15","2025-09-30"]
+    const ymdList = String(dateParam)
+      .split(",")
+      .map(s => s.replace(/['\s]/g, "")) // strip quotes + whitespace
+      .filter(Boolean);
+
+    if (!ymdList.length) {
+      context.res = {
+        status: 400,
+        body: "No valid date values found in 'date' parameter"
+      };
+      return;
+    }
+
+    async function loadOneDate(ymd) {
+      const [Y, M, D] = String(ymd).split("-");
+      if (!Y || !M || !D) {
+        throw new Error(`Invalid date format; expected YYYY-MM-DD, got: ${ymd}`);
+      }
+
+      // Build draftsBilled_MM.DD.YY.json
+      const yy = String(Number(Y) % 100).padStart(2, "0");
+      const mm = String(Number(M)).padStart(2, "0");
+      const dd = String(Number(D)).padStart(2, "0");
+      const blobName = `${PREFIX}draftsBilled_${mm}.${dd}.${yy}.json`;
+      const blob = container.getBlockBlobClient(blobName);
+
+      context.log("GET: resolved blob", { ymd, blobName, url: blob.url });
+
+      const exists = await blob.exists();
+      context.log("GET: exists?", { ymd, exists });
+
+      if (!exists) {
+        // Treat missing blob as empty array; don't hard-fail the whole request
+        context.log("GET: blob not found, treating as []", { ymd, blobName });
+        return [];
+      }
+
+      const props = await blob.getProperties();
+      context.log("GET: properties", {
+        ymd,
+        contentLength: props.contentLength,
+        contentType: props.contentType,
+        lastModified: props.lastModified
+      });
+
+      let text = "[]";
+      try {
+        const dl = await blob.download();
+        const bytes = await streamToBuffer(dl.readableStreamBody);
+        text = bytes.toString("utf8") || "[]";
+        context.log("GET: downloaded", { ymd, length: text.length });
+      } catch (e) {
+        context.log.error("GET: download/stream error", { ymd, error: e?.message || e });
+        throw e;
+      }
+
+      try {
+        const json = JSON.parse(text);
+        const length = Array.isArray(json) ? json.length : (json ? 1 : 0);
+        context.log("GET: JSON parsed ok", {
+          ymd,
+          arrayLength: length,
+          type: typeof json
+        });
+        return Array.isArray(json) ? json : [json];
+      } catch (e) {
+        context.log.error("GET: JSON parse error", { ymd, error: e?.message || e });
+        // bubble up so the outer catch returns a 502-style error
+        throw new Error(
+          `Invalid JSON in ${blobName} (${text.length} bytes). First 400 chars:\n` +
+          text.slice(0, 400)
+        );
+      }
+    }
+
+    // Load all requested dates in parallel and flatten
+    const allArrays = await Promise.all(ymdList.map(loadOneDate));
+    const merged = allArrays.flat();
+
+    context.res = {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+      body: merged
+    };
+    return;
+
   } catch (err) {
     context.log.error("FATAL:", err?.message || err);
     const code = err.statusCode || 500;

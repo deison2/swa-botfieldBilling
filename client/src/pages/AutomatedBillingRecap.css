@@ -881,4 +881,25 @@
   vertical-align: middle;
 }
 
+/* Date / Month / Year mode toggle */
+.btn-group.recap-period-mode .pill-btn {
+  border-radius: 999px;
+  border: 1px solid #d0d5e2;
+  background: #ffffff;
+  color: #374151;
+  padding: 4px 10px;
+  font-size: 13px;
+}
 
+.btn-group.recap-period-mode .pill-btn.is-active {
+  background: #6c4ef6;       /* purple */
+  border-color: #6c4ef6;
+  color: #ffffff;
+  box-shadow: 0 0 0 1px rgba(108, 78, 246, 0.15),
+              0 4px 10px rgba(18, 34, 80, 0.25);
+}
+
+.btn-group.recap-period-mode .pill-btn.is-active:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}

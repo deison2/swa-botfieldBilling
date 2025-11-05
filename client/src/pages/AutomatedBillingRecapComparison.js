@@ -247,12 +247,37 @@ function RotatingKpi({
 const ACTUAL_INVOICES_URL =
   "https://prod-43.eastus.logic.azure.com/workflows/22d673f179c34ca1a0f03a893180ba74/triggers/When_a_HTTP_request_is_received/paths/invoke/type/actualInvoices?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_a_HTTP_request_is_received%2Frun&sv=1.0&sig=nXcXecHk2xjH_LJEY51DbqSi7nio8-8wJGP9Frth_Ug";
 
+
+// Normalize whatever the backend gives us into strict "YYYY-MM-DD"
+function toCanonicalYmd(raw) {
+  if (!raw) return "";
+  const s = String(raw).slice(0, 10).trim();
+
+  // already YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+  // handle MM/DD/YYYY or M/D/YYYY
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (m) {
+    const mm = m[1].padStart(2, "0");
+    const dd = m[2].padStart(2, "0");
+    const yyyy = m[3].length === 2 ? `20${m[3]}` : m[3];
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  // fallback – unknown format, ignore later
+  return "";
+}
+
 /* ---------- main ---------- */
 export default function AutomatedBillingRecapComparison() {
+  // NEW: Date / Month / Year mode
+  const [periodMode, setPeriodMode] = useState("Date"); // "Date" | "Month" | "Year"
   const [period, setPeriod] = useState("");
   const [groupKey, setGroupKey] = useState("Partner");
   const [nameFilter, setNameFilter] = useState("");
   const [toast, setToast] = useState(""); // tiny “Copied!” / “Downloaded!” message
+
 
   // NEW: periods (from listBilledPeriods) + dynamic actual invoices
   const [periods, setPeriods] = useState([]); // [{ ymd, label? }, ...]
@@ -322,36 +347,142 @@ export default function AutomatedBillingRecapComparison() {
     };
   }, []);
 
-  // Actual list of "YYYY-MM-DD" strings for the dropdown, but EXCLUDE the max (most recent) date
-  const periodOptions = useMemo(() => {
-    if (!periods || !periods.length) return [];
+  // Small helper so we don't rely on Date parsing for month names
+const MONTH_NAMES = [
+  "Jan","Feb","Mar","Apr","May","Jun",
+  "Jul","Aug","Sep","Oct","Nov","Dec"
+];
 
-    const ymds = periods.map((p) => p.ymd).filter(Boolean);
+// Canonical list of bill-through dates (YYYY-MM-DD),
+// excluding the most recent date (actuals only exist for max date minus 1)
+const canonicalDates = useMemo(() => {
+  if (!periods || !periods.length) return [];
 
-    if (!ymds.length) return [];
+  // Normalize every period we get from the API/fallback.
+  // Accept a few possible property names just in case.
+  const ymds = periods
+    .map((p) =>
+      toCanonicalYmd(
+        p.ymd ??
+          p.YMD ??
+          p.date ??
+          p.BEFOREDATE ??
+          p.beforeDate ??
+          p.BillThrough
+      )
+    )
+    .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d));
 
-    const maxYmd = ymds.reduce(
-      (max, cur) => (max && max > cur ? max : cur),
-      ""
-    );
+  if (!ymds.length) return [];
 
-    return ymds.filter((ymd) => ymd !== maxYmd);
-  }, [periods]);
+  // distinct, newest first
+  const unique = Array.from(new Set(ymds));
+  unique.sort((a, b) => b.localeCompare(a)); // "2025-10-15" before "2025-09-30"
 
-  /* live draft rows for the selected period (baseline for the view) */
+  // drop the most recent date (index 0)
+  const withoutLatest = unique.slice(1);
+
+  return withoutLatest;
+}, [periods]);
+
+// --- Mode-specific dropdown options ---------------------------------
+
+// Date mode: one option per bill-through date
+const dateOptions = useMemo(
+  () =>
+    canonicalDates.map((ymd) => ({
+      value: ymd,
+      label: formatYmd(ymd), // 10/15/2025 etc
+    })),
+  [canonicalDates]
+);
+
+// Month mode: unique YYYY-MM from the canonical dates
+const monthOptions = useMemo(() => {
+  const monthSet = new Set();
+
+  for (const ymd of canonicalDates) {
+    const [y, m] = ymd.split("-");
+    if (!y || !m) continue;
+    monthSet.add(`${y}-${m}`); // "2025-09"
+  }
+
+  return Array.from(monthSet)
+    .sort((a, b) => b.localeCompare(a)) // newest month first
+    .map((key) => {
+      const y = key.slice(0, 4);
+      const m = key.slice(5, 7);
+      const idx = Number(m) - 1;
+      const monthName = MONTH_NAMES[idx] ?? key;
+      return {
+        value: key,              // "2025-09"
+        label: `${monthName} ${y}`, // "Sep 2025"
+      };
+    });
+}, [canonicalDates]);
+
+const yearOptions = useMemo(() => {
+  const yearSet = new Set();
+
+  for (const ymd of canonicalDates) {
+    const y = ymd.slice(0, 4);
+    if (y) yearSet.add(y);
+  }
+
+  return Array.from(yearSet)
+    .sort((a, b) => b.localeCompare(a)) // newest year first
+    .map((y) => ({ value: y, label: y }));
+}, [canonicalDates]);
+
+
+// --- Which concrete dates are included for the current selection -----
+const selectedDates = useMemo(() => {
+  if (!period) return [];
+
+  if (periodMode === "Date") {
+    // period already is a single YYYY-MM-DD
+    return [period];
+  }
+
+  if (periodMode === "Month") {
+    // period is "YYYY-MM"; pull all dates in that month
+    return canonicalDates.filter((ymd) => ymd.slice(0, 7) === period);
+  }
+
+  if (periodMode === "Year") {
+    // period is "YYYY"; pull all dates that year
+    return canonicalDates.filter((ymd) => ymd.slice(0, 4) === period);
+  }
+
+  return [];
+}, [period, periodMode, canonicalDates]);
+
+// billThrough string that goes to the API, with each date quoted
+// e.g. "'2025-09-15', '2025-09-30'"
+const billThroughValue = useMemo(() => {
+  if (!selectedDates.length) return "";
+  return selectedDates.map((d) => `'${d}'`).join(", ");
+}, [selectedDates, periodMode]);
+
+  /* live draft rows for the selected period(s) (baseline for the view) */
   useEffect(() => {
     let cancelled = false;
 
-    if (!period) {
+    // 1) Guard based on selectedDates instead of billThroughValue
+    if (!selectedDates.length) {
       setDraftRows([]);
+      setLoadingDrafts(false);
       return;
     }
 
     (async () => {
       setLoadingDrafts(true);
       try {
-        // same endpoint as the Billed tab
-        const data = await getBilledData(period);
+        // 2) Send a comma-separated list of YYYY-MM-DD values
+        //    e.g. "2025-09-15,2025-09-30"
+        const datesParam = selectedDates.join(",");
+        const data = await getBilledData(datesParam);
+
         if (!cancelled) {
           if (Array.isArray(data)) {
             setDraftRows(data);
@@ -365,9 +496,10 @@ export default function AutomatedBillingRecapComparison() {
           e
         );
         if (!cancelled) {
-          const fallback = (sampleRecapBilled || []).filter(
-            (r) => String(r.BEFOREDATE).slice(0, 10) === period
-          );
+          const fallback = (sampleRecapBilled || []).filter((r) => {
+            const ymd = String(r.BEFOREDATE).slice(0, 10);
+            return selectedDates.includes(ymd);
+          });
           setDraftRows(fallback);
         }
       } finally {
@@ -378,16 +510,20 @@ export default function AutomatedBillingRecapComparison() {
     return () => {
       cancelled = true;
     };
-  }, [period]);
+  // 3) This effect only really depends on selectedDates
+  }, [selectedDates]);
+
 
   // Fetch actual invoices for the selected period, normalize stringified arrays
-  useEffect(() => {
+    useEffect(() => {
     let cancelled = false;
 
-    if (!period) {
+    if (!billThroughValue) {
       setActualInvoicesAll([]);
+      setLoadingActuals(false);
       return;
     }
+
 
     async function loadActualInvoices() {
       setLoadingActuals(true);
@@ -398,7 +534,8 @@ export default function AutomatedBillingRecapComparison() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            billThrough: period,
+            // e.g. "'2025-09-15'" or "'2025-09-15', '2025-09-30'"
+            billThrough: billThroughValue,
           }),
         });
 
@@ -526,7 +663,7 @@ export default function AutomatedBillingRecapComparison() {
     return () => {
       cancelled = true;
     };
-  }, [period]);
+  }, [billThroughValue]);
 
   const loadingCombined = loadingPeriods || loadingActuals || loadingDrafts;
 
@@ -1277,7 +1414,7 @@ export default function AutomatedBillingRecapComparison() {
 
       const arr = [...freq.values()];
       arr.sort((a, b) => b.count - a.count);
-      return arr.slice(0, 5);
+      return arr.slice(0, 10);
     },
     [draftRows, classifyDraftLine, actualIndex]
   );
@@ -1559,19 +1696,62 @@ export default function AutomatedBillingRecapComparison() {
         className="select-bar recap-controls"
         style={{ gap: "8px", alignItems: "center" }}
       >
+        {/* NEW: Date / Month / Year mode toggle */}
+        <div className="btn-group recap-period-mode">
+          {["Date", "Month", "Year"].map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              className={`pill-btn ${periodMode === mode ? "is-active" : ""}`}
+              onClick={() => {
+                setPeriodMode(mode);
+                setPeriod("");
+                setNameFilter("");
+                setDraftRows([]);
+                setActualInvoicesAll([]);
+              }}
+              title={`View by ${mode.toLowerCase()}`}
+            >
+              {mode}
+            </button>
+          ))}
+        </div>
+
+        {/* Mode-aware period dropdown */}
         <select
           className="pill-select recap-period"
           value={period}
           onChange={(e) => {
             setPeriod(e.target.value);
             setNameFilter("");
+            setDraftRows([]);
+            setActualInvoicesAll([]);
           }}
-          title="Billing period (Bill Through)"
+
+          title={
+            periodMode === "Date"
+              ? "Billing period (Bill Through date)"
+              : periodMode === "Month"
+              ? "Billing period (Month)"
+              : "Billing period (Year)"
+          }
         >
-          <option value="">Bill Through…</option>
-          {periodOptions.map((p) => (
-            <option key={p} value={p}>
-              {formatYmd(p)}
+          <option value="">
+            {periodMode === "Date"
+              ? "Bill Through…"
+              : periodMode === "Month"
+              ? "Select month…"
+              : "Select year…"}
+          </option>
+
+          {(periodMode === "Date"
+            ? dateOptions
+            : periodMode === "Month"
+            ? monthOptions
+            : yearOptions
+          ).map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
             </option>
           ))}
         </select>
