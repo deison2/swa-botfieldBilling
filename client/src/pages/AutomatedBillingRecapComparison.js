@@ -269,6 +269,10 @@ export default function AutomatedBillingRecapComparison() {
   // selected narrative rows (for export)
   const [selectedNarrRows, setSelectedNarrRows] = useState([]);
 
+  // NEW: modal state for "replacement narratives"
+  const [replacementModal, setReplacementModal] = useState(null);
+  // replacementModal = { baseName, totalDrafts, rows: [{ serviceKey, label, count }] }
+
   /* periods from backend (same logic as main Recap: listBilledPeriods) */
   useEffect(() => {
     let cancelled = false;
@@ -591,7 +595,13 @@ export default function AutomatedBillingRecapComparison() {
           ClientId: key,
           ClientCode: pick(
             inv,
-            ["CLIENTCODE", "BILLINGCLIENT", "billingclient", "CONTINDEX", "contindex"],
+            [
+              "CLIENTCODE",
+              "BILLINGCLIENT",
+              "billingclient",
+              "CONTINDEX",
+              "contindex",
+            ],
             String(clientId)
           ),
           ClientName: pick(inv, [
@@ -721,7 +731,11 @@ export default function AutomatedBillingRecapComparison() {
     // Actual side
     for (const inv of actualInvoicesAll || []) {
       const clientId =
-        inv?.BILLINGCLIENT ?? inv?.CONTINDEX ?? inv?.billingclient ?? inv?.contindex ?? "";
+        inv?.BILLINGCLIENT ??
+        inv?.CONTINDEX ??
+        inv?.billingclient ??
+        inv?.contindex ??
+        "";
       if (!clientId) continue;
       const clientKey = clientKeyOf(clientId);
 
@@ -747,8 +761,13 @@ export default function AutomatedBillingRecapComparison() {
       if (!clientBucket) {
         clientBucket = {
           clientCode:
-            pick(inv, ["CLIENTCODE", "BILLINGCLIENT", "billingclient", "CONTINDEX", "contindex"]) ??
-            "",
+            pick(inv, [
+              "CLIENTCODE",
+              "BILLINGCLIENT",
+              "billingclient",
+              "CONTINDEX",
+              "contindex",
+            ]) ?? "",
           services: new Map(),
         };
         actualIndex.set(clientKey, clientBucket);
@@ -876,7 +895,11 @@ export default function AutomatedBillingRecapComparison() {
           : 0;
 
       const UnchangedDrafts =
-        d && a ? (mapsEqualNum(d.DraftLineTotals, a.ActualLineTotals) ? 1 : 0) : 0;
+        d && a
+          ? mapsEqualNum(d.DraftLineTotals, a.ActualLineTotals)
+            ? 1
+            : 0
+          : 0;
 
       out.push({
         ClientId: key,
@@ -1195,10 +1218,104 @@ export default function AutomatedBillingRecapComparison() {
     filteredClients,
   ]);
 
+  /* --------- NEW: compute "replacement narratives" for a given draft narrative --------- */
+  const computeReplacementNarratives = useCallback(
+    (narrKey) => {
+      const freq = new Map();
+      if (!narrKey) return [];
+
+      for (const d of draftRows || []) {
+        const clientId =
+          d?.BILLINGCLIENT ??
+          d?.CONTINDEX ??
+          d?.CLIENTCODE ??
+          d?.BILLINGCLIENTCODE ??
+          "";
+        if (!clientId) continue;
+
+        const clientKey = clientKeyOf(clientId);
+        const serviceKey = serviceKeyOf(d?.SERVINDEX ?? "Unassigned");
+
+        const raw = d?.NARRATIVE ?? d?.NARRATIVE_TEXT ?? "";
+        const thisNarrKey = norm(raw);
+        if (!thisNarrKey || thisNarrKey !== narrKey) continue;
+
+        // Only care about cases where the draft narrative text was *not* used
+        const cls = classifyDraftLine(clientKey, serviceKey, narrKey);
+        if (!cls || cls.kind !== "verbiage") continue;
+
+        const aClient = actualIndex.get(clientKey);
+        const aSvc = aClient?.services.get(serviceKey);
+        if (!aSvc) continue;
+
+        // For this client+service, gather all other narratives that *were* used
+        for (const [otherKey, bucket] of aSvc.entries()) {
+          if (otherKey === narrKey) continue; // should not exist in verbiage case, but just in case
+
+          const label = bucket.label || "(blank)";
+          const key = `${serviceKey}||${label}`;
+          const existing =
+            freq.get(key) || { serviceKey, label, count: 0 };
+
+          const uses = Array.isArray(bucket.invoices)
+            ? bucket.invoices.length
+            : 1;
+
+          existing.count += uses;
+          freq.set(key, existing);
+        }
+      }
+
+      const arr = [...freq.values()];
+      arr.sort((a, b) => b.count - a.count);
+      return arr.slice(0, 5);
+    },
+    [draftRows, classifyDraftLine, actualIndex]
+  );
+
+  const openReplacementModal = useCallback(
+    (row) => {
+      if (!row?.Name) return;
+      const narrKey = norm(row.Name);
+      const rows = computeReplacementNarratives(narrKey);
+
+      setReplacementModal({
+        baseName: stripHtml(row.Name),
+        totalDrafts: row.TotalDrafts ?? 0,
+        rows,
+      });
+    },
+    [computeReplacementNarratives]
+  );
+
+  const closeReplacementModal = useCallback(() => {
+    setReplacementModal(null);
+  }, []);
+
   /* columns */
   const columns = useMemo(() => {
     if (groupKey === "Narrative") {
       return [
+        {
+          // icon / button column
+          name: "",
+          width: "48px",
+          right: true,
+          allowOverflow: true,
+          button: true,
+          cell: (r) => (
+            <button
+              type="button"
+              className="pill-btn"
+              style={{ padding: "2px 6px", fontSize: "11px" }}
+              onClick={() => openReplacementModal(r)}
+              title="Show top replacement narratives for this draft text"
+            >
+              🔍
+            </button>
+          ),
+          ignoreRowClick: true,
+        },
         {
           name: "Narrative",
           selector: (r) => r.Name,
@@ -1317,7 +1434,7 @@ export default function AutomatedBillingRecapComparison() {
         right: true,
       },
     ];
-  }, [groupKey]);
+  }, [groupKey, openReplacementModal]);
 
   // clear selected rows when mode changes
   useEffect(() => {
@@ -1630,6 +1747,69 @@ export default function AutomatedBillingRecapComparison() {
             </div>
           )}
         </>
+      )}
+
+      {/* NEW: replacement narratives modal */}
+      {replacementModal && (
+        <div className="dtm-backdrop" role="dialog" aria-modal="true">
+          <div className="dtm-modal">
+            <div className="dtm-head">
+              <div className="dtm-title">
+                Common replacements for draft narrative:
+                {" "}
+                <span style={{ fontStyle: "italic" }}>
+                  {replacementModal.baseName}
+                </span>
+              </div>
+              <button
+                className="dtm-x"
+                aria-label="Close"
+                type="button"
+                onClick={closeReplacementModal}
+              >
+                ×
+              </button>
+            </div>
+            <div className="dtm-body">
+              {replacementModal.rows.length ? (
+                <table className="mini-table">
+                  <thead>
+                    <tr>
+                      <th>Service</th>
+                      <th>Replacement Narrative</th>
+                      <th className="num">Uses</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {replacementModal.rows.map((r, idx) => (
+                      <tr key={idx}>
+                        <td>{r.serviceKey}</td>
+                        <td>{r.label}</td>
+                        <td className="num">
+                          {r.count.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p>
+                  No alternative narratives found where this draft text was
+                  replaced for the same service.
+                </p>
+              )}
+            </div>
+            <div className="dtm-foot">
+              <button
+                type="button"
+                className="dtm-btn"
+                onClick={closeReplacementModal}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
