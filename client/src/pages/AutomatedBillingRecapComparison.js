@@ -263,11 +263,20 @@ export default function AutomatedBillingRecapComparison() {
   // NEW: live draft rows (billed automation) for the selected period
   const [draftRows, setDraftRows] = useState([]);
   const [loadingDrafts, setLoadingDrafts] = useState(false);
-  // Show only clients that have both Draft + Actual
+    // Show only clients that have both Draft + Actual
   const [onlyApiDrafts, setOnlyApiDrafts] = useState(false);
+
+  // When in Narrative view, always force API-only and lock the checkbox
+  useEffect(() => {
+    if (groupKey === "Narrative") {
+      // Narrative view always reflects only invoices originally drafted by the API
+      setOnlyApiDrafts(true);
+    }
+  }, [groupKey]);
 
   // selected narrative rows (for export)
   const [selectedNarrRows, setSelectedNarrRows] = useState([]);
+
 
   // NEW: modal state for "replacement narratives"
   const [replacementModal, setReplacementModal] = useState(null);
@@ -1688,9 +1697,15 @@ export default function AutomatedBillingRecapComparison() {
           <label className="checkbox-pill">
             <input
               type="checkbox"
-              checked={onlyApiDrafts}
-              onChange={(e) => setOnlyApiDrafts(e.target.checked)}
+              checked={groupKey === "Narrative" ? true : onlyApiDrafts}
+              disabled={groupKey === "Narrative"}
+              onChange={
+                groupKey === "Narrative"
+                  ? undefined
+                  : (e) => setOnlyApiDrafts(e.target.checked)
+              }
             />
+
             <span>Check to see only invoices originally drafted by the API</span>
           </label>
         </div>
