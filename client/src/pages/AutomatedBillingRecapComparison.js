@@ -1734,16 +1734,16 @@ export default function AutomatedBillingRecapComparison() {
               noDataComponent={
                 <span className="no-rows">No rows to show!</span>
               }
-              selectableRows={groupKey === "Narrative"}
-              onSelectedRowsChange={
-                groupKey === "Narrative"
-                  ? ({ selectedRows }) =>
-                      setSelectedNarrRows(selectedRows || [])
-                  : undefined
-              }
+              //selectableRows={groupKey === "Narrative"}
+              //onSelectedRowsChange={
+              //  groupKey === "Narrative"
+              //    ? ({ selectedRows }) =>
+              //        setSelectedNarrRows(selectedRows || [])
+              //    : undefined
+              //}
             />
           </div>
-
+        {/*
           {groupKey === "Narrative" && (
             <div
               className="nb-inline-option"
@@ -1761,9 +1761,10 @@ export default function AutomatedBillingRecapComparison() {
               {toast && <span className="nb-toast">{toast}</span>}
             </div>
           )}
+            */}
         </>
       )}
-
+          
       {/* NEW: replacement narratives modal */}
       {replacementModal && (
         <div className="dtm-backdrop" role="dialog" aria-modal="true">
