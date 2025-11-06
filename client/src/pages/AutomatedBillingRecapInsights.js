@@ -7,6 +7,27 @@ import {
   getBillingAiInsights,
 } from "../services/AutomatedBillingBilledService";
 
+// Normalize whatever the backend gives us into strict "YYYY-MM-DD"
+const toCanonicalYmd = (raw) => {
+  if (!raw) return "";
+  const s = String(raw).slice(0, 10).trim();
+
+  // already YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+  // handle MM/DD/YYYY or M/D/YYYY
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (m) {
+    const mm = m[1].padStart(2, "0");
+    const dd = m[2].padStart(2, "0");
+    const yyyy = m[3].length === 2 ? `20${m[3]}` : m[3];
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  // fallback – unknown format, ignore later
+  return "";
+};
+
 // Small helpers reused from other tabs
 const formatYmd = (ymd) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(ymd))) return String(ymd || "");
@@ -50,20 +71,41 @@ export default function AutomatedBillingRecapInsights() {
     };
   }, []);
 
-  // canonical sorted date options (newest first)
-  const dateOptions = useMemo(() => {
+  // Canonical bill-through dates, excluding the most recent file
+    const canonicalDates = useMemo(() => {
     if (!periods?.length) return [];
-    const ymds = periods
-      .map((p) => {
-        const raw = p.ymd ?? p.YMD ?? p.date ?? "";
-        return String(raw).slice(0, 10);
-      })
-      .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d));
 
-    const unique = Array.from(new Set(ymds));
+    const ymds = periods
+        .map((p) => toCanonicalYmd(p.ymd ?? p.YMD ?? p.date))
+        .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d));
+
+    if (!ymds.length) return [];
+
+    // newest date = max lexicographically
+    const maxYmd = ymds.reduce(
+        (max, cur) => (max && max > cur ? max : cur),
+        ""
+    );
+
+    // drop the latest date (e.g. 2025-10-31)
+    const unique = Array.from(new Set(ymds.filter((d) => d !== maxYmd)));
+
+    // sort newest first
     unique.sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
-    return unique.map((d) => ({ value: d, label: formatYmd(d) }));
-  }, [periods]);
+
+    return unique;
+    }, [periods]);
+
+    // options for the <select>
+    const dateOptions = useMemo(
+    () =>
+        canonicalDates.map((d) => ({
+        value: d,
+        label: formatYmd(d),
+        })),
+    [canonicalDates]
+    );
+
 
 
   // fetch AI insight markdown whenever selectedDate changes
