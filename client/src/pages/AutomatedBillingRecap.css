@@ -868,4 +868,187 @@
   color: #6b7280;
 }
 
+.kpi-row.kpi-5wide {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+}
 
+.kpi-subvalue {
+  font-size: 0.6em;
+  color: #7a7a7a;
+  margin-left: 20px;
+  vertical-align: middle;
+}
+
+/* Date / Month / Year mode toggle */
+.btn-group.recap-period-mode .pill-btn {
+  border-radius: 999px;
+  border: 1px solid #d0d5e2;
+  background: #ffffff;
+  color: #374151;
+  padding: 4px 10px;
+  font-size: 13px;
+}
+
+.btn-group.recap-period-mode .pill-btn.is-active {
+  background: #6c4ef6;       /* purple */
+  border-color: #6c4ef6;
+  color: #ffffff;
+  box-shadow: 0 0 0 1px rgba(108, 78, 246, 0.15),
+              0 4px 10px rgba(18, 34, 80, 0.25);
+}
+
+.btn-group.recap-period-mode .pill-btn.is-active:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* ===== AI Insights tab ===== */
+
+.aiinsights-root {
+  padding: 16px 0 32px;
+}
+
+.aiinsights-header {
+  margin-bottom: 16px;
+}
+
+.aiinsights-header h2 {
+  margin: 0 0 6px;
+}
+
+.aiinsights-header p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+/* controls row reusing existing pill styles */
+.aiinsights-controls .pill-select {
+  min-width: 14rem;
+}
+
+.aiinsights-refresh-btn {
+  border-color: #4f46e5bf;
+  color: #111827;
+  font-size: 0.9rem;
+}
+
+/* card that wraps markdown output */
+.aiinsights-card {
+  margin-top: 12px;
+  background: #ffffff;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(6, 57, 65, 0.12);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+  padding: 14px 18px 20px;
+}
+
+/* header chips at top of the card */
+.aiinsights-card-header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.aiinsights-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #f3f4ff;
+  border: 1px solid rgba(79, 70, 229, 0.35);
+  font-size: 0.85rem;
+}
+
+.aiinsights-chip .chip-label {
+  opacity: 0.75;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.72rem;
+}
+
+.aiinsights-chip .chip-value {
+  font-weight: 600;
+}
+
+.aiinsights-chip.goal {
+  background: #e7f7ef;
+  border-color: rgba(73, 160, 80, 0.4);
+}
+
+/* empty-state card */
+.aiinsights-empty {
+  margin-top: 16px;
+}
+
+/* markdown prose styling – piggyback on tailwind-esque prose feel */
+.aiinsights-body {
+  font-size: 0.96rem;
+  line-height: 1.55;
+  color: #111827;
+}
+
+.aiinsights-body h1,
+.aiinsights-body h2,
+.aiinsights-body h3 {
+  margin-top: 0.6em;
+  margin-bottom: 0.3em;
+  font-weight: 600;
+  color: #0b2a30;
+}
+
+.aiinsights-body h1 {
+  font-size: 1.4rem;
+}
+.aiinsights-body h2 {
+  font-size: 1.25rem;
+}
+.aiinsights-body h3 {
+  font-size: 1.1rem;
+}
+
+.aiinsights-body p {
+  margin: 0.35em 0;
+}
+
+.aiinsights-body ul,
+.aiinsights-body ol {
+  padding-left: 1.2rem;
+  margin: 0.35em 0 0.45em;
+}
+
+.aiinsights-body li + li {
+  margin-top: 0.1em;
+}
+
+.aiinsights-body strong {
+  font-weight: 600;
+}
+
+.aiinsights-body code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-size: 0.85em;
+}
+
+/* error + placeholder messages */
+.aiinsights-error,
+.aiinsights-placeholder {
+  padding: 10px 12px;
+  border-radius: 0.75rem;
+  border: 1px solid #fee2e2;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 0.9rem;
+}
+
+.aiinsights-placeholder {
+  border-color: #e5e7eb;
+  background: #f9fafb;
+  color: #4b5563;
+}
