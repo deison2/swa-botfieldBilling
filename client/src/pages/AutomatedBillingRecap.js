@@ -6,6 +6,7 @@ import "./AutomatedBillingRecap.css";
 import AutomatedBillingRecapComparison from "./AutomatedBillingRecapComparison";
 import AutomatedBillingRecapMetrics from "./AutomatedBillingRecapMetrics";
 import AutomatedBillingRecapInsights from "./AutomatedBillingRecapInsights"; // <-- NEW
+import { useAuth } from "../auth/AuthContext";
 
 // DEV: local sample data (billed / not billed)
 import sampleRecapBilled from "../devSampleData/sampleRecapBilled.json";
@@ -133,6 +134,9 @@ export default function AutomatedBillingRecap() {
   const [excludeDrafts, setExcludeDrafts] = useState(false);
   const [draftClientCodes, setDraftClientCodes] = useState(new Set());
   const [loadingDrafts, setLoadingDrafts] = useState(false);
+
+  const { isSuperUser } = useAuth();
+
 
   /** ---------- load data (DEV uses local json) ---------- */
   useEffect(() => {
@@ -637,6 +641,7 @@ export default function AutomatedBillingRecap() {
           </button>
 
           {/* NEW: AI Insights tab, to the right of Metrics */}
+          {isSuperUser && (
           <button
             type="button"
             className={`tab-btn ${activeTab === "Insights" ? "active" : ""}`}
@@ -644,6 +649,7 @@ export default function AutomatedBillingRecap() {
           >
             AI Insights
           </button>
+          )}
         </div>
 
         {/* ====================== BILLED ====================== */}
@@ -932,7 +938,9 @@ export default function AutomatedBillingRecap() {
         {activeTab === "Metrics" && <AutomatedBillingRecapMetrics />}
 
         {/* ==================== AI INSIGHTS ==================== */}
-        {activeTab === "Insights" && <AutomatedBillingRecapInsights />}
+        {isSuperUser && activeTab === "Insights" && (
+          <AutomatedBillingRecapInsights />
+        )}
       </main>
     </div>
   );
