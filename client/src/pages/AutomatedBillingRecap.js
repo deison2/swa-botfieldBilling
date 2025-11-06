@@ -5,7 +5,7 @@ import GeneralDataTable from "../components/DataTable";
 import "./AutomatedBillingRecap.css";
 import AutomatedBillingRecapComparison from "./AutomatedBillingRecapComparison";
 import AutomatedBillingRecapMetrics from "./AutomatedBillingRecapMetrics";
-
+import AutomatedBillingRecapInsights from "./AutomatedBillingRecapInsights"; // <-- NEW
 
 // DEV: local sample data (billed / not billed)
 import sampleRecapBilled from "../devSampleData/sampleRecapBilled.json";
@@ -13,7 +13,6 @@ import { listBilledPeriods, getBilledData } from "../services/AutomatedBillingBi
 
 import sampleRecapNotBilled from "../devSampleData/sampleRecapNotBilled.json";
 import { listExcludedPeriods, getExcludedData } from "../services/AutomatedBillingExcludedService";
-
 
 // NEW: drafts service + fallback sample (same as ExistingDrafts page)
 import { GetDrafts } from "../services/ExistingDraftsService";
@@ -111,9 +110,8 @@ const getGroupAccessor = (key) => {
   }
 };
 
-
 export default function AutomatedBillingRecap() {
-  const [activeTab, setActiveTab] = useState("billed"); // 'billed' | 'notbilled'
+  const [activeTab, setActiveTab] = useState("billed"); // 'billed' | 'notbilled' | 'draftchanges' | 'Metrics' | 'Insights'
   const [billedPeriods, setBilledPeriods] = useState([]); // [{ymd,label}, ...]
   const [excludedPeriods, setExcludedPeriods] = useState([]); // [{ymd,label}, ...]
 
@@ -205,7 +203,6 @@ export default function AutomatedBillingRecap() {
     return () => { cancelled = true; };
   }, [activeTab]);
 
-
   // NOT BILLED: load rows for selected period
   useEffect(() => {
     let cancelled = false;
@@ -251,7 +248,6 @@ export default function AutomatedBillingRecap() {
     return arr;
   }, [activeTab, billedPeriods, excludedPeriods, rows]);
 
-
   /** ---------- filtered by selected billing period ---------- */
   const periodFiltered = useMemo(() => {
     if (activeTab === "billed") return rows || [];       // <- don't re-filter billed data
@@ -261,9 +257,8 @@ export default function AutomatedBillingRecap() {
     );
   }, [rows, billingPeriod, activeTab]);
 
-
   /** ---------- rows in-scope for KPIs on Billed tab ---------- */
-    const billedKpiRows = useMemo(() => {
+  const billedKpiRows = useMemo(() => {
     // always start with the period filter
     let data = periodFiltered;
 
@@ -274,10 +269,10 @@ export default function AutomatedBillingRecap() {
     }
 
     return data;
-    }, [periodFiltered, activeTab, billingPeriod, groupKey, nameFilter]);
+  }, [periodFiltered, activeTab, billingPeriod, groupKey, nameFilter]);
 
   /** ---------- Billed: KPIs (now responsive to filters) ---------- */
-    const kpis = useMemo(() => {
+  const kpis = useMemo(() => {
     if (activeTab !== "billed")
         return { totalBilled: 0, totalWip: 0, uniqueClients: 0, realization: 0 };
 
@@ -298,8 +293,7 @@ export default function AutomatedBillingRecap() {
     const realization = totalWip > 0 ? totalBilled / totalWip : 0;
 
     return { totalBilled, totalWip, uniqueClients, realization };
-    }, [billedKpiRows, activeTab]);
-
+  }, [billedKpiRows, activeTab]);
 
   /** ---------- Billed: Aggregation ---------- */
   const aggregated = useMemo(() => {
@@ -364,7 +358,6 @@ export default function AutomatedBillingRecap() {
     if (activeTab !== "notbilled") return [];
     return rows || [];  // no BEFOREDATE re-filter
   }, [rows, activeTab]);
-
 
   // Fetch draft client codes when excludeDrafts is on (and when Bill Through changes)
   useEffect(() => {
@@ -623,6 +616,7 @@ export default function AutomatedBillingRecap() {
           >
             Not Billed
           </button>
+
           <button
             type="button"
             className={`tab-btn ${activeTab === "draftchanges" ? "active" : ""}`}
@@ -633,11 +627,22 @@ export default function AutomatedBillingRecap() {
           >
             Draft Changes
           </button>
+
           <button
+            type="button"
             className={`tab-btn ${activeTab === "Metrics" ? "active" : ""}`}
             onClick={() => setActiveTab("Metrics")}
           >
             Metrics
+          </button>
+
+          {/* NEW: AI Insights tab, to the right of Metrics */}
+          <button
+            type="button"
+            className={`tab-btn ${activeTab === "Insights" ? "active" : ""}`}
+            onClick={() => setActiveTab("Insights")}
+          >
+            AI Insights
           </button>
         </div>
 
@@ -857,15 +862,15 @@ export default function AutomatedBillingRecap() {
                       </div>
                     </section>
                     <div className="nb-inline-option">
-                        <label className="checkbox-pill">
-                            <input
-                            type="checkbox"
-                            checked={excludeDrafts}
-                            onChange={(e) => setExcludeDrafts(e.target.checked)}
-                            />
-                            <span>Check here to exclude clients with existing drafts</span>
-                        </label>
-                        </div>
+                      <label className="checkbox-pill">
+                        <input
+                          type="checkbox"
+                          checked={excludeDrafts}
+                          onChange={(e) => setExcludeDrafts(e.target.checked)}
+                        />
+                        <span>Check here to exclude clients with existing drafts</span>
+                      </label>
+                    </div>
 
                     {/* chips row with single Clear Filters on the right */}
                     <div className="context-bar">
@@ -918,11 +923,16 @@ export default function AutomatedBillingRecap() {
             )}
           </>
         )}
-      {/* ==================== DRAFT CHANGES (Comparison) ==================== */}
-      {activeTab === "draftchanges" && (
-        <AutomatedBillingRecapComparison />
-      )}  
-      {activeTab === "Metrics" && <AutomatedBillingRecapMetrics />}
+
+        {/* ==================== DRAFT CHANGES (Comparison) ==================== */}
+        {activeTab === "draftchanges" && (
+          <AutomatedBillingRecapComparison />
+        )}  
+
+        {activeTab === "Metrics" && <AutomatedBillingRecapMetrics />}
+
+        {/* ==================== AI INSIGHTS ==================== */}
+        {activeTab === "Insights" && <AutomatedBillingRecapInsights />}
       </main>
     </div>
   );

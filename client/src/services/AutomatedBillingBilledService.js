@@ -9,3 +9,15 @@ export async function getBilledData(ymd) {
   if (!r.ok) throw new Error(`getBilledData failed: ${r.status}`);
   return r.json(); // the raw rows array for that period
 }
+
+// AutomatedBillingBilledService.js (append at bottom)
+
+export async function getBillingAiInsights(ymd) {
+  const r = await fetch(
+    `/api/autoBillingInsights?date=${encodeURIComponent(ymd)}`
+  );
+  if (!r.ok) {
+    throw new Error(`getBillingAiInsights failed: ${r.status}`);
+  }
+  return r.text(); // markdown string
+}
