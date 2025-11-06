@@ -1,11 +1,11 @@
 // src/components/Sidebar.js
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { useAuth } from '../auth/AuthContext';   // 👈 NEW
+import { useAuth } from '../auth/AuthContext';
 import './Sidebar.css';
 
 export default function Sidebar() {
-  const { ready, isSuperUser } = useAuth();      // 👈 NEW
+  const { ready, isSuperUser } = useAuth();
   const [wipOpen, setWipOpen] = useState(() => {
     const stored = window.localStorage.getItem('wipOpen');
     return stored !== null ? JSON.parse(stored) : false;
@@ -102,22 +102,22 @@ export default function Sidebar() {
             </NavLink>
           </li>
           <li>
-            <NavLink to="/Existing-Drafts" className={linkClass}>
-              Existing Drafts
-            </NavLink>
-          </li>
-          <li>
             <NavLink to="/Automated-Billing-Recap" className={linkClass}>
               Automated Billing Recap
             </NavLink>
           </li>
-          {isSuperUser && (
-            <>
+          <li>
+            <NavLink to="/Existing-Drafts" className={linkClass}>
+              Existing Drafts
+            </NavLink>
+          </li>
               <li>
                 <NavLink to="/Recurring-Retainers" className={linkClass}>
                   Recurring Retainers
                 </NavLink>
               </li>
+          {isSuperUser && (
+            <>
               <li>
                 <NavLink to="/Tech-Fees" className={linkClass}>
                   Tech Fees

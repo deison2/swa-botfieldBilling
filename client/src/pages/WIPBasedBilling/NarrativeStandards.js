@@ -145,8 +145,6 @@ const serviceOptions = useMemo(
   } catch (e) {
     console.error('addNarrative error:', e);         // ← CHANGED
     toast.error(e.message || 'Failed to add narrative - please contact the Data Analytics Team'); // ← CHANGED
-    const newItemFail = { uuid: uuidv4(), ...item };
-    setRows(r => [...r, newItemFail]);
   }
 }
 

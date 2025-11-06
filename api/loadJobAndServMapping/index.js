@@ -5,6 +5,13 @@ const JOBMAPPING = "htmlData/automatedBilling/narrativeStandards/jobMapping.json
 const SERVICEMAPPING = "htmlData/automatedBilling/narrativeStandards/services.json";
 
 module.exports = async function (context, req) {
+  
+  if (process.env.NODE_ENV === "development") {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+  console.warn("⚠️  SSL certificate verification disabled (development mode)");
+  }
+
+
   const type = context.bindingData.type;
   const conn = process.env.AZURE_STORAGE_CONNECTION_STRING;
 

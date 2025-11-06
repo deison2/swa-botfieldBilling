@@ -1,10 +1,10 @@
 const { BlobServiceClient } = require("@azure/storage-blob");
 
 const CONTAINER = "container-bmssprod001";
-const BLOB = "htmlData/automatedBilling/narrativeStandards/narratives.json";
+const BLOB = "htmlData/automatedBilling/recurrings/masterRecurrings.json";
 
 module.exports = async function (context, req) {
-  
+    
   if (process.env.NODE_ENV === "development") {
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
   console.warn("⚠️  SSL certificate verification disabled (development mode)");

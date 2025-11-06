@@ -31,13 +31,13 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif !important;
 }
 
-.chip-container {
+.chip2-container {
   display: flex;
   flex-direction: column;   /* or row if you ever switch back */
   gap: 6px;                 /* a bit more space */
 }
 
-.chip {
+.chip2 {
   display: inline-flex;
   align-items: center;
   padding: 0.25rem 0.75rem;  /* slightly wider for balance */
@@ -51,32 +51,32 @@
   cursor: default;
 }
 
-.chip:hover {
+.chip2:hover {
   background-color: #d1e8e4; /* subtle hover lift */
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
 }
 
-.chip.more {
+.chip2.more {
   background-color: transparent;
   border: 1px solid #a6e1dd;
   color: #4a6b6a;
   font-style: normal;
 }
 
-.chip.more:hover {
+.chip2.more:hover {
   background-color: #a6e1dd;
   color: #fff;
   border-color: #91c3bf;
 }
-.chip.more {
+.chip2.more {
   position: relative;           /* for absolutely positioned tooltip */
 }
 
 /* invisible by default */
-.chip.more::after {
+.chip2.more::after {
   content: attr(data-tooltip);
   position: absolute;
-  top: 100%;                    /* just below the chip */
+  top: 100%;                    /* just below the chip2 */
   left: 50%;
   transform: translateX(-50%) translateY(4px);
   background: rgba(0, 0, 0, 0.8);
@@ -92,7 +92,7 @@
 }
 
 /* show immediately on hover */
-.chip.more:hover::after {
+.chip2.more:hover::after {
   opacity: 1;
 }
 
@@ -157,3 +157,171 @@
 .data-table {
   height: 95% !important;
 }
+
+:root{
+  --role-partner:#059669;    /* emerald */
+  --role-manager:#4F46E5;    /* indigo */
+}
+
+.partner { color:#059669; }
+
+/* stack the role chip2s vertically */
+.role-chip2-stack{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  align-items:flex-start;
+}
+
+/* reuse chip2 shape; add role variants */
+.chip2.role{ color:#fff !important; font-weight:600; line-height:1.25;
+  padding:2px 10px; border-radius:9999px; box-shadow:0 1px 0 rgba(0,0,0,.08);
+  max-width: 180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+
+/* keep role colors across states */
+.chip2.role.originator,
+.chip2.role.originator:hover,
+.chip2.role.originator:focus,
+.chip2.role.originator:active { background-color: var(--role-originator); }
+
+.chip2.role.partner,
+.chip2.role.clientpartner:hover,
+.chip2.role.clientpartner:focus,
+.chip2.role.clientpartner:active { background-color: var(--role-partner); color:#059669; }
+
+.chip2.role.manager,
+.chip2.role.clientmanager:hover,
+.chip2.role.clientmanager:focus,
+.chip2.role.clientmanager:active { background-color: var(--role-manager); color:#4F46E5; }
+
+
+/* optional: color the three role selects to match */
+.role-select{ border:1px solid #d1d5db; border-radius:8px; padding:6px 10px; }
+.role-select.originator{ border-color:var(--role-originator); }
+.role-select.clientpartner{    border-color:var(--role-partner); }
+.role-select.clientmanager{    border-color:var(--role-manager); }
+.role-select:focus{ outline:none; box-shadow:0 0 0 3px rgba(99,102,241,.15); }
+
+
+/* Role chip2s: stack + lock colors across states */
+ .role-chip2-stack{
+  display:flex; flex-direction:column; gap:4px; align-items:flex-start;
+}
+
+ .chip2.role{
+  color:#fff !important;               /* beat base .chip2 color */
+  font-weight:600; line-height:1.25;
+  padding:2px 10px; border-radius:9999px;
+  box-shadow:0 1px 0 rgba(0,0,0,.08);
+  max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+
+/* keep the three role backgrounds on all interactive states */
+ .chip2.role.originator,
+ .chip2.role.originator:hover,
+ .chip2.role.originator:focus,
+ .chip2.role.originator:active{ background-color:var(--role-originator) !important; }
+
+ .chip2.role.clientpartner,
+ .chip2.role.clientpartner:hover,
+ .chip2.role.clientpartner:focus,
+ .chip2.role.clientpartner:active{ background-color:var(--role-partner) !important; }
+
+ .chip2.role.clientmanager,
+ .chip2.role.clientmanager:hover,
+ .chip2.role.clientmanager:focus,
+ .chip2.role.clientmanager:active{ background-color:var(--role-manager) !important; }
+
+/* Prevent generic .chip2:hover from other pages affecting role chip2s */
+ .chip2.role:hover{ background-color:inherit; } /* background is already pinned above */
+
+/* Role filter pills: beat broad .filter-bar select rules */
+ .filter-bar .role-select{
+  border:2px solid #d1d5db; border-radius:8px; padding:6px 10px;
+  background:#fff; /* prevent any inherited gradient */
+}
+
+ .filter-bar .role-select.originator{ border-color:var(--role-originator) !important; }
+ .filter-bar .role-select.clientpartner{    border-color:var(--role-partner) !important; }
+ .filter-bar .role-select.clientmanager{    border-color:var(--role-manager) !important; }
+
+ .filter-bar .role-select:focus{
+  outline:none; box-shadow:0 0 0 3px rgba(79,70,229,.15); /* subtle */
+}
+
+/* === Fix role filter selects only on Existing Drafts === */
+ .filter-bar .role-select{
+  /* restore native select (another file likely sets appearance:none) */
+  -webkit-appearance: menulist;
+  -moz-appearance: menulist;
+  appearance: auto;
+
+  /* readable text + neutral background (other files set white-on-dark) */
+  background: #fff !important;
+  color: #1f2a34 !important;
+
+  /* sizing to look like your other inputs */
+  height: 36px;
+  min-width: 220px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 2px solid #d1d5db;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+}
+
+/* make sure the dropdown list items are readable too */
+ .filter-bar .role-select option{
+  color: #1f2a34;
+}
+
+/* keep your role-colored borders */
+ .filter-bar .role-select.originator{ border-color: var(--role-originator) !important; }
+ .filter-bar .role-select.clientpartner{    border-color: var(--role-partner) !important; }
+ .filter-bar .role-select.clientmanager{    border-color: var(--role-manager) !important; }
+
+ .filter-bar .role-select:focus{
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(79,70,229,.15);
+}
+
+ .role-chip2-stack{
+  padding-block: 6px; /* 2–4px looks nice */
+}
+
+/* use the alpha on each role color */
+ .chip2.role.originator,
+ .chip2.role.originator:hover,
+ .chip2.role.originator:focus,
+ .chip2.role.originator:active{
+  background: color-mix(in srgb, var(--role-originator) var(--role-alpha-pct), transparent) !important;
+}
+
+ .chip2.role.clientpartner,
+ .chip2.role.clientpartner:hover,
+ .chip2.role.clientpartner:focus,
+ .chip2.role.clientpartner:active{
+  background: color-mix(in srgb, var(--role-partner) var(--role-alpha-pct), transparent) !important;
+}
+
+ .chip2.role.clientmanager,
+ .chip2.role.clientmanager:hover,
+ .chip2.role.clientmanager:focus,
+ .chip2.role.clientmanager:active{
+  background: color-mix(in srgb, var(--role-manager) var(--role-alpha-pct), transparent) !important;
+}
+
+/* Fixed width for role chip2s */
+ .chip2.role{
+  box-sizing: border-box;   /* include padding in the width */
+  width: 140px;
+  min-width: 140px;
+  max-width: 140px;         /* lock it in */
+  /* keeps your ellipsis working */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* (optional) center the label; remove if you prefer left-aligned */
+ .chip2.role { justify-content: center; }
