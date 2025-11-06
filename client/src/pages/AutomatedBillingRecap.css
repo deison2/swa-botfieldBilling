@@ -1052,3 +1052,122 @@
   background: #f9fafb;
   color: #4b5563;
 }
+
+/* Layout for the "Who Changed" cell */
+.who-cell {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Circular chip around the user icon */
+.who-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  cursor: default;
+}
+
+/* SVG alignment */
+.who-icon .user-icon {
+  display: block;
+}
+
+/* Mint chip for Partners */
+.who-icon--partner {
+  background-color: #b8efe0; /* mint chip */
+  color: #035f55;            /* icon (currentColor) */
+}
+
+/* Purple chip for Managers */
+.who-icon--manager {
+  background-color: #e4d8ff; /* soft purple chip */
+  color: #4b2a75;            /* icon (currentColor) */
+}
+
+/* "Who Changed" chips (keep what you already had for .who-cell, .who-icon, etc.) */
+
+/* Tooltip panel */
+.who-tooltip {
+  position: absolute;
+  bottom: 120%;
+  right: 0;                            /* anchor to right so it doesn't run off screen */
+  left: auto;
+  transform: translateY(4px);          /* small drop-in effect */
+  padding: 0;                          /* header/body handle their own padding */
+  background: #ffffff;
+  color: #111827;
+  font-size: 11px;
+  line-height: 1.35;
+  border-radius: 10px;
+  border: 1px solid #d0c7ff;
+  box-shadow: 0 18px 32px rgba(15, 23, 42, 0.35);
+  white-space: normal;
+  min-width: 190px;
+  max-width: 280px;
+  max-height: 280px;                   /* taller -> scroll only for long lists */
+  overflow-y: auto;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 9999;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+/* Soft purple header strip */
+.who-tooltip-title {
+  margin: 0;
+  padding: 6px 12px;
+  background: #f3ecff;                 /* soft purple */
+  color: #43358a;
+  font-weight: 600;
+  border-radius: 9px 9px 0 0;
+  border-bottom: 1px solid #e0d7ff;
+}
+
+/* Body list */
+.who-tooltip-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px 12px 8px;
+}
+
+.who-tooltip-list li {
+  padding: 1px 0;
+}
+
+/* Empty state text */
+.who-tooltip-empty {
+  padding: 6px 12px 8px;
+  font-style: italic;
+  opacity: 0.8;
+}
+
+/* Little arrow under the panel */
+.who-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  right: 14px;                         /* arrow near right edge */
+  border-width: 6px;
+  border-style: solid;
+  border-color: #ffffff transparent transparent transparent;
+}
+
+/* Show tooltip on hover */
+.who-icon:hover .who-tooltip {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+
+/* allow tooltips to extend outside the body area */
+
+.dtm-body {
+  overflow: visible;
+}

@@ -1364,60 +1364,93 @@ const billThroughValue = useMemo(() => {
     filteredClients,
   ]);
 
-  /* --------- NEW: compute "replacement narratives" for a given draft narrative --------- */
   const computeReplacementNarratives = useCallback(
-    (narrKey) => {
-      const freq = new Map();
-      if (!narrKey) return [];
+  (narrKey) => {
+    const freq = new Map();
+    if (!narrKey) return [];
 
-      for (const d of draftRows || []) {
-        const clientId =
-          d?.BILLINGCLIENT ??
-          d?.CONTINDEX ??
-          d?.CLIENTCODE ??
-          d?.BILLINGCLIENTCODE ??
-          "";
-        if (!clientId) continue;
+    for (const d of draftRows || []) {
+      const clientId =
+        d?.BILLINGCLIENT ??
+        d?.CONTINDEX ??
+        d?.CLIENTCODE ??
+        d?.BILLINGCLIENTCODE ??
+        "";
+      if (!clientId) continue;
 
-        const clientKey = clientKeyOf(clientId);
-        const serviceKey = serviceKeyOf(d?.SERVINDEX ?? "Unassigned");
+      const clientKey = clientKeyOf(clientId);
+      const serviceKey = serviceKeyOf(d?.SERVINDEX ?? "Unassigned");
 
-        const raw = d?.NARRATIVE ?? d?.NARRATIVE_TEXT ?? "";
-        const thisNarrKey = norm(raw);
-        if (!thisNarrKey || thisNarrKey !== narrKey) continue;
+      const raw = d?.NARRATIVE ?? d?.NARRATIVE_TEXT ?? "";
+      const thisNarrKey = norm(raw);
+      if (!thisNarrKey || thisNarrKey !== narrKey) continue;
 
-        // Only care about cases where the draft narrative text was *not* used
-        const cls = classifyDraftLine(clientKey, serviceKey, narrKey);
-        if (!cls || cls.kind !== "verbiage") continue;
+      // Only where the draft narrative was *replaced* (verbiage change)
+      const cls = classifyDraftLine(clientKey, serviceKey, narrKey);
+      if (!cls || cls.kind !== "verbiage") continue;
 
-        const aClient = actualIndex.get(clientKey);
-        const aSvc = aClient?.services.get(serviceKey);
-        if (!aSvc) continue;
+      const aClient = actualIndex.get(clientKey);
+      const aSvc = aClient?.services.get(serviceKey);
+      if (!aSvc) continue;
 
-        // For this client+service, gather all other narratives that *were* used
-        for (const [otherKey, bucket] of aSvc.entries()) {
-          if (otherKey === narrKey) continue; // should not exist in verbiage case, but just in case
+      // For this client+service, gather all the narratives that *were* used
+      for (const [otherKey, bucket] of aSvc.entries()) {
+        if (otherKey === narrKey) continue; // skip the original text if present
 
-          const label = bucket.label || "(blank)";
-          const key = `${serviceKey}||${label}`;
-          const existing =
-            freq.get(key) || { serviceKey, label, count: 0 };
+        const label = bucket.label || "(blank)";
+        const key = `${serviceKey}||${label}`;
 
-          const uses = Array.isArray(bucket.invoices)
-            ? bucket.invoices.length
-            : 1;
+        const existing =
+          freq.get(key) || {
+            serviceKey,
+            label,
+            count: 0,
+            partners: new Set(),
+            managers: new Set(),
+          };
 
-          existing.count += uses;
-          freq.set(key, existing);
+        const invoices = Array.isArray(bucket.invoices)
+          ? bucket.invoices
+          : [];
+
+        // “Uses” = distinct invoices that used this replacement
+        existing.count += invoices.length || 1;
+
+        for (const inv of invoices) {
+          const partner =
+            inv.CLIENTPARTNERNAME ??
+            inv.CLIENTPARTNER ??
+            inv.clientpartner ??
+            null;
+          const manager =
+            inv.CLIENTMANAGERNAME ??
+            inv.CLIENTMANAGER ??
+            inv.clientmanager ??
+            null;
+
+          if (partner) existing.partners.add(String(partner));
+          if (manager) existing.managers.add(String(manager));
         }
-      }
 
-      const arr = [...freq.values()];
-      arr.sort((a, b) => b.count - a.count);
-      return arr.slice(0, 10);
-    },
-    [draftRows, classifyDraftLine, actualIndex]
-  );
+        freq.set(key, existing);
+      }
+    }
+
+    // Flatten Sets -> sorted arrays for the UI
+    const arr = [...freq.values()].map((entry) => ({
+      serviceKey: entry.serviceKey,
+      label: entry.label,
+      count: entry.count,
+      partners: [...entry.partners].sort((a, b) => a.localeCompare(b)),
+      managers: [...entry.managers].sort((a, b) => a.localeCompare(b)),
+    }));
+
+    arr.sort((a, b) => b.count - a.count); // most used first
+    return arr.slice(0, 10); // keep top N
+  },
+  [draftRows, classifyDraftLine, actualIndex]
+);
+
 
   const openReplacementModal = useCallback(
     (row) => {
@@ -1973,20 +2006,88 @@ const billThroughValue = useMemo(() => {
                     <tr>
                       <th>Service</th>
                       <th>Replacement Narrative</th>
+                      <th style={{ textAlign: "center" }}>Who Changed</th>
                       <th className="num">Uses</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {replacementModal.rows.map((r, idx) => (
-                      <tr key={idx}>
-                        <td>{r.serviceKey}</td>
-                        <td>{r.label}</td>
-                        <td className="num">
-                          {r.count.toLocaleString()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
+  {replacementModal.rows.map((r, idx) => (
+    <tr key={idx}>
+      <td>{r.serviceKey}</td>
+      <td>{r.label}</td>
+
+      {/* NEW: Who Changed column */}
+      <td className="who-cell">
+        {/* Partners (mint) */}
+        <div className="who-icon who-icon--partner">
+          <svg
+            className="user-icon"
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            aria-hidden="true"
+          >
+            <g style={{ opacity: "var(--user-icon-opacity, 0.9)" }}>
+              <circle cx="12" cy="8" r="4" fill="currentColor" />
+              <path
+                d="M4 20c0-3.314 3.134-6 8-6s8 2.686 8 6H4z"
+                fill="currentColor"
+              />
+            </g>
+          </svg>
+
+          <div className="who-tooltip">
+            <div className="who-tooltip-title">Partners</div>
+            {r.partners && r.partners.length ? (
+              <ul className="who-tooltip-list">
+                {r.partners.map((p) => (
+                  <li key={p}>{p}</li>
+                ))}
+              </ul>
+            ) : (
+              <div className="who-tooltip-empty">None captured</div>
+            )}
+          </div>
+        </div>
+
+        {/* Managers (purple) */}
+        <div className="who-icon who-icon--manager">
+          <svg
+            className="user-icon"
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            aria-hidden="true"
+          >
+            <g style={{ opacity: "var(--user-icon-opacity, 0.9)" }}>
+              <circle cx="12" cy="8" r="4" fill="currentColor" />
+              <path
+                d="M4 20c0-3.314 3.134-6 8-6s8 2.686 8 6H4z"
+                fill="currentColor"
+              />
+            </g>
+          </svg>
+
+          <div className="who-tooltip">
+            <div className="who-tooltip-title">Managers</div>
+            {r.managers && r.managers.length ? (
+              <ul className="who-tooltip-list">
+                {r.managers.map((m) => (
+                  <li key={m}>{m}</li>
+                ))}
+              </ul>
+            ) : (
+              <div className="who-tooltip-empty">None captured</div>
+            )}
+          </div>
+        </div>
+      </td>
+
+      <td className="num">{r.count.toLocaleString()}</td>
+    </tr>
+  ))}
+</tbody>
+
                 </table>
               ) : (
                 <p>
