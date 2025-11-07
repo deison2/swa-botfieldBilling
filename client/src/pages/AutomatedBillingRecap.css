@@ -1182,3 +1182,87 @@
   font-weight: 600;
   opacity: 0.9;
 }
+
+/* --- AI Insights: print button tweaks --- */
+
+.aiinsights-print-btn {
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+/* Optional: small printer icon using emoji (easy / zero assets) */
+.aiinsights-print-btn::before {
+  content: "🖨️";
+  margin-right: 6px;
+  font-size: 0.95em;
+}
+
+/* --- AI Insights: print-only layout --- */
+@media print {
+  /* Let us control the page box */
+  html, body {
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Show only the AI insights card and its contents */
+  .aiinsights-card,
+  .aiinsights-card * {
+    visibility: visible;
+  }
+
+  /* Put the card at the top of the printed page */
+    .aiinsights-card {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 24px 24px;        /* slightly narrower padding */
+    box-sizing: border-box;    /* <-- key fix so 100% includes padding */
+    box-shadow: none;
+    border-radius: 0;
+    background: #ffffff;
+  }
+
+
+  /* Remove controls / buttons from printout */
+  .aiinsights-controls,
+  .aiinsights-refresh-btn,
+  .aiinsights-print-btn,
+  .instructions-card,
+  .aiinsights-error,
+  .aiinsights-placeholder {
+    display: none !important;
+  }
+
+  /* Optional: if your Loader overlays the page */
+  .loader-overlay,
+  .loader-backdrop {
+    display: none !important;
+  }
+
+  /* Basic print-friendly typography inside the card */
+  .aiinsights-card-header {
+    margin-bottom: 16px;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 8px;
+  }
+
+  .aiinsights-card-header h3,
+  .aiinsights-card-header .aiinsights-chip {
+    page-break-inside: avoid;
+  }
+
+  .aiinsights-body.prose {
+    font-size: 12pt;
+    line-height: 1.4;
+  }
+
+  .aiinsights-body.prose h1,
+  .aiinsights-body.prose h2,
+  .aiinsights-body.prose h3 {
+    page-break-after: avoid;
+  }
+}

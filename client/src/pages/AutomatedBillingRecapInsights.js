@@ -44,6 +44,25 @@ export default function AutomatedBillingRecapInsights() {
   const [loadingInsight, setLoadingInsight] = useState(false);
   const [error, setError] = useState("");
 
+  
+    // inside AutomatedBillingRecapInsights()
+    const handlePrint = () => {
+    if (!selectedDate) return;
+
+    const prettyDate = formatYmd(selectedDate);
+    const originalTitle = document.title;
+
+    // Suggest PDF filename like "Billing Period 9/15/2025 - AI Insights.pdf"
+    document.title = `Billing Period ${prettyDate} - AI Insights`;
+
+    window.print();
+
+    // Restore original page title after print dialog closes
+    setTimeout(() => {
+        document.title = originalTitle;
+    }, 1000);
+    };
+
   // load list of bill-through dates (same as Draft Changes / Date)
   useEffect(() => {
     let cancelled = false;
@@ -183,39 +202,52 @@ export default function AutomatedBillingRecapInsights() {
         </select>
 
         {selectedDate && (
-          <button
+        <>
+        <button
             type="button"
             className="pill-btn aiinsights-refresh-btn"
             onClick={() => {
-              // append &refresh=1 to force backend to recalc
-              setLoadingInsight(true);
-              setError("");
-              fetch(
+            // append &refresh=1 to force backend to recalc
+            setLoadingInsight(true);
+            setError("");
+            fetch(
                 `/api/autoBillingInsights?date=${encodeURIComponent(
-                  selectedDate
+                selectedDate
                 )}&refresh=1`
-              )
+            )
                 .then((r) => {
-                  if (!r.ok) {
+                if (!r.ok) {
                     throw new Error(`refresh failed: ${r.status}`);
-                  }
-                  return r.text();
+                }
+                return r.text();
                 })
                 .then((md) => {
-                  setMarkdown(md || "");
+                setMarkdown(md || "");
                 })
                 .catch((e) => {
-                  console.error("[AI Insights] refresh failed", e);
-                  setError(
+                console.error("[AI Insights] refresh failed", e);
+                setError(
                     "Unable to refresh insights right now. Using last cached result."
-                  );
+                );
                 })
                 .finally(() => setLoadingInsight(false));
             }}
-          >
+        >
             Regenerate insights
-          </button>
+        </button>
+
+        {hasInsight && (
+            <button
+            type="button"
+            className="pill-btn aiinsights-print-btn"
+            title="Print this summary to PDF"
+            onClick={handlePrint}
+            >
+            Print summary (PDF)
+            </button>
         )}
+        </>
+    )}
       </div>
 
       {!selectedDate && (

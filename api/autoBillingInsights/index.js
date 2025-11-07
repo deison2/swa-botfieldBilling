@@ -618,7 +618,10 @@ function buildAnalyticsPayload(ymd, draftRows, actualInvoices) {
         unchangedLines: 0,
         amountChanges: 0,
         verbiageChanges: 0,
-        replacementFreq: new Map(), // key = serviceKey||label
+        // key = `${serviceKey}||${label}` → {
+        //   serviceKey, label, count, partners:Set, managers:Set
+        // }
+        replacementFreq: new Map(),
       };
       topNarrMap.set(narrKey, narrRec);
     }
@@ -634,19 +637,42 @@ function buildAnalyticsPayload(ymd, draftRows, actualInvoices) {
       const aSvc = aClient?.services.get(serviceKey);
       if (aSvc) {
         for (const [otherKey, bucket] of aSvc.entries()) {
-          if (otherKey === narrKey) continue;
+          if (otherKey === narrKey) continue; // skip original text
+
           const repLabel = bucket.label || "(blank)";
-          const uses = Array.isArray(bucket.invoices)
-            ? bucket.invoices.length
-            : 1;
           const freqKey = `${serviceKey}||${repLabel}`;
+
           const existing =
             narrRec.replacementFreq.get(freqKey) || {
-              service: serviceKey,
-              replacementText: repLabel,
-              uses: 0,
+              serviceKey,
+              label: repLabel,
+              count: 0,
+              partners: new Set(),
+              managers: new Set(),
             };
-          existing.uses += uses;
+
+          const invoices = Array.isArray(bucket.invoices)
+            ? bucket.invoices
+            : [];
+
+          existing.count += invoices.length || 1;
+
+          for (const inv of invoices) {
+            const partner =
+              inv.CLIENTPARTNERNAME ??
+              inv.CLIENTPARTNER ??
+              inv.clientpartner ??
+              null;
+            const manager =
+              inv.CLIENTMANAGERNAME ??
+              inv.CLIENTMANAGER ??
+              inv.clientmanager ??
+              null;
+
+            if (partner) existing.partners.add(String(partner));
+            if (manager) existing.managers.add(String(manager));
+          }
+
           narrRec.replacementFreq.set(freqKey, existing);
         }
       }
@@ -673,7 +699,7 @@ function buildAnalyticsPayload(ymd, draftRows, actualInvoices) {
     targetAutoAcceptanceRate,
   };
 
-  // 6) Groupings: byOffice, byService, byPartner
+  // 6) Groupings: byOffice, byService, byPartner, byManager
   function buildGrouping(keyName) {
     const map = new Map();
     for (const r of comparedClients) {
@@ -682,7 +708,9 @@ function buildAnalyticsPayload(ymd, draftRows, actualInvoices) {
           ? r.Office || "Unassigned"
           : keyName === "Service"
           ? r.Service || "Unassigned"
-          : r.Partner || "Unassigned";
+          : keyName === "Partner"
+          ? r.Partner || "Unassigned"
+          : r.Manager || "Unassigned";
 
       const g =
         map.get(name) || {
@@ -739,15 +767,29 @@ function buildAnalyticsPayload(ymd, draftRows, actualInvoices) {
   const byOffice = buildGrouping("Office").slice(0, 10);
   const byService = buildGrouping("Service").slice(0, 10);
   const byPartner = buildGrouping("Partner").slice(0, 20);
+  const byManager = buildGrouping("Manager").slice(0, 20);
 
-  // 7) Top narratives array
+  // 7) Top narratives array (with partner/manager arrays on replacements)
   const topNarratives = [...topNarrMap.values()]
     .map((n) => {
       const percentUnchanged =
         n.totalLineItems > 0 ? n.unchangedLines / n.totalLineItems : 0;
+
       const replacements = [...n.replacementFreq.values()]
-        .sort((a, b) => b.uses - a.uses)
+        .map((entry) => ({
+          serviceKey: entry.serviceKey,
+          label: entry.label,
+          count: entry.count,
+          partners: [...entry.partners].sort((a, b) =>
+            a.localeCompare(b)
+          ),
+          managers: [...entry.managers].sort((a, b) =>
+            a.localeCompare(b)
+          ),
+        }))
+        .sort((a, b) => b.count - a.count)
         .slice(0, 10);
+
       return {
         text: n.text,
         totalLineItems: n.totalLineItems,
@@ -771,11 +813,13 @@ function buildAnalyticsPayload(ymd, draftRows, actualInvoices) {
     byOffice,
     byService,
     byPartner,
+    byManager,
     topNarratives,
     config: {
       maxOffices: 10,
       maxServices: 10,
       maxPartners: 20,
+      maxManagers: 20,
       maxNarratives: 30,
       maxReplacementsPerNarrative: 10,
     },
@@ -799,6 +843,7 @@ You will receive JSON data describing one billing cycle with this structure:
 - "byOffice": one record per office with drafted bill, actual bill, realization, change counts, and auto-acceptance rate.
 - "byService": one record per service line (e.g., ACCTG, BUSTAX) with the same metrics.
 - "byPartner": one record per partner with the same metrics.
+- "byManager": one record per manager with the same metrics. **Managers are the first reviewers of automated drafts and often change narratives before partners ever see them.**
 - "topNarratives": standardized draft narrative texts, how often they were used, how often they changed, and the most common replacement narratives by service.
 
 Field meanings:
@@ -810,7 +855,17 @@ Field meanings:
 - draftsUnchanged: count of drafts that went out exactly as the automation produced them.
 - autoAcceptanceRate: draftsUnchanged / totalDrafts for that slice of data.
 - targetAutoAcceptanceRate: the firm's goal (currently 0.8 = 80%).
-- In "topNarratives", topReplacementNarratives shows the most common texts that partners actually used instead of the standard narrative, broken down by service, plus how many times each replacement appeared.
+- In "topNarratives", topReplacementNarratives shows, for each standard narrative:
+  - which replacement narratives were actually used,
+  - which service they were used in (serviceKey),
+  - how often they were used (count),
+  - which partners used them (partners array),
+  - and which managers used them (managers array).
+
+Important context about workflow:
+- Managers typically receive the automated drafts first and make narrative and amount changes based on what they know specific partners want.
+- Partners often see the draft only after a manager has already edited it.
+- Coaching therefore needs to be directed at **both** partners and managers, and in some cases primarily at managers who are driving the edits on behalf of partners.
 
 Your job is to:
 1. Identify patterns in where the automation is working well vs where humans are still doing a lot of editing.
@@ -818,28 +873,35 @@ Your job is to:
 3. Recommend concrete actions to:
    - update or create standardized narratives,
    - reduce unnecessary edits,
-   - and focus coaching/communication on outliers (partners, offices, or services that behave very differently from the majority).
+   - and focus coaching/communication on outliers (partners, managers, offices, or services that behave very differently from the majority).
 
 Focus especially on:
 1. Standard narratives and text behavior
    - Which standardized narratives are changed most often (low percent unchanged, high verbiageChanges or amountChanges)?
    - For those, what are the common replacement themes (e.g., adding timing details, listing specific services, clarifying scope, adjusting tone)?
+   - Use the partners and managers arrays on each replacement to identify **who** is driving those changes.
    - Decide whether the firm should:
      - update the standard narrative to better match how people actually describe the work,
      - introduce one or two standardized variants for common scenarios,
      - or keep the standard narrative and instead encourage more adoption.
-2. Partner, office, and service outliers
-   - Identify partners/offices/services with very low auto-acceptance rates or very high change rates, especially when others are largely accepting the standard drafts.
+
+2. Partner, manager, office, and service outliers
+   - Identify partners, **managers**, offices, and services with very low auto-acceptance rates or very high change rates, especially when others are largely accepting the standard drafts.
    - Distinguish:
      - healthy, risk-aware adjustments (e.g., justified write-downs, complex situations), versus
      - habits or preferences that simply fight standardization with no clear client benefit.
-   - Suggest where targeted coaching or communication could move them closer to the norm.
+   - Explicitly point out patterns where:
+     - managers are heavily editing drafts on behalf of certain partners, or
+     - partners in one office rely on a small group of managers who consistently change narratives a certain way.
+   - Suggest where targeted coaching or communication could move them closer to the norm, and whether that coaching should focus on managers, partners, or both.
+
 3. Automation success stories
-   - Highlight partners, offices, or services where:
+   - Highlight partners, managers, offices, or services where:
      - auto-acceptance rates are high,
      - realization holds up,
      - and narrative changes are low.
    - Treat these as internal “best practices” and suggest how they could be shared or scaled.
+
 4. Progress vs the 80% target
    - Compare the current firm-level auto-acceptance rate to the targetAutoAcceptanceRate.
    - Comment on whether the firm is trending in the right direction, significantly below target, or close to target.
@@ -851,21 +913,24 @@ Produce a concise, business-oriented report in markdown with these sections:
    - 3–6 clear bullet points explaining the most important findings and how they relate to the 80% auto-acceptance goal.
 
 2. **Where Automation Is Working Well**
-   - Call out offices, services, and partners that have high auto-acceptance and stable realization.
+   - Call out offices, services, partners, and managers that have high auto-acceptance and stable realization.
    - Explain what seems to make these areas successful.
 
 3. **Where Humans Are Still Doing Too Much Work**
    - Identify the biggest pockets of manual editing (low auto-acceptance, high narrative/amount changes, or sharp drops in realization).
    - Describe what kind of edits are happening: mostly narrative tweaks, mostly amount changes, or both.
+   - When you discuss problem areas, be explicit about whether the editing is driven mainly by managers, partners, or both.
 
 4. **Narrative Standardization Opportunities**
    - For the top standardized narratives with high change rates, summarize:
-     - what people are changing them to (at a theme level), and
-     - whether you recommend updating the standard text, creating variants, or encouraging partners to accept the standard.
+     - what people are changing them to (at a theme level),
+     - which partners and managers are driving those changes,
+     - and whether you recommend updating the standard text, creating variants, or encouraging partners/managers to accept the standard.
    - Explicitly mention narratives where updating the standard could significantly reduce edits.
 
-5. **Partner & Office Coaching Suggestions**
-   - List specific partners or offices that are outliers compared to their peers, with brief notes.
+5. **Partner & Manager Coaching Suggestions**
+   - List specific partners **and managers** that are outliers compared to their peers, with brief notes.
+   - Where possible, connect partner outliers to the specific managers who are doing the editing for them.
    - Keep the tone constructive and focused on process improvement.
 
 6. **Recommended Next Actions to Move Toward 80% Auto-Acceptance**
@@ -873,7 +938,7 @@ Produce a concise, business-oriented report in markdown with these sections:
    - Tie each recommendation back to the 80/20 target and the idea of simplifying through standardization.
 
 Constraints:
-- Do not invent numbers or partners that are not present in the data; base your statements only on trends that can reasonably be inferred from the JSON.
+- Do not invent numbers or people that are not present in the data; base your statements only on trends that can reasonably be inferred from the JSON.
 - Avoid quoting very long narratives verbatim; summarize their themes instead.
 - Keep the total answer under about 1,500 words and favor clear bullets over long paragraphs.
 `.trim();
