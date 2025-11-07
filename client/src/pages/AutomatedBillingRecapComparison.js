@@ -1436,9 +1436,9 @@ const billThroughValue = useMemo(() => {
           freq.get(freqKey) || {
             serviceKey: displayService, // what shows in the "Service" column
             label,
-            count: 0,
-            partners: new Set(),
-            managers: new Set(),
+            count: 0,                  // total invoices using this replacement
+            partners: new Map(),       // name -> count
+            managers: new Map(),       // name -> count
           };
 
         const invoices = Array.isArray(bucket.invoices)
@@ -1460,21 +1460,42 @@ const billThroughValue = useMemo(() => {
             inv.clientmanager ??
             null;
 
-          if (partner) existing.partners.add(String(partner));
-          if (manager) existing.managers.add(String(manager));
+          if (partner) {
+            const name = String(partner);
+            existing.partners.set(
+              name,
+              (existing.partners.get(name) || 0) + 1
+            );
+          }
+
+          if (manager) {
+            const name = String(manager);
+            existing.managers.set(
+              name,
+              (existing.managers.get(name) || 0) + 1
+            );
+          }
         }
 
         freq.set(freqKey, existing);
       }
     }
 
-    // Flatten Sets -> sorted arrays for the UI
+    // Flatten Maps -> sorted arrays for the UI
+    const mapToList = (m) =>
+      [...m.entries()]
+        .map(([name, count]) => ({ name, count }))
+        .sort(
+          (a, b) =>
+            b.count - a.count || a.name.localeCompare(b.name)
+        );
+
     const arr = [...freq.values()].map((entry) => ({
       serviceKey: entry.serviceKey,
       label: entry.label,
       count: entry.count,
-      partners: [...entry.partners].sort((a, b) => a.localeCompare(b)),
-      managers: [...entry.managers].sort((a, b) => a.localeCompare(b)),
+      partners: mapToList(entry.partners),
+      managers: mapToList(entry.managers),
     }));
 
     arr.sort((a, b) => b.count - a.count); // most used first
@@ -2073,7 +2094,10 @@ const billThroughValue = useMemo(() => {
             {r.partners && r.partners.length ? (
               <ul className="who-tooltip-list">
                 {r.partners.map((p) => (
-                  <li key={p}>{p}</li>
+                  <li key={p.name}>
+                    <span>{p.name}</span>
+                    <span className="who-count">({p.count})</span>
+                  </li>
                 ))}
               </ul>
             ) : (
@@ -2105,7 +2129,10 @@ const billThroughValue = useMemo(() => {
             {r.managers && r.managers.length ? (
               <ul className="who-tooltip-list">
                 {r.managers.map((m) => (
-                  <li key={m}>{m}</li>
+                  <li key={m.name}>
+                    <span>{m.name}</span>
+                    <span className="who-count">({m.count})</span>
+                  </li>
                 ))}
               </ul>
             ) : (

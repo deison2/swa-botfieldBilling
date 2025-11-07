@@ -1171,3 +1171,14 @@
 .dtm-body {
   overflow: visible;
 }
+
+.who-tooltip-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.who-count {
+  font-weight: 600;
+  opacity: 0.9;
+}
