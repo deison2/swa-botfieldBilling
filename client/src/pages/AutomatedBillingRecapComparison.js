@@ -96,6 +96,14 @@ const stripHtml = (t) =>
 
 const clientKeyOf = (id) => String(id ?? "").trim().toLowerCase();
 const serviceKeyOf = (svc) => String(svc ?? "").trim().toUpperCase();
+const wipTypeKeyOf = (wip) => {
+  const s = String(wip ?? "").trim().toUpperCase();
+  return s || "UNSPECIFIED";
+};
+
+const svcIndexKeyOf = (svc, wip) =>
+  `${serviceKeyOf(svc)}__${wipTypeKeyOf(wip)}`;
+
 
 const pick = (row, keys, fallback = "Unassigned") => {
   for (const k of keys) {
@@ -838,7 +846,11 @@ const billThroughValue = useMemo(() => {
         "";
       if (!clientId) continue;
       const clientKey = clientKeyOf(clientId);
-      const serviceKey = serviceKeyOf(d?.SERVINDEX ?? "Unassigned");
+      // NEW: service + WIPTYPE
+      const service = d?.SERVINDEX ?? "Unassigned";
+      const wipType = d?.WIPTYPE ?? d?.WIPType ?? d?.WIP_TYPE ?? "";
+      const serviceKey = svcIndexKeyOf(service, wipType);
+
 
       const rawNarr = d?.NARRATIVE ?? d?.NARRATIVE_TEXT ?? "";
       const narrKey = norm(rawNarr);
@@ -927,7 +939,15 @@ const billThroughValue = useMemo(() => {
 
         const svc =
           n?.SERVICE ?? n?.service ?? n?.Service ?? jobSvcFallback ?? "Unassigned";
-        const serviceKey = serviceKeyOf(svc);
+
+        const wipType =
+          n?.WIPType ??
+          n?.WIPTYPE ??
+          n?.wiptype ??
+          ""; // fall back to blank if not present
+
+        const serviceKey = svcIndexKeyOf(svc, wipType);
+
 
         let svcMap = clientBucket.services.get(serviceKey);
         if (!svcMap) {
@@ -1107,7 +1127,9 @@ const billThroughValue = useMemo(() => {
           "";
         if (!clientId) continue;
         const clientKey = clientKeyOf(clientId);
-        const serviceKey = serviceKeyOf(d?.SERVINDEX ?? "Unassigned");
+        const service = d?.SERVINDEX ?? "Unassigned";
+        const wipType = d?.WIPTYPE ?? d?.WIPType ?? d?.WIP_TYPE ?? "";
+        const serviceKey = svcIndexKeyOf(service, wipType);
 
         const raw = d?.NARRATIVE ?? d?.NARRATIVE_TEXT ?? "";
         const narrKey = norm(raw);
@@ -1232,7 +1254,10 @@ const billThroughValue = useMemo(() => {
         "";
       if (!clientId) continue;
       const clientKey = clientKeyOf(clientId);
-      const serviceKey = serviceKeyOf(d?.SERVINDEX ?? "Unassigned");
+      const service = d?.SERVINDEX ?? "Unassigned";
+      const wipType = d?.WIPTYPE ?? d?.WIPType ?? d?.WIP_TYPE ?? "";
+      const serviceKey = svcIndexKeyOf(service, wipType);
+
 
       const raw = d?.NARRATIVE ?? d?.NARRATIVE_TEXT ?? "";
       const narrKey = norm(raw);
@@ -1379,7 +1404,10 @@ const billThroughValue = useMemo(() => {
       if (!clientId) continue;
 
       const clientKey = clientKeyOf(clientId);
-      const serviceKey = serviceKeyOf(d?.SERVINDEX ?? "Unassigned");
+
+      const service = d?.SERVINDEX ?? "Unassigned";
+      const wipType = d?.WIPTYPE ?? d?.WIPType ?? d?.WIP_TYPE ?? "";
+      const serviceKey = svcIndexKeyOf(service, wipType);
 
       const raw = d?.NARRATIVE ?? d?.NARRATIVE_TEXT ?? "";
       const thisNarrKey = norm(raw);
@@ -1393,16 +1421,20 @@ const billThroughValue = useMemo(() => {
       const aSvc = aClient?.services.get(serviceKey);
       if (!aSvc) continue;
 
-      // For this client+service, gather all the narratives that *were* used
-      for (const [otherKey, bucket] of aSvc.entries()) {
-        if (otherKey === narrKey) continue; // skip the original text if present
+      // Display service (no WIP type in the UI)
+      const displayService = serviceKeyOf(service);
+
+      // For this client+service+WIP, gather all the narratives that *were* used
+      for (const [actualNarrKey, bucket] of aSvc.entries()) {
+        // Skip the original draft narrative – we only want replacements
+        if (actualNarrKey === narrKey) continue;
 
         const label = bucket.label || "(blank)";
-        const key = `${serviceKey}||${label}`;
+        const freqKey = `${displayService}||${label}`;
 
         const existing =
-          freq.get(key) || {
-            serviceKey,
+          freq.get(freqKey) || {
+            serviceKey: displayService, // what shows in the "Service" column
             label,
             count: 0,
             partners: new Set(),
@@ -1413,7 +1445,7 @@ const billThroughValue = useMemo(() => {
           ? bucket.invoices
           : [];
 
-        // “Uses” = distinct invoices that used this replacement
+        // “Uses” = number of invoices that used this replacement
         existing.count += invoices.length || 1;
 
         for (const inv of invoices) {
@@ -1432,7 +1464,7 @@ const billThroughValue = useMemo(() => {
           if (manager) existing.managers.add(String(manager));
         }
 
-        freq.set(key, existing);
+        freq.set(freqKey, existing);
       }
     }
 
