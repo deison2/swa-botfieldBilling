@@ -10,14 +10,37 @@ export async function getBilledData(ymd) {
   return r.json(); // the raw rows array for that period
 }
 
-// AutomatedBillingBilledService.js (append at bottom)
+// services/AutomatedBillingBilledService.js
 
-export async function getBillingAiInsights(ymd) {
-  const r = await fetch(
-    `/api/autoBillingInsights?date=${encodeURIComponent(ymd)}`
-  );
-  if (!r.ok) {
-    throw new Error(`getBillingAiInsights failed: ${r.status}`);
+// mode: "Date" | "Month" | "Year"
+// period: "YYYY-MM-DD" | "YYYY-MM" | "YYYY"
+// dates: array of concrete YYYY-MM-DD values included in that period
+// options.refresh: boolean – force OpenAI to rerun and overwrite cache
+export async function getBillingAiInsights(
+  mode,
+  period,
+  dates,
+  options = {}
+) {
+  const params = new URLSearchParams();
+
+  if (mode) params.set("mode", mode);
+  if (period) params.set("period", period);
+
+  if (Array.isArray(dates) && dates.length) {
+    params.set("dates", dates.join(",")); // "2025-09-15,2025-09-30"
   }
-  return r.text(); // markdown string
+
+  if (options.refresh) {
+    params.set("refresh", "1");
+  }
+
+  const resp = await fetch(`/api/autoBillingInsights?${params.toString()}`);
+
+  if (!resp.ok) {
+    throw new Error(`autoBillingInsights HTTP ${resp.status}`);
+  }
+
+  return resp.text();
 }
+

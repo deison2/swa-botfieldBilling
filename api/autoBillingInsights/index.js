@@ -1,15 +1,20 @@
 // api/autoBillingInsights/index.js
-// Azure Function: GET /api/autoBillingInsights?date=YYYY-MM-DD
-// - If a cached markdown insight exists in Blob Storage, return it.
-// - Otherwise, compute a summary payload for that billing date,
+// Azure Function: GET /api/autoBillingInsights
+// New contract (front-end):
+//   GET /api/autoBillingInsights?mode=Date|Month|Year&period=...&dates=YYYY-MM-DD,YYYY-MM-DD&refresh=1
+// Backwards compatible:
+//   GET /api/autoBillingInsights?date=YYYY-MM-DD
+//
+// - If a cached markdown insight exists in Blob Storage (based on mode+period), return it.
+// - Otherwise, compute a summary payload for that period (one or more billing dates),
 //   call OpenAI with the standard prompt, cache the markdown, and return it.
 
 const { BlobServiceClient } = require("@azure/storage-blob");
 const OpenAI = require("openai");
 
 const CONTAINER = "container-bmssprod001";
-const DRAFT_PREFIX = "htmlData/automatedBilling/drafts/billed/";   // same pattern as autoBillingBilled
-const INSIGHTS_PREFIX = "htmlData/automatedBilling/insights/";     // new folder for cached AI results
+const DRAFT_PREFIX = "htmlData/automatedBilling/drafts/billed/"; // same pattern as autoBillingBilled
+const INSIGHTS_PREFIX = "htmlData/automatedBilling/insights/"; // base folder for cached AI results
 
 // IMPORTANT: set these in your Function App configuration
 const STORAGE_CONN = process.env.AZURE_STORAGE_CONNECTION_STRING;
@@ -42,14 +47,40 @@ function toCanonicalYmd(raw) {
 }
 
 function formatLabelFromYmd(ymd) {
-  const [y, m, d] = ymd.split("-");
-  if (!y || !m || !d) return ymd;
+  const [y, m, d] = String(ymd || "").split("-");
+  if (!y || !m || !d) return String(ymd || "");
   const dt = new Date(Number(y), Number(m) - 1, Number(d));
   return dt.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
     year: "numeric",
   });
+}
+
+// Human-friendly label for the period shown in the markdown + used in print
+function labelForPeriod(mode, periodKey) {
+  const m = (mode || "Date").toLowerCase();
+  const key = String(periodKey || "");
+
+  if (m === "date") {
+    return formatLabelFromYmd(key);
+  }
+
+  if (m === "month") {
+    const [y, mm] = key.split("-");
+    if (!y || !mm) return key;
+    const dt = new Date(Number(y), Number(mm) - 1, 1);
+    return dt.toLocaleDateString(undefined, {
+      month: "short",
+      year: "numeric",
+    });
+  }
+
+  if (m === "year") {
+    return key;
+  }
+
+  return key;
 }
 
 function mapsEqualNum(m1, m2) {
@@ -119,7 +150,50 @@ function blobNameForInsight(ymd) {
   return `${INSIGHTS_PREFIX}insights_${mm}.${dd}.${yy}.md`;
 }
 
-// ----- load data for one bill-through date ------------------------------
+// DEBUG: JSON payload blob (what we send to OpenAI), keyed same way as markdown
+function blobNameForInsightPayloadKey(mode, periodKey) {
+  const m = (mode || "Date").toLowerCase();
+
+  if (m === "date") {
+    // For single-date mode keep the mm.dd.yy pattern
+    const ymd = toCanonicalYmd(periodKey);
+    const [Y, M, D] = String(ymd).split("-");
+    const yy = String(Number(Y) % 100).padStart(2, "0");
+    const mm = String(Number(M)).padStart(2, "0");
+    const dd = String(Number(D)).padStart(2, "0");
+    return `${INSIGHTS_PREFIX}insightsPayload_${mm}.${dd}.${yy}.json`;
+  }
+
+  // For Month/Year, mirror the folder/key pattern used by blobNameForInsightKey
+  const safeMode = m === "month" || m === "year" ? m : "other";
+  const safePeriod = String(periodKey || "").replace(/[^0-9A-Za-z_-]/g, "");
+
+  // e.g. htmlData/automatedBilling/insights/month/insightsPayload_2025-09.json
+  //      htmlData/automatedBilling/insights/year/insightsPayload_2025.json
+  return `${INSIGHTS_PREFIX}${safeMode}/insightsPayload_${safePeriod}.json`;
+}
+
+
+// NEW: blob name for (mode, periodKey)
+// Date mode keeps the old single-day convention;
+// Month/Year get their own subfolders and simple keys.
+function blobNameForInsightKey(mode, periodKey) {
+  const m = (mode || "Date").toLowerCase();
+
+  if (m === "date") {
+    // Backwards-compatible: same pattern as existing single-date insights
+    return blobNameForInsight(periodKey);
+  }
+
+  const safeMode = m === "month" || m === "year" ? m : "other";
+  const safePeriod = String(periodKey || "").replace(/[^0-9A-Za-z_-]/g, "");
+
+  // e.g. htmlData/automatedBilling/insights/month/insights_2025-09.md
+  //      htmlData/automatedBilling/insights/year/insights_2025.md
+  return `${INSIGHTS_PREFIX}${safeMode}/insights_${safePeriod}.md`;
+}
+
+// ----- load data for one or more bill-through dates ---------------------
 
 async function loadDraftRows(container, ymd, log) {
   const blobName = blobNameForDraft(ymd);
@@ -140,15 +214,39 @@ async function loadDraftRows(container, ymd, log) {
   }
 }
 
-async function loadActualInvoices(ymd, log) {
+// NEW: load drafts for multiple YYYY-MM-DD dates and flatten
+async function loadDraftRowsForDates(container, ymdList, log) {
+  const all = [];
+  for (const ymd of ymdList || []) {
+    const rows = await loadDraftRows(container, ymd, log);
+    if (Array.isArray(rows) && rows.length) {
+      all.push(...rows);
+    }
+  }
+  return all;
+}
+
+// NEW: actual invoices for one or more dates, same pattern as Comparison tab
+// ymdInput can be a single "YYYY-MM-DD" or an array of them
+async function loadActualInvoices(ymdInput, log) {
   if (!ACTUAL_INVOICES_URL) {
     log("ACTUAL_INVOICES_URL not set – returning empty actuals");
     return [];
   }
 
-  // The Logic App endpoint expects billThrough as a quoted string,
-  // e.g. "'2025-10-15'". For Insights we only support single dates.
-  const billThrough = `'${ymd}'`;
+  const list = Array.isArray(ymdInput) ? ymdInput : [ymdInput];
+
+  const dates = list
+    .map((d) => toCanonicalYmd(d))
+    .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d));
+
+  if (!dates.length) {
+    log("loadActualInvoices: no valid dates", { ymdInput });
+    return [];
+  }
+
+  // "'2025-09-15','2025-09-30'"
+  const billThrough = dates.map((d) => `'${d}'`).join(", ");
 
   const resp = await fetch(ACTUAL_INVOICES_URL, {
     method: "POST",
@@ -222,11 +320,12 @@ async function loadActualInvoices(ymd, log) {
 }
 
 // ----- analytics: build compact payload ------------------------------
-
+//
 // This is a smaller, Node-friendly translation of your Draft Changes logic.
+// UPDATED: accepts a periodMeta object instead of just ymd.
 
-function buildAnalyticsPayload(ymd, draftRows, actualInvoices) {
-  const label = formatLabelFromYmd(ymd);
+function buildAnalyticsPayload(periodMeta, draftRows, actualInvoices) {
+  const { mode, label, key, dates } = periodMeta;
 
   // 1) Aggregate drafts by client
   const draftsByClient = new Map();
@@ -238,11 +337,11 @@ function buildAnalyticsPayload(ymd, draftRows, actualInvoices) {
       d.BILLINGCLIENTCODE ??
       "";
     if (!clientId) continue;
-    const key = clientKeyOf(clientId);
+    const keyC = clientKeyOf(clientId);
 
     const cur =
-      draftsByClient.get(key) || {
-        ClientId: key,
+      draftsByClient.get(keyC) || {
+        ClientId: keyC,
         ClientCode: pick(d, [
           "CLIENTCODE",
           "BILLINGCLIENTCODE",
@@ -276,7 +375,7 @@ function buildAnalyticsPayload(ymd, draftRows, actualInvoices) {
       );
     }
 
-    draftsByClient.set(key, cur);
+    draftsByClient.set(keyC, cur);
   }
 
   for (const v of draftsByClient.values()) {
@@ -291,11 +390,11 @@ function buildAnalyticsPayload(ymd, draftRows, actualInvoices) {
     const clientId =
       inv.BILLINGCLIENT ?? inv.CONTINDEX ?? inv.billingclient ?? "";
     if (!clientId) continue;
-    const key = clientKeyOf(clientId);
+    const keyC = clientKeyOf(clientId);
 
     const cur =
-      actualsByClient.get(key) || {
-        ClientId: key,
+      actualsByClient.get(keyC) || {
+        ClientId: keyC,
         ClientCode: pick(inv, [
           "CLIENTCODE",
           "BILLINGCLIENT",
@@ -358,7 +457,7 @@ function buildAnalyticsPayload(ymd, draftRows, actualInvoices) {
     }
 
     cur._rawBucket.push(inv);
-    actualsByClient.set(key, cur);
+    actualsByClient.set(keyC, cur);
   }
 
   for (const v of actualsByClient.values()) {
@@ -501,12 +600,13 @@ function buildAnalyticsPayload(ymd, draftRows, actualInvoices) {
     };
   }
 
-  // 4) Per-client comparison (similar to comparedClients in UI)
+    // 4) Per-client comparison (similar to comparedClients in UI)
   const comparedClients = [];
   const allClientKeys = new Set([
     ...draftsByClient.keys(),
     ...actualsByClient.keys(),
   ]);
+
   for (const key of allClientKeys) {
     const d = draftsByClient.get(key);
     const a = actualsByClient.get(key);
@@ -536,6 +636,10 @@ function buildAnalyticsPayload(ymd, draftRows, actualInvoices) {
           : 0
         : 0;
 
+    // NEW: simple client-level amount change flag
+    const AmountChanges =
+      d && a && Number(DraftBill) !== Number(ActualBill) ? 1 : 0;
+
     comparedClients.push({
       ClientId: key,
       ClientCode: d?.ClientCode ?? a?.ClientCode ?? key,
@@ -554,6 +658,7 @@ function buildAnalyticsPayload(ymd, draftRows, actualInvoices) {
       DeltaReal,
       NarrativeChanges,
       UnchangedDrafts,
+      AmountChanges,        // <--- NEW
       HasDraft: !!d,
       HasActual: !!a,
     });
@@ -566,6 +671,7 @@ function buildAnalyticsPayload(ymd, draftRows, actualInvoices) {
     actualWip = 0;
   let draftsUnchanged = 0;
   let totalDrafts = 0;
+  let amountChangeDrafts = 0;   // NEW
 
   for (const c of comparedClients) {
     draftBill += c.DraftBill;
@@ -575,6 +681,7 @@ function buildAnalyticsPayload(ymd, draftRows, actualInvoices) {
     if (c.HasDraft && c.HasActual) {
       totalDrafts += 1;
       draftsUnchanged += c.UnchangedDrafts;
+      amountChangeDrafts += c.AmountChanges || 0;   // NEW
     }
   }
 
@@ -584,7 +691,7 @@ function buildAnalyticsPayload(ymd, draftRows, actualInvoices) {
   // line-level counts & narrative stats
   let totalLineDrafts = 0;
   let lineNarrChanges = 0;
-  let lineAmountChanges = 0;
+  let lineAmountChanges = amountChangeDrafts;   // NEW
 
   const topNarrMap = new Map(); // narrKey -> { text, ... , replacementFreq: Map }
 
@@ -607,8 +714,7 @@ function buildAnalyticsPayload(ymd, draftRows, actualInvoices) {
     if (!cls) continue;
 
     totalLineDrafts += 1;
-    if (cls.kind === "amount") lineAmountChanges += 1;
-    else if (cls.kind === "verbiage") lineNarrChanges += 1;
+    if (cls.kind === "verbiage") lineNarrChanges += 1;
 
     let narrRec = topNarrMap.get(narrKey);
     if (!narrRec) {
@@ -692,7 +798,7 @@ function buildAnalyticsPayload(ymd, draftRows, actualInvoices) {
     deltaRealization: actualReal - draftReal,
     totalLineDrafts,
     lineNarrativeChanges: lineNarrChanges,
-    lineAmountChanges,
+    lineAmountChanges,           // now populated from amountChangeDrafts
     draftsUnchanged,
     totalDrafts,
     autoAcceptanceRate,
@@ -700,50 +806,54 @@ function buildAnalyticsPayload(ymd, draftRows, actualInvoices) {
   };
 
   // 6) Groupings: byOffice, byService, byPartner, byManager
-  function buildGrouping(keyName) {
+    function buildGrouping(keyName) {
     const map = new Map();
     for (const r of comparedClients) {
-      const name =
+        const name =
         keyName === "Office"
-          ? r.Office || "Unassigned"
-          : keyName === "Service"
-          ? r.Service || "Unassigned"
-          : keyName === "Partner"
-          ? r.Partner || "Unassigned"
-          : r.Manager || "Unassigned";
+            ? r.Office || "Unassigned"
+            : keyName === "Service"
+            ? r.Service || "Unassigned"
+            : keyName === "Partner"
+            ? r.Partner || "Unassigned"
+            : r.Manager || "Unassigned";
 
-      const g =
+        const g =
         map.get(name) || {
-          name,
-          draftBill: 0,
-          actualBill: 0,
-          draftWip: 0,
-          actualWip: 0,
-          narrativeChanges: 0,
-          amountChanges: 0, // we don't track per client, so leave 0 for now
-          draftsUnchanged: 0,
-          totalDrafts: 0,
-          clients: 0,
+            name,
+            draftBill: 0,
+            actualBill: 0,
+            draftWip: 0,
+            actualWip: 0,
+            narrativeChanges: 0,
+            amountChanges: 0, // NEW: will hold count of clients with amount changes
+            draftsUnchanged: 0,
+            totalDrafts: 0,
+            clients: 0,
         };
 
-      g.draftBill += r.DraftBill;
-      g.actualBill += r.ActualBill;
-      g.draftWip += r.DraftWip;
-      g.actualWip += r.ActualWip;
-      g.narrativeChanges += r.NarrativeChanges;
-      g.draftsUnchanged += r.UnchangedDrafts;
-      if (r.HasDraft && r.HasActual) g.totalDrafts += 1;
-      g.clients += 1;
+        g.draftBill += r.DraftBill;
+        g.actualBill += r.ActualBill;
+        g.draftWip += r.DraftWip;
+        g.actualWip += r.ActualWip;
+        g.narrativeChanges += r.NarrativeChanges;
 
-      map.set(name, g);
+        // NEW: aggregate draft-level amount change count for this slice
+        g.amountChanges += r.AmountChanges || 0;
+
+        g.draftsUnchanged += r.UnchangedDrafts;
+        if (r.HasDraft && r.HasActual) g.totalDrafts += 1;
+        g.clients += 1;
+
+        map.set(name, g);
     }
 
     const arr = [...map.values()].map((g) => {
-      const draftReal = g.draftWip > 0 ? g.draftBill / g.draftWip : 0;
-      const actualReal = g.actualWip > 0 ? g.actualBill / g.actualWip : 0;
-      const autoRate =
+        const draftReal = g.draftWip > 0 ? g.draftBill / g.draftWip : 0;
+        const actualReal = g.actualWip > 0 ? g.actualBill / g.actualWip : 0;
+        const autoRate =
         g.totalDrafts > 0 ? g.draftsUnchanged / g.totalDrafts : 0;
-      return {
+        return {
         [keyName.toLowerCase()]: g.name,
         draftBill: g.draftBill,
         actualBill: g.actualBill,
@@ -752,17 +862,18 @@ function buildAnalyticsPayload(ymd, draftRows, actualInvoices) {
         actualRealization: actualReal,
         deltaRealization: actualReal - draftReal,
         narrativeChanges: g.narrativeChanges,
-        amountChanges: g.amountChanges,
+        amountChanges: g.amountChanges, // now a real, non-zero metric
         clients: g.clients,
         draftsUnchanged: g.draftsUnchanged,
         autoAcceptanceRate: autoRate,
-      };
+        };
     });
 
     // sort by magnitude of deltaBill
     arr.sort((a, b) => Math.abs(b.deltaBill) - Math.abs(a.deltaBill));
     return arr;
-  }
+    }
+
 
   const byOffice = buildGrouping("Office").slice(0, 10);
   const byService = buildGrouping("Service").slice(0, 10);
@@ -805,9 +916,10 @@ function buildAnalyticsPayload(ymd, draftRows, actualInvoices) {
 
   return {
     period: {
-      mode: "Date",
-      label,
-      ymd,
+      mode: mode || "Date",
+      label, // e.g. "Sep 2025" / "9/15/2025" / "2025"
+      key, // raw period key, e.g. "2025-09", "2025-09-30", "2025"
+      dates, // concrete YYYY-MM-DD values used in analysis
     },
     firmSummary,
     byOffice,
@@ -963,32 +1075,63 @@ module.exports = async function (context, req) {
     return;
   }
 
-  const ymdRaw = req.query.date;
-  if (!ymdRaw) {
+  // NEW: mode + period + optional dates list
+  // Backwards-compatible: if only ?date= is supplied, treat as Date mode + period=date.
+  const modeRaw = (req.query.mode || "Date").trim();
+  const mode = ["Date", "Month", "Year"].includes(modeRaw) ? modeRaw : "Date";
+
+  const periodRaw = req.query.period || req.query.date || "";
+  const datesParam = req.query.dates || ""; // optional: "YYYY-MM-DD,YYYY-MM-DD"
+
+  if (!periodRaw) {
     context.res = {
       status: 400,
-      body: "Missing query parameter: date=YYYY-MM-DD",
+      body:
+        "Missing query parameter: use mode=Date|Month|Year and period=... (or legacy date=YYYY-MM-DD).",
     };
     return;
   }
 
-  const ymd = toCanonicalYmd(ymdRaw);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+  // Build selectedDates from dates=... or from the period itself (Date mode)
+  let selectedDates = [];
+
+  if (datesParam) {
+    selectedDates = String(datesParam)
+      .split(",")
+      .map((s) => toCanonicalYmd(s.trim()))
+      .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d));
+  } else if (mode === "Date") {
+    const ymd = toCanonicalYmd(periodRaw);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+      context.res = {
+        status: 400,
+        body: `Invalid date format: ${periodRaw}. Expected YYYY-MM-DD or MM/DD/YYYY.`,
+      };
+      return;
+    }
+    selectedDates = [ymd];
+  }
+
+  if (!selectedDates.length) {
     context.res = {
       status: 400,
-      body: `Invalid date format: ${ymdRaw}. Expected YYYY-MM-DD or MM/DD/YYYY.`,
+      body:
+        "No valid billing dates found for this request. Pass dates=YYYY-MM-DD,… or a valid date/period.",
     };
     return;
   }
+
+  const periodKey = String(periodRaw);
+  const periodLabel = labelForPeriod(mode, periodKey);
 
   const container = blobServiceClient.getContainerClient(CONTAINER);
-  const insightBlobName = blobNameForInsight(ymd);
+  const insightBlobName = blobNameForInsightKey(mode, periodKey);
   const insightBlob = container.getBlockBlobClient(insightBlobName);
 
   const forceRefresh = req.query.refresh === "1";
 
   try {
-    // 1) Try cached markdown
+    // 1) Try cached markdown for this (mode, period)
     if (!forceRefresh) {
       const exists = await insightBlob.exists();
       if (exists) {
@@ -1004,11 +1147,11 @@ module.exports = async function (context, req) {
       }
     }
 
-    // 2) Load draft + actuals for that date
-    log("loading data for", ymd);
+    // 2) Load draft + actuals for the selected date list
+    log("loading data for dates", selectedDates);
     const [draftRows, actualInvoices] = await Promise.all([
-      loadDraftRows(container, ymd, log),
-      loadActualInvoices(ymd, log),
+      loadDraftRowsForDates(container, selectedDates, log),
+      loadActualInvoices(selectedDates, log),
     ]);
 
     log("rows counts", {
@@ -1017,13 +1160,47 @@ module.exports = async function (context, req) {
     });
 
     // 3) Build compact analytics payload
-    const payload = buildAnalyticsPayload(ymd, draftRows, actualInvoices);
+    const periodMeta = {
+    mode,
+    key: periodKey,
+    label: periodLabel,
+    dates: selectedDates,
+    };
+
+    const payload = buildAnalyticsPayload(periodMeta, draftRows, actualInvoices);
+
+    // Optional: quick sanity logs
+    log("firmSummary for AI payload", payload.firmSummary);
+    log("sample byOffice row 0", payload.byOffice?.[0]);
+
+
+    // NEW: Persist the exact JSON payload being sent to OpenAI
+try {
+  const insightJsonBlobName = blobNameForInsightPayloadKey(mode, periodKey);
+  const insightJsonBlob = container.getBlockBlobClient(insightJsonBlobName);
+  const jsonText = JSON.stringify(payload, null, 2);
+
+  await insightJsonBlob.upload(jsonText, Buffer.byteLength(jsonText), {
+    blobHTTPHeaders: {
+      blobContentType: "application/json; charset=utf-8",
+    },
+  });
+
+  log("Saved insight payload JSON", { blobName: insightJsonBlobName });
+} catch (e) {
+  log(
+    "WARNING: failed to save insight payload JSON",
+    e?.message || e
+  );
+}
+
 
     // 4) Call OpenAI
     const userContent =
-      "Here is the data for this billing period in JSON format. Use it to produce the analysis described in your instructions.\n\n```json\n" +
-      JSON.stringify(payload, null, 2) +
-      "\n```";
+    "Here is the data for this billing period in JSON format. Use it to produce the analysis described in your instructions.\n\n```json\n" +
+    JSON.stringify(payload, null, 2) +
+    "\n```";
+
 
     const completion = await openaiClient.chat.completions.create({
       model: OPENAI_MODEL,
@@ -1038,7 +1215,7 @@ module.exports = async function (context, req) {
       completion.choices?.[0]?.message?.content ||
       "# AI Insights\n\nNo response was generated.";
 
-    // 5) Cache to blob
+    // 5) Cache markdown blob for this (mode, period)
     await insightBlob.upload(markdown, Buffer.byteLength(markdown), {
       blobHTTPHeaders: { blobContentType: "text/markdown; charset=utf-8" },
     });
