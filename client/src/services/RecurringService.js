@@ -1,68 +1,7 @@
 const API = "/api/recurrings";
 const loadJobAndServ = "/api/mapping";
 const loadClient = "/api/clientMapping";
-
-export async function loadRecurrings() {
-  const res = await fetch(API);
-  if (!res.ok) {
-    const text = await res.text(); // capture error payload
-    throw new Error(`Load failed: ${res.status} ${text}`);
-  }
-  const tempBody = await res.json();
-  const returnbody = tempBody.sort((a, b) => a.ClientCode.localeCompare(b.ClientCode));
-  return returnbody;
-}
-
-
-export async function addRecurrings(item) {
-  const res = await fetch(API, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(item)
-  });
-  if (!res.ok) throw new Error("Create failed");
-  return res.json();
-}
-
-export async function reqAddRecurrings(item) {
-  const res = await fetch(API, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(item)
-  });
-  if (!res.ok) throw new Error("Create failed");
-  return res.json();
-}
-
-export async function updateRecurrings(uuid, partial) {
-  const res = await fetch(`${API}/${uuid}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(partial)
-  });
-  if (!res.ok) throw new Error("Update failed");
-  return res.json();
-}
-
-export async function reqUpdateRecurrings(uuid, partial) {
-  const res = await fetch(`${API}/${uuid}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(partial)
-  });
-  if (!res.ok) throw new Error("Update failed");
-  return res.json();
-}
-
-export async function reqDeleteRecurrings(uuid) {
-  const res = await fetch(`${API}/${uuid}`, { method: "DELETE" });
-  if (!res.ok && res.status !== 204) throw new Error("Delete failed");
-}
-
-export async function deleteRecurrings(uuid) {
-  const res = await fetch(`${API}/${uuid}`, { method: "DELETE" });
-  if (!res.ok && res.status !== 204) throw new Error("Delete failed");
-}
+const notification = "/api/notificationEmail";
 
 async function fetchWithErrors(url, name) {
   try {
@@ -83,6 +22,42 @@ async function fetchWithErrors(url, name) {
   }
 }
 
+export async function loadRecurrings() {
+  const res = await fetch(API);
+  if (!res.ok) {
+    const text = await res.text(); // capture error payload
+    throw new Error(`Load failed: ${res.status} ${text}`);
+  }
+  const tempBody = await res.json();
+  return tempBody;
+}
+
+
+export async function addRecurrings(item) {
+  const res = await fetch(API, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(item)
+  });
+  if (!res.ok) throw new Error("Create failed");
+  return res.json();
+}
+
+export async function updateRecurrings(uuid, partial) {
+  const res = await fetch(`${API}/${uuid}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(partial)
+  });
+  if (!res.ok) throw new Error("Update failed");
+  return res.json();
+}
+
+export async function deleteRecurrings(uuid) {
+  const res = await fetch(`${API}/${uuid}`, { method: "DELETE" });
+  if (!res.ok && res.status !== 204) throw new Error("Delete failed");
+}
+
 export function loadJobMapping() {
   return fetchWithErrors(
     `${loadJobAndServ}/jobMapping`,
@@ -97,10 +72,28 @@ export function loadServMapping() {
   );
 }
 
+export function loadRecurringJobMapping() {
+  return fetchWithErrors(
+    `${loadJobAndServ}/recurringJobMapping`,
+    'recurring job mapping'
+  );
+}
+
 
 export function loadClientMapping() {
   return fetchWithErrors(
     `${loadClient}`,
     'client mapping'
   );
+}
+
+export async function sendNotificationEmail(newItem, email) {
+
+  const res = await fetch(notification, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(newItem, email)
+  });
+  if (!res.ok) throw new Error("Notification Email Failed");
+  return res.json();
 }

@@ -3,6 +3,7 @@ const { BlobServiceClient } = require("@azure/storage-blob");
 const CONTAINER = "container-bmssprod001";
 const JOBMAPPING = "htmlData/automatedBilling/narrativeStandards/jobMapping.json";
 const SERVICEMAPPING = "htmlData/automatedBilling/narrativeStandards/services.json";
+const RECURRINGJOBMAPPING = "htmlData/automatedBilling/recurrings/recurringJobMapping.json";
 
 module.exports = async function (context, req) {
   
@@ -14,11 +15,22 @@ module.exports = async function (context, req) {
 
   const type = context.bindingData.type;
   const conn = process.env.AZURE_STORAGE_CONNECTION_STRING;
+  console.log(type);
 
   const blobSvc = BlobServiceClient.fromConnectionString(conn);
   const container = blobSvc.getContainerClient(CONTAINER);
 
-  const blobName = type === "jobMapping" ? JOBMAPPING : SERVICEMAPPING;
+  let blobName;
+    if (type === "jobMapping") {
+      blobName = JOBMAPPING
+    }
+    else if (type === "recurringJobMapping") {
+      blobName = RECURRINGJOBMAPPING
+    }
+    else if (type === "serviceMapping") {
+      blobName = SERVICEMAPPING
+    }
+
   const blobClient = container.getBlockBlobClient(blobName);
 
   try {

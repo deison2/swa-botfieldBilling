@@ -6,7 +6,7 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "./EditNarrativeModal.css";
 
-import { loadJobMapping } from "../services/RecurringService.js";
+import { loadRecurringJobMapping, loadServMapping } from "../services/RecurringService.js";
 
 // Dynamically load service mapping based on environment
 /*
@@ -37,78 +37,146 @@ export default function EditRecurringModal({
     Narrative: "",
     BillAmount: "",
   };
-
+  
   const [form, setForm] = useState(initialFormState);
   const [jobMappingData, setJobMappingData] = useState([]);
   const [jobLookup, setJobLookup] = useState({});
-  const [selectedOptions, setSelectedOptions] = useState([]);
+  const [selectedOptions, setSelectedOptions] = useState(form.Population);
+  const [populationOptions, setPopulationOptions] = useState([]);
 
- useEffect(() => {
-  if (!isOpen) return; // only run when modal is open
+
+
+async function loadPopulationOptions(level) {
+  try {
+    if (!level) return;
+
+    if (level.toLowerCase() === "job") {
+      const data = await loadRecurringJobMapping();
+      const sorted = data.sort((a, b) => a.JobName.localeCompare(b.JobName));
+
+      const jobOpts = sorted.map((j) => ({
+        label: j.JobName,
+        value: j.Idx,
+        serv: j.Serv,
+      }));
+
+      setPopulationOptions(jobOpts);
+      setSelectedOptions([]);
+      setForm(prev => ({ ...prev, Population: [] }));
+    }
+
+    if (level.toLowerCase() === "serv") {
+      const servData = await loadServMapping().catch((err) => {
+        console.error(err);
+        return [];
+      });
+
+      const servMappingSorted = servData
+        .map((item) => item.SERVINDEX)
+        .sort((a, b) => a.localeCompare(b));
+
+      const servOptions = servMappingSorted.map((s) => ({
+        label: s,
+        value: s,
+      }));
+
+      setPopulationOptions(servOptions);
+      setSelectedOptions([]);
+      setForm(prev => ({ ...prev, Population: [] }));
+    }
+  } catch (err) {
+    console.error("Failed to load population options:", err);
+  }
+}
+
+
+
+useEffect(() => {
+  if (!isOpen || !form.Level) return;
+
+  // Don’t reset if we’re just populating initialData
+  if (initialData && form.uuid === initialData.uuid) return;
+
+
+  loadPopulationOptions();
+}, [form.Level, isOpen, initialData, form.uuid]);
+
+
+
+
+useEffect(() => {
+  if (!isOpen || !initialData?.Level) return;
 
   (async () => {
     try {
-      const data = await loadJobMapping();
+      const level = initialData.Level?.toLowerCase();
+      let options = [];
+      let lookup = {};
 
-      // Choose sorting based on form level
-      const sorted =
-        form.Level === "Job"
-          ? data.sort((a, b) => a.JobName.localeCompare(b.JobName))
-          : data.sort((a, b) => a.Serv.localeCompare(b.Serv));
+      if (level === "job") {
+        const jobData = await loadRecurringJobMapping();
+        const sorted = jobData.sort((a, b) =>
+          a.JobName.localeCompare(b.JobName)
+        );
+        lookup = sorted.reduce((acc, { JobName, Idx }) => {
+          acc[JobName] = Idx;
+          return acc;
+        }, {});
+        options = sorted.map((j) => ({
+          label: j.JobName,
+          value: j.Idx,
+        }));
 
-      const lookup = sorted.reduce((acc, { Idx, JobName }) => {
-        acc[Idx] = JobName;
-        return acc;
-      }, {});
+        // Map existing Population (JobNames or Idx) to Idx values
+        const mappedPopulation = initialData.Population.map((p) =>
+          typeof p === "number" ? p : lookup[p] || p
+        );
 
-      setJobMappingData(sorted);
-      setJobLookup(lookup);
+        const selected = options.filter((opt) =>
+          mappedPopulation.includes(opt.value)
+        );
+
+        setPopulationOptions(options);
+        setSelectedOptions(selected);
+        setForm({
+          ...initialData,
+          Population: mappedPopulation,
+        });
+      }
+
+      if (level === "serv") {
+        const servData = await loadServMapping();
+        const sorted = servData
+          .map((s) => s.SERVINDEX)
+          .sort((a, b) => a.localeCompare(b));
+
+        options = sorted.map((s) => ({
+          label: s,
+          value: s,
+        }));
+
+        // Map existing Population to matching SERVINDEX values
+        const mappedPopulation = initialData.Population.map((p) =>
+          sorted.includes(p) ? p : p.toString()
+        );
+
+        const selected = options.filter((opt) =>
+          mappedPopulation.includes(opt.value)
+        );
+
+        setPopulationOptions(options);
+        setSelectedOptions(selected);
+        setForm({
+          ...initialData,
+          Population: mappedPopulation,
+        });
+      }
     } catch (err) {
-      console.error("Failed to load job mapping:", err);
+      console.error("Failed to load mapping for edit modal:", err);
+      toast.error("Failed to load mapping data.");
     }
-  })(); // run async IIFE only when modal opens
-}, [isOpen, form.Level]);
-
-
-  const jobOptions = useMemo(() => {
-    return jobMappingData.map((j) => ({
-      label: j.JobName,
-      value: j.Idx,
-      serv: j.Serv
-    }));
-  }, [jobMappingData]);
-
-  // selected jobs first
-  const sortedJobOptions = useMemo(() => {
-    const sel = new Set(selectedOptions.map(o => o.value));
-    return jobOptions.slice().sort((a, b) => {
-      const aSel = sel.has(a.value);
-      const bSel = sel.has(b.value);
-      if (aSel && !bSel) return -1;
-      if (!aSel && bSel) return 1;
-      return a.label.localeCompare(b.label);
-    });
-  }, [jobOptions, selectedOptions]);
-
-useEffect(() => {
-  if (isOpen && initialData && jobLookup && Object.keys(jobLookup).length) {
-    const populationNames =
-      initialData.Level === "Job"
-        ? initialData.Population.map((idx) => jobLookup[idx] || idx)
-        : initialData.Population;
-
-
-    const selected = jobOptions.filter(opt =>
-      populationNames.includes(opt.label)
-    );
-
-    setSelectedOptions(selected);
-    setForm({
-      ...initialData,
-      Population: populationNames
-    });
-  }
-  }, [initialData, jobLookup, jobOptions, isOpen]);
+  })();
+}, [isOpen, initialData]);
 
 
 
@@ -129,12 +197,29 @@ function handlePopulationChange(selected) {
 }
 
 
-  function handleChange(e) {
-    const { name, value } = e.target;
+function handleChange(e) {
+  const { name, value } = e.target;
+
+  if (name.toLowerCase() === "level") {
+    setSelectedOptions([]);
+    setForm(prev => ({
+      ...prev,
+      Population: [],
+      Level: value
+    }));
+  } else {
     setForm(prev => ({ ...prev, [name]: value }));
   }
+}
 
-  // Save changes
+useEffect(() => {
+  if (!isOpen || !form.Level) return;
+  if (initialData && form.uuid === initialData.uuid) return;
+  loadPopulationOptions(form.Level);
+}, [form.Level]);
+
+
+
   function handleSubmit(e) {
     e.preventDefault();
 
@@ -200,7 +285,7 @@ function handlePopulationChange(selected) {
           <label>
             Population
             <MultiSelect
-              options={sortedJobOptions}
+              options={populationOptions}
               value={selectedOptions}
               onChange={handlePopulationChange}
               labelledBy="Select population"
@@ -246,7 +331,6 @@ function handlePopulationChange(selected) {
             onChange={handleChange}
             placeholder="Enter amount"
             min="0"
-            step="0.01"
           />
         </label>
 

@@ -1,12 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Modal from "react-modal";
 import { MultiSelect } from "react-multi-select-component";
 import { toast, ToastContainer } from "react-toastify";
 import "./EditNarrativeModal.css";
+import services from '../devSampleData/services.json';
 
-import {
-  loadServMapping
-} from '../services/RecurringService.js';
+import { loadRecurringJobMapping, loadServMapping } from "../services/RecurringService.js";
 
 import { getStandards } from '../services/OfficePartnerClientStandards';
 
@@ -22,18 +21,69 @@ const initialFormState = {
   ContIndex: null,
 };
 
+const servData = await loadServMapping()
+  .catch(err => {
+    console.error(err);
+    return services;
+  });
+
+const servMapping = servData.map(item => item.SERVINDEX);
+
+const servMappingSorted = servMapping.sort((a, b) => a.localeCompare(b));
+
+
 export default function AddRecurringModal({ isOpen, onRequestClose, onSave, availableJobs, allData }) {
+
   const [form, setForm] = useState(initialFormState);
   const [populationOptions, setPopulationOptions] = useState([]);
   const [selectedPopulations, setSelectedPopulations] = useState([]);
-
-
   const [clientQuery, setClientQuery] = useState("");
   const [clientResults, setClientResults] = useState([]);
   const [isLoadingClients, setIsLoadingClients] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
+  const [jobMappingData, setJobMappingData] = useState([]);
 
-  console.log(selectedClient);
+  const sortedPopulationOptions = useMemo(() => {
+  const sel = new Set(selectedPopulations.map(o => o.value));
+  return populationOptions.slice().sort((a, b) => {
+    const aSel = sel.has(a.value);
+    const bSel = sel.has(b.value);
+    if (aSel && !bSel) return -1;
+    if (!aSel && bSel) return 1;
+    return a.label.localeCompare(b.label);
+  });
+}, [populationOptions, selectedPopulations]);
+
+  
+
+
+useEffect(() => {
+  if (isOpen) {
+    (async () => {
+      try {
+        const data = await loadRecurringJobMapping();
+        const sorted =
+        form.Level.toLowerCase() === "job"
+          ? data.sort((a, b) => a.JobName.localeCompare(b.JobName))
+        : data.sort((a, b) => a.Serv.localeCompare(b.Serv))
+        setJobMappingData(sorted);
+        console.log(sorted);
+      } catch (err) {
+        console.error("Failed to load job mapping:", err);
+      }
+    })();
+  }
+}, [isOpen, form.Level]);
+
+const jobOptions = useMemo(() =>
+  jobMappingData.map(j => ({
+    label: j.JobName,
+    value: j.Idx,
+    serv: j.Serv
+  })),
+  [jobMappingData]
+);
+
 
   useEffect(() => {
     if (isOpen) {
@@ -47,34 +97,50 @@ export default function AddRecurringModal({ isOpen, onRequestClose, onSave, avai
   }, [isOpen]);
 
   // Update population options dynamically based on Level
-  useEffect(() => {
-    if (form.Level=== "Job") {
-      setPopulationOptions(availableJobs);
-    } else if (form.Level === "Serv") {
-      setPopulationOptions(
-        loadServMapping.map((s) => ({ label: s.SERVINDEX, value: s.SERVINDEX }))
-      );
-    }
-  }, [form.Level, availableJobs]);
+useEffect(() => {
+  if (!form.Level) return;
+  
+  if (form.Level.toLowerCase() === "job") {
+    setPopulationOptions(jobOptions);
+  } else if (form.Level.toLowerCase() === "serv") {
+    setPopulationOptions(servMappingSorted.map(Serv => ({
+      label: Serv,
+      value: Serv
+    })));
+  }
+}, [form.Level, jobOptions]);
+
 
   // General form handler
   function handleChange(e) {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    console.log('name, value', name, value);
+    if (name.toLowerCase() === "level" && value !== form.Level && form.Level !== "") {
+      console.log(form.Level);
+       console.log('level changed');
+       setSelectedPopulations([]); // reset population options on level change
+       setForm(prev => ({
+    ...prev,
+    Population: [],
+    Level: value
+  }));
+    }
+    else setForm((prev) => ({ ...prev, [name]: value }));
   }
 
   // Population select handler
-  function handlePopulationChange(selected) {
-    setSelectedPopulations(selected);
-    setForm((prev) => ({
-      ...prev,
-      Population: selected.map((p) => p.value),
-    }));
-  }
+function handlePopulationChange(selected) {
+  setSelectedPopulations(selected);
+  setForm(prev => ({
+    ...prev,
+    Population: selected.map(p => p.value),
+  }));
+}
+
 
   // 🕐 Debounced client search
   useEffect(() => {
-    if (clientQuery.length < 3) {
+    if (clientQuery.length < 4) {
       setClientResults([]);
       return;
     }
@@ -99,8 +165,8 @@ export default function AddRecurringModal({ isOpen, onRequestClose, onSave, avai
   const handleClientSelect = (client) => {
     setSelectedClient(client);
     setForm((prev) => ({ ...prev, ContIndex: client.ContIndex }));
+    console.log(form);
     setClientResults([]); // hide dropdown
-    setClientQuery(`${client.ClientCode} - ${client.ClientName}`);
   };
 
   // Validation + Save
@@ -139,8 +205,8 @@ export default function AddRecurringModal({ isOpen, onRequestClose, onSave, avai
           Client
           <input
             type="text"
-            placeholder="Start typing client name..."
-            value={clientQuery}
+            placeholder="Start typing client name... (at least four characters)"
+            value={selectedClient ? `${selectedClient.ClientCode} — ${selectedClient.ClientName} (${selectedClient.ClientOffice})` : clientQuery}
             onChange={(e) => {
               setClientQuery(e.target.value);
               setSelectedClient(null);
@@ -188,7 +254,7 @@ export default function AddRecurringModal({ isOpen, onRequestClose, onSave, avai
           <label>
             Population
             <MultiSelect
-              options={populationOptions}
+              options={sortedPopulationOptions}
               value={selectedPopulations}
               onChange={handlePopulationChange}
               labelledBy="Select population"
@@ -229,7 +295,6 @@ export default function AddRecurringModal({ isOpen, onRequestClose, onSave, avai
             onChange={handleChange}
             placeholder="Enter amount"
             min="0"
-            step="0.01"
           />
         </label>
 

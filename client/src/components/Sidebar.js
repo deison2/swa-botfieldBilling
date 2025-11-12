@@ -111,13 +111,13 @@ export default function Sidebar() {
               Existing Drafts
             </NavLink>
           </li>
-              <li>
-                <NavLink to="/Recurring-Retainers" className={linkClass}>
-                  Recurring Retainers
-                </NavLink>
-              </li>
           {isSuperUser && (
             <>
+              <li>
+                <NavLink to="/Recurring-Retainers" className={linkClass}>
+                  Recurring Clients
+                </NavLink>
+              </li>
               <li>
                 <NavLink to="/Tech-Fees" className={linkClass}>
                   Tech Fees

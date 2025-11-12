@@ -185,3 +185,10 @@ background: var(--rmsc-hover);
 .edit-form select.rmsc:focus {
   outline: 2px solid var(--rmsc-main);
 }
+.client-dropdown li {
+  cursor: pointer;
+}
+
+.client-dropdown li:hover {
+  background-color: #f0f0f0; /* optional visual feedback */
+}

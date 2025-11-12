@@ -18,20 +18,17 @@ import {
   addRecurrings,
   updateRecurrings,
   deleteRecurrings,
-  reqAddRecurrings,
-  reqUpdateRecurrings,
-  reqDeleteRecurrings,
-  loadJobMapping,
+  loadRecurringJobMapping,
   loadClientMapping
 } from '../services/RecurringService.js';
 
 
-const jobMapping = await loadJobMapping()
+const jobMapping = await loadRecurringJobMapping()
   .catch(err => {
     console.error(err);
   });
 
-const sortedJobMapping = jobMapping.sort((a, b) => a.Serv.localeCompare(b.Serv));
+const sortedJobMapping = jobMapping.sort((a, b) => a.JobName.localeCompare(b.JobName));
 
 
 // Reverse lookup: JobName -> Idx
@@ -49,7 +46,7 @@ const jobLookup = sortedJobMapping.reduce((acc, { Idx, JobName }) => {
 
 export default function RecurringRetainers() {
 
-  const { principal, isSuperUser } = useAuth();
+  const { principal } = useAuth();
   const email = principal?.userDetails?.toLowerCase() || '';
 
   const [rows, setRows] = useState([]);
@@ -57,6 +54,9 @@ export default function RecurringRetainers() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [rowToDelete, setRowToDelete]   = useState(null);
+  const [clientMapping, setClientMapping] = useState([]);
+  const [clientLookup, setClientLookup] = useState({});
+
 
   // Filtering
   const [typeFilter, setTypeFilter]       = useState('');
@@ -96,61 +96,64 @@ export default function RecurringRetainers() {
 useEffect(() => {
   (async () => {
     try {
-      const [recurrings, clientMapping] = await Promise.all([
+      const [recurrings, clientMap] = await Promise.all([
         loadRecurrings(),
         loadClientMapping()
       ]);
 
-      // Build lookup for client mapping by ContIndex
-      const clientLookup = clientMapping.reduce((acc, client) => {
+      setClientMapping(clientMap);
+      setRows(recurrings);
+
+      // Build lookup
+      const lookup = clientMap.reduce((acc, client) => {
         acc[client.ContIndex] = client;
         return acc;
       }, {});
+      setClientLookup(lookup);
 
-      // Map incoming recurrings (which now contain ContIndex) to full client details
-      const enrichedData = recurrings.map(r => {
-        const match = clientLookup[r.ContIndex] || {};
-        return {
-          ...r,
-          ClientCode: match.ClientCode || '—',
-          ClientName: match.ClientName || '—',
-          ClientPartner: match.ClientPartner || '—',
-          ClientManager: match.ClientManager || '—',
-          ClientOffice: match.ClientOffice || '—'
-        };
-      });
-
-      setRows(enrichedData);
       setLoading(false);
     } catch (e) {
-      console.error('loadRecurrings/clientMapping error:', e);
-      toast.error(
-        e.message ||
-          'Failed to load recurrings or client mapping — reverting to sample data'
-      );
+      console.error('Failed to load recurrings/clientMapping:', e);
+      toast.error('Failed to load recurrings or client mapping');
       setRows(recurringSample);
       setLoading(false);
     }
   })();
 }, []);
 
+const enrichedRows = useMemo(() => {
+  if (!rows.length || !Object.keys(clientLookup).length) return rows;
+
+  return rows.map(r => {
+    const match = clientLookup[r.ContIndex] || {};
+    return {
+      ...r,
+      ClientCode: match.ClientCode || '—',
+      ClientName: match.ClientName || '—',
+      ClientPartner: match.ClientPartner || '—',
+      ClientManager: match.ClientManager || '—',
+      ClientOffice: match.ClientOffice || '—'
+    };
+  });
+}, [rows, clientLookup]);
+
 
 
   // inside NarrativeStandards(), before the return:
 const levelOptions = useMemo(
-  () => Array.from(new Set(rows.map(r => r.Level)))
+  () => Array.from(new Set(enrichedRows.map(r => r.Level)))
       .sort((a, b) => a.localeCompare(b)),
-  [rows]
+  [enrichedRows]
 );
 const typeOptions = useMemo(
-  () => Array.from(new Set(rows.map(r => r.Type)))
+  () => Array.from(new Set(enrichedRows.map(r => r.Type)))
       .sort((a, b) => a.localeCompare(b)),
-  [rows]
+  [enrichedRows]
 );
 const freqOptions = useMemo(
-  () => Array.from(new Set(rows.map(r => r.Frequency)))
+  () => Array.from(new Set(enrichedRows.map(r => r.Frequency)))
       .sort((a, b) => a.localeCompare(b)),
-  [rows]
+  [enrichedRows]
 );
 
 
@@ -162,6 +165,17 @@ const freqOptions = useMemo(
   const [selectedRow, setSelectedRow] = useState(null);
 
 
+  function hasDuplicateRecurring(newItem, rows) {
+  return rows.some(
+    r =>
+      r.ContIndex === newItem.ContIndex &&
+      r.Frequency === newItem.Frequency &&
+      r.uuid !== newItem.uuid // exclude self when updating
+  );
+}
+
+
+
   // 2. table/modal handlers
 
   async function openAddModal(item) {
@@ -171,20 +185,20 @@ const freqOptions = useMemo(
   async function handleCreate(item) {
 
   try {
-    if (isSuperUser || 1 === 1) { // Allow for creation for super users, requesting for non-super users
+    if (hasDuplicateRecurring(item, rows)) {
+      toast.error(
+        `A recurring bill already exists for this client with ${item.Frequency} frequency.`
+      );
+      return;
+    }
       const newItem = { uuid: uuidv4(), ...item };
       await addRecurrings(newItem);
       setRows(r => [...r, newItem]);
       toast.success('Recurring added');
       setIsAddOpen(false);
+      // sendNotificationEmail(newItem, email);
     }
-    else {
-      const newItem = { ...item, RequestedBy: email, uuid: uuidv4() };
-      await reqAddRecurrings(newItem);
-      toast.success('Recurring Requested! Our Billing Team will review your request shortly.');
-      setIsAddOpen(false);
-    }
-  } catch (e) {
+   catch (e) {
     console.error('addRecurring error:', e);
     toast.error(e.message || 'Failed to add/request recurring - please try again or contact the Data Analytics Team');
   }
@@ -194,7 +208,12 @@ const freqOptions = useMemo(
 async function handleUpdate(item) {
   console.log('new item - ',  item)
   try {
-    // Ensure Population only contains job indexes
+    if (hasDuplicateRecurring(item, rows)) {
+      toast.error(
+        `A recurring already exists for this client with ${item.Frequency} frequency.`
+      );
+      return;
+    }
     const normalizedPopulation = (item.Population || []).map(p => {
       // If it's already a number (Idx), keep it
       if (typeof p === 'number') return p;
@@ -214,19 +233,13 @@ async function handleUpdate(item) {
       BillAmount: item.BillAmount
     };
 
-    if (isSuperUser || 1 === 1) {
       await updateRecurrings(item.uuid, payload);
       setRows(r =>
         r.map(rw => (rw.uuid === item.uuid ? { ...rw, ...item } : rw))
       );
       toast.success('Recurring updated');
       closeEditModal();
-    } else {
-      const reqPayload = { ...payload, RequestedBy: email };
-      await reqUpdateRecurrings(reqPayload);
-      toast.success('Recurring Requested! - Our Billing Team will review your request shortly.');
-      closeEditModal();
-    }
+      // sendNotificationEmail(newItem, email);
   } catch (e) {
     console.error('updateRecurring error:', e);
     toast.error(e.message || 'Failed to update recurring - please try again or contact the Data Analytics Team');
@@ -254,17 +267,11 @@ async function handleUpdate(item) {
 
 async function handleConfirmDelete(uuid) {
   try {      
-    if (isSuperUser || 1 === 1) {
     await deleteRecurrings(uuid);
     setRows(rs => rs.filter(r => r.uuid !== uuid));
     toast.success('Recurring deleted');
     closeDeleteModal();
-    }
-    else {
-      await reqDeleteRecurrings(uuid);
-      toast.success('Delete Requested! - Our Billing Team will review your request shortly.');
-      closeDeleteModal();
-    }
+      // sendNotificationEmail(newItem, email);
   } catch (e) {
     console.error('deleteRecurring error:', e);      // ← CHANGED
     toast.error(e.message || 'Failed to delete/request delete recurring - please try again or contact the Data Analytics Team'); // ← CHANGED
@@ -274,7 +281,7 @@ async function handleConfirmDelete(uuid) {
 
 
   const filteredRows = useMemo(() => {
-  return rows
+  return enrichedRows
     .filter(r => {
       if (!filterText) return true;
 
@@ -296,7 +303,7 @@ async function handleConfirmDelete(uuid) {
       // Frequency dropdown
       !freqFilter || r.Frequency === freqFilter
     );
-}, [rows, filterText, levelFilter, typeFilter, freqFilter]);
+}, [enrichedRows, filterText, levelFilter, typeFilter, freqFilter]);
 
 
   const columns = [
@@ -446,7 +453,7 @@ async function handleConfirmDelete(uuid) {
             className="add-narrative-btn"
             onClick={openAddModal}
           >
-            + Create/Request
+            + Create Recurring
           </button>
 </div>
 
@@ -474,7 +481,7 @@ async function handleConfirmDelete(uuid) {
             progressPending={loading}
             onRowAdd={openAddModal}
             onRowUpdate={openEditModal}
-            onRowDelete={handleConfirmDelete}
+            onRowDelete={openDeleteModal}
             pagination
             highlightOnHover
             striped
@@ -487,7 +494,7 @@ async function handleConfirmDelete(uuid) {
         onRequestClose={() => setIsAddOpen(false)}
         onSave={handleCreate}
         availableJobs={sortedJobMapping}
-        allData={rows}
+        allData={enrichedRows}
       />
             <EditRecurringModal
         isOpen={isModalOpen}
@@ -495,12 +502,12 @@ async function handleConfirmDelete(uuid) {
         initialData={selectedRow}
         onSave={handleUpdate}
         availableJobs={sortedJobMapping}
-        allData={rows} 
+        allData={enrichedRows} 
       />
             <DeleteRecurringModal
         isOpen={isDeleteOpen}
         onRequestClose={closeDeleteModal}
-        narrative={rowToDelete}
+        record={rowToDelete}
         jobLookup={jobLookup}
         onConfirmDelete={handleConfirmDelete}
       />

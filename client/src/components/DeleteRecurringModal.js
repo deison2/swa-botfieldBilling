@@ -7,18 +7,26 @@ Modal.setAppElement("#root");
 export default function DeleteRecurringModal({
   isOpen,
   onRequestClose,
-  record,          // full recurring job record
-  onConfirmDelete, // callback(uuid)
+  record,
+  onConfirmDelete,
+  jobLookup
 }) {
   if (!record) return null;
+  console.log(record);
 
   const { uuid, Level, Population, BillType, Frequency, Narrative, BillAmount } = record;
 
   // Display friendly labels for populations depending on Level
   const populationLines =
-    Level && Array.isArray(Population)
-      ? Population.map((p) => `${p}`)
-      : [];
+  Level && Array.isArray(Population)
+    ? Population.map((p) => {
+        if (Level === "JOB") {
+          return jobLookup?.[p] || `#${p}`; // show name or fallback
+        }
+        return p; // for SERV, show raw string
+      })
+    : [];
+
 
   return (
     <Modal
