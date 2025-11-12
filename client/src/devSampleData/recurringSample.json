@@ -1,0 +1,15 @@
+[
+{
+"ClientCode": "00001-000",
+"ClientName": "DLE Company",
+"ClientOffice": "BHM",
+"ClientPartner": "Daniel Eison",
+"ClientManager": "Katie Eison",
+"BillType": "Progress",
+"Level": "Job",
+"Population": [23],
+"Frequency": "Monthly",
+"Narrative": "PROFESSIONAL SERVICES RELATED TO BUBBLE BLOWING",
+"BillAmount": "1000"
+}
+]

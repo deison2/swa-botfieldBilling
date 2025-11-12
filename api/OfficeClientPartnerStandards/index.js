@@ -87,8 +87,6 @@ if (type === 'client') {
   const population = await mainBody.json();
 
   const res = mapStandards(population, list, populationKey, 'id');
-  console.log(list);
-  console.log(res);
 
   context.res = { status: 200, body: res };
   return;
