@@ -160,3 +160,53 @@ export async function CreateInvoiceBulkPrintList(debtTranIndexes) {
   // server returns text listId (like the draft flow)
   return res.text();
 }
+
+export async function lockUnlockDraft(DebtTranIndex, User) {
+  const token = await getToken();
+  setAuthToken(token); // assuming this puts the token on fetch headers globally
+
+  // Build path segments safely (no trailing/double slashes)
+  const segments = ['/api', 'lockUnlockDraft', String(DebtTranIndex)];
+  if (User && User.trim()) {
+    segments.push(encodeURIComponent(User.trim()));
+  }
+  const url = segments.join('/');
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    // If your backend expects the token in headers only, remove it from body
+    body: JSON.stringify({ token })
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`lockUnlockDraft failed: ${res.status} ${res.statusText} ${text}`);
+  }
+  // Handle empty 204 or JSON
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+export async function checkDraftInUse(DebtTranIndex) {
+  const url = ['/api', 'checkDraftInUse', String(DebtTranIndex)].join('/');
+  const res = await fetch(url, { method: 'GET' });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`checkDraftInUse failed: ${res.status} ${res.statusText} ${text}`);
+  }
+
+  const raw = (await res.text()).trim();
+  // Normalize: support "true"/"false", "1"/"0", or empty => false
+  if (raw === '') return false;
+  if (raw === 'true' || raw === '1') return true;
+  if (raw === 'false' || raw === '0') return false;
+  // If API returns a user email or object, treat non-empty as "in use"
+  try {
+    const maybeJson = JSON.parse(raw);
+    return !!maybeJson && (Array.isArray(maybeJson) ? maybeJson.length > 0 : true);
+  } catch {
+    return raw.length > 0;
+  }
+}

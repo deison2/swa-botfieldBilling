@@ -1998,3 +1998,71 @@ button.bare {
   box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.15);
 }
 
+/* Draft Narratives header layout */
+.panel--narrative .panel__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+/* Soft purple pill-style action */
+.edit-draft-btn {
+  --ed-purple-bg: #f3f0ff;
+  --ed-purple-bg-hover: #e5e0ff;
+  --ed-purple-border: #b2a6f0;
+  --ed-purple-text: #4b3d88;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--ed-purple-border);
+  background: var(--ed-purple-bg);
+  color: var(--ed-purple-text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.7) inset,
+    0 1px 2px rgba(0, 0, 0, 0.04);
+  transition:
+    background 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease,
+    transform 70ms ease;
+}
+
+.edit-draft-btn__icon {
+  display: block;
+}
+
+/* Hover / focus: slightly deeper but still soft */
+.edit-draft-btn:hover,
+.edit-draft-btn:focus-visible {
+  background: var(--ed-purple-bg-hover);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.9) inset,
+    0 2px 4px rgba(0, 0, 0, 0.06);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+/* Active click */
+.edit-draft-btn:active {
+  transform: translateY(0);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.9) inset,
+    0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* Disabled state if you ever wire it up */
+.edit-draft-btn:disabled {
+  opacity: 0.2;
+  cursor: default;
+  transform: none;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.7) inset;
+}

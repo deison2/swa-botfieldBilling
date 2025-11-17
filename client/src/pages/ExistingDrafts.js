@@ -21,7 +21,9 @@ import {
   GetBillThroughBlob,
   SetBillThroughBlob,
   GetInvoiceLineItems,
-  CreateInvoiceBulkPrintList
+  CreateInvoiceBulkPrintList,
+  checkDraftInUse,
+  lockUnlockDraft
 } from '../services/ExistingDraftsService';
 
 import Loader           from '../components/Loader';
@@ -1356,6 +1358,45 @@ const Expandable = ({ data }) => {
   const [detailRows, setDetailRows]   = React.useState([]);
   const [detailTitle, setDetailTitle] = React.useState('');
 
+
+  // for now this stays false; flip to true once wired up to PE
+  const [editDraftEnabled, setEditDraftEnabled] = useState(false);
+
+    // --- Edit Draft: lock check + lock/unlock stub ---
+  const handleEditDraftClick = async () => {
+    const draftId = data?.DRAFTFEEIDX;
+    if (!draftId) {
+      console.warn('No DRAFTFEEIDX on expanded row – cannot lock for edit.');
+      return;
+    }
+    if (!email) {
+      alert('We could not determine your user login. Please refresh and try again.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const inUse = await checkDraftInUse(draftId);
+      if (inUse) {
+        alert('This draft is currently being edited by another user. Please try again later.');
+        return;
+      }
+
+      await lockUnlockDraft(draftId, email);
+      alert(
+        'This draft is now locked for editing in Practice Engine. ' +
+        'Please remember to unlock it once you finish making changes.'
+      );
+    } catch (err) {
+      console.error('Error locking draft for edit:', err);
+      alert('Sorry, something went wrong trying to lock this draft. Please try again or contact Data Analytics.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
   // helper to open modal with filtered wip rows
   const openDetailFor = (label, mode, wipRows) => {
     const L = String(label).toLowerCase();
@@ -1767,11 +1808,53 @@ const closeCreated = () => {
         </div>
       </div>
 
-      {/* Panel 2: Draft Narratives */}
-      <div className="panel panel--narrative">
-        <div className="panel__title">Draft Narratives</div>
-        <div className="table-wrap">
-          <table className="mini-table mini-table--tight">
+            {/* Panel 2: Draft Narratives */}
+            <div className="panel panel--narrative">
+              <div className="panel__title-row">
+                <div className="panel__title">Draft Narratives</div>
+
+                <div className="panel-actions">
+                  <button
+                    type="button"
+                    className="edit-draft-btn"
+                    disabled={!editDraftEnabled}
+                    onClick={
+                      editDraftEnabled
+                        ? handleEditDraftClick          // you’ll wire this later
+                        : undefined
+                    }
+                    title={editDraftEnabled ? 'Edit Draft' : 'Coming Soon!'}
+                  >
+                    <svg
+                      className="edit-draft-btn__icon"
+                      viewBox="0 0 24 24"
+                      width="16"
+                      height="16"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M4 20l3.5-.5L18 9l-3-3L4.5 16.5 4 20z"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M14.5 6.5l3 3"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    <span className="edit-draft-btn__label">Edit Draft</span>
+                  </button>
+                </div>
+              </div>
+              <div className="table-wrap">
+                <table className="mini-table mini-table--tight">
             <thead>
               <tr><th>Narrative</th><th>Service</th><th>Amount</th></tr>
             </thead>
