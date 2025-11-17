@@ -40,6 +40,21 @@ const currency = n =>
   new Intl.NumberFormat('en-US', { style : 'currency', currency : 'USD' })
     .format(n ?? 0);
 
+const fmtCurrency0 = (val) =>
+  (val ?? 0).toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  });
+
+const fmtPct1 = (val) =>
+  (val ?? 0).toLocaleString('en-US', {
+    style: 'percent',
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
+
+
 /* ─── bill-through helpers (UI only) ─────────────────────────────── */
 const fmtMMDDYYYY = (d) => {
   const dt = d instanceof Date ? d : parseYmdLocal(d);
@@ -1923,6 +1938,34 @@ const closeCreated = () => {
   removeBTFilter
 ]);
 
+  /* ── KPIs based on filtered rows ──────────────────────────── */
+  const kpis = useMemo(() => {
+    const rows = filteredRows || [];
+
+    let totalBilled = 0;
+    let totalWip = 0;
+    const clientCodes = new Set();
+
+    for (const r of rows) {
+      totalBilled += Number(r.BILLED || 0);
+      totalWip    += Number(r.WIP || 0);
+
+      // each grouped row already has CLIENTS: [{ code, name, ... }]
+      (r.CLIENTS || []).forEach(c => {
+        if (c?.code) clientCodes.add(String(c.code));
+      });
+    }
+
+    const realization = totalWip > 0 ? totalBilled / totalWip : 0;
+
+    return {
+      totalBilled,
+      totalWip,
+      uniqueClients: clientCodes.size,
+      realization,
+    };
+  }, [filteredRows]);
+
 
   /* >>> pageRows (NEW) >>> */
   const pageRows = useMemo(() => {
@@ -2031,299 +2074,464 @@ console.log('PDF header:', header);
 
       <main className="main-content existing-drafts">
 
-        <div className="filter-bar">
-          <select className="role-select originator" value={originatorFilter} onChange={e => setOriginatorFilter(e.target.value)}>
-            <option value="">All Originators</option>
-            {originatorOptions.map(o => <option key={o} value={o}>{o}</option>)}
+   <div className="existingDrafts-page">
+  <div className="ed-header-row">
+    {/* ROW 1: all filters / controls */}
+    <div className="ed-filters-row">
+      <div className="filter-bar ed-filters">
+        <select
+          className="role-select originator"
+          value={originatorFilter}
+          onChange={e => setOriginatorFilter(e.target.value)}
+        >
+          <option value="">All Originators</option>
+          {originatorOptions.map(o => (
+            <option key={o} value={o}>{o}</option>
+          ))}
+        </select>
+
+        <select
+          className="role-select partner"
+          value={partnerFilter}
+          onChange={e => setPartnerFilter(e.target.value)}
+        >
+          <option value="">All Partners</option>
+          {partnerOptions.map(p => (
+            <option key={p} value={p}>{p}</option>
+          ))}
+        </select>
+
+        <select
+          className="role-select manager"
+          value={managerFilter}
+          onChange={e => setManagerFilter(e.target.value)}
+        >
+          <option value="">All Managers</option>
+          {managerOptions.map(m => (
+            <option key={m} value={m}>{m}</option>
+          ))}
+        </select>
+
+        {/* Realization % (styled as a pill group) */}
+        <div className="real-filter">
+          <select
+            className="pill-select"
+            value={realOp}
+            onChange={onChangeRealOp}
+          >
+            <option value="">Real. % Filter</option>
+            <option value="lt">Less&nbsp;Than</option>
+            <option value="lte">≤</option>
+            <option value="eq">Equals</option>
+            <option value="gte">≥</option>
+            <option value="gt">Greater&nbsp;Than</option>
+            <option value="btw">Between</option>
           </select>
 
-          <select className="role-select partner" value={partnerFilter} onChange={e => setPartnerFilter(e.target.value)}>
-            <option value="">All Partners</option>
-            {partnerOptions.map(p => <option key={p} value={p}>{p}</option>)}
-          </select>
+          {realOp && (
+            <>
+              <input
+                type="number"
+                className="pill-input pct"
+                placeholder={realOp === 'btw' ? 'min %' : '%'}
+                value={realVal1}
+                onChange={e => setRealVal1(e.target.value)}
+                min="0"
+                max="100"
+                step="1"
+                inputMode="numeric"
+              />
 
-          <select className="role-select manager" value={managerFilter} onChange={e => setManagerFilter(e.target.value)}>
-            <option value="">All Managers</option>
-            {managerOptions.map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
-
-          {/* Realization % (styled as a pill group) */}
-          <div className="real-filter">
-            <select
-              className="pill-select"
-              value={realOp}
-              onChange={onChangeRealOp}
-            >
-              <option value="">Real. % Filter</option>
-              <option value="lt">Less&nbsp;Than</option>
-              <option value="lte">≤</option>
-              <option value="eq">Equals</option>
-              <option value="gte">≥</option>
-              <option value="gt">Greater&nbsp;Than</option>
-              <option value="btw">Between</option>
-            </select>
-
-            {/* only show inputs once an operator is chosen */}
-            {realOp && (
-              <>
+              {realOp === 'btw' && (
                 <input
                   type="number"
                   className="pill-input pct"
-                  placeholder={realOp === 'btw' ? 'min %' : '%'}
-                  value={realVal1}
-                  onChange={e => setRealVal1(e.target.value)}
+                  placeholder="max %"
+                  value={realVal2}
+                  onChange={e => setRealVal2(e.target.value)}
                   min="0"
                   max="100"
                   step="1"
                   inputMode="numeric"
                 />
+              )}
+            </>
+          )}
+        </div>
 
-                {realOp === 'btw' && (
-                  <input
-                    type="number"
-                    className="pill-input pct"
-                    placeholder="max %"
-                    value={realVal2}
-                    onChange={e => setRealVal2(e.target.value)}
-                    min="0"
-                    max="100"
-                    step="1"
-                    inputMode="numeric"
-                  />
-                )}
-              </>
-            )}
-          </div>
-          {/* Jobs in Finalization */}
-          <div className="finalization-filter">
-            <label className="sr-only" htmlFor="finalFilter">Jobs in Finalization</label>
-            <select
-              id="finalFilter"
-              className="pill-select"
-              value={finalFilter}
-              onChange={e => setFinalFilter(e.target.value)}
-              title="Jobs in Finalization"
-            >
-              <option value="all">All Drafts</option>
-              <option value="true">Drafts w/ Jobs Nearing End</option>
-            </select>
-          </div>
-
-
-          {/* Created-by icon filter */}
-          <div
-            className="created-filter-wrap"
-            title="Click to filter drafts by create user"
+        {/* Jobs in Finalization */}
+        <div className="finalization-filter">
+          <label className="sr-only" htmlFor="finalFilter">
+            Jobs in Finalization
+          </label>
+          <select
+            id="finalFilter"
+            className="pill-select"
+            value={finalFilter}
+            onChange={e => setFinalFilter(e.target.value)}
+            title="Jobs in Finalization"
           >
-            <button
-              type="button"
-              className={`user-trigger bare ${createdByFilter.size ? 'is-active' : ''}`}
-              aria-haspopup="dialog"
-              aria-expanded={showCreatedFilter}
-              onClick={() => setShowCreatedFilter(v => !v)}
-            >
-              <svg className="user-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-                <g opacity="var(--user-icon-opacity, 0.9)">
-                  <circle cx="12" cy="8" r="4" fill="currentColor" />
-                  <path d="M4 20c0-3.314 3.134-6 8-6s8 2.686 8 6H4z" fill="currentColor" />
-                </g>
-              </svg>
-            </button>
+            <option value="all">All Drafts</option>
+            <option value="true">Drafts w/ Jobs Nearing End</option>
+          </select>
+        </div>
 
-            {showCreatedFilter && (
-              <div className="note-popover created-filter" role="dialog" aria-label="Filter by creator">
-                <div className="note-head" style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:8}}>
-                  <span>Filter: Created By</span>
-                  <div style={{display:'flex', gap:6}}>
-                    {/* Clear all */}
-                    <button
-                      type="button"
-                      className="created-filter-close"
-                      title="Clear all creators"
-                      onClick={clearCreators}
-                    >
-                      Clear
-                    </button>
-                    {/* Close popover */}
-                    <button
-                      type="button"
-                      className="created-filter-close"
-                      title="Close"
-                      onClick={() => setShowCreatedFilter(false)}
-                    >
-                      ×
-                    </button>
-                  </div>
-                </div>
-
-                <div
-                  className="note-body"
-                  role="listbox"
-                  aria-multiselectable="true"
-                  aria-label="Creators"
-                >
-                  <div className="created-filter-list">
-                    {/* "All Creators" behaves as the 'no selections' state */}
-                    <button
-                      type="button"
-                      role="option"
-                      aria-selected={createdByFilter.size === 0}
-                      className={`created-opt ${createdByFilter.size === 0 ? 'is-selected' : ''}`}
-                      onClick={clearCreators}
-                      title="Show drafts from all creators"
-                    >
-                      All Creators
-                    </button>
-
-                    {createdByOptions.map(name => {
-                      const selected = createdByFilter.has(name);
-                      return (
-                        <button
-                          key={name}
-                          type="button"
-                          role="option"
-                          aria-selected={selected}
-                          className={`created-opt ${selected ? 'is-selected' : ''}`}
-                          onClick={() => toggleCreator(name)}
-                          title={name}
-                        >
-                          {name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-    
-          {/* RESET (filters + selections) */}
+        {/* Created-by icon filter */}
+        <div
+          className="created-filter-wrap"
+          title="Click to filter drafts by create user"
+        >
           <button
-            className={`reset-btn ${hasChanges ? 'active' : ''}`}
-            disabled={!hasChanges}
-            onClick={resetFiltersAndSelections}
+            type="button"
+            className={`user-trigger bare ${createdByFilter.size ? 'is-active' : ''}`}
+            aria-haspopup="dialog"
+            aria-expanded={showCreatedFilter}
+            onClick={() => setShowCreatedFilter(v => !v)}
           >
-            Reset
+            <svg
+              className="user-icon"
+              viewBox="0 0 24 24"
+              width="22"
+              height="22"
+              aria-hidden="true"
+            >
+              <g opacity="var(--user-icon-opacity, 0.9)">
+                <circle cx="12" cy="8" r="4" fill="currentColor" />
+                <path
+                  d="M4 20c0-3.314 3.134-6 8-6s8 2.686 8 6H4z"
+                  fill="currentColor"
+                />
+              </g>
+            </svg>
           </button>
 
-          {/* GENERATE with tiny “X” when active */}
-          <span className="generate-wrap">
-            <button
-              className={`generate-btn ${selectedIds.size ? 'active' : ''}`}
-              disabled={!selectedIds.size}
-              onClick={() => handleGeneratePDF(Array.from(selectedIds))}
+          {showCreatedFilter && (
+            <div
+              className="note-popover created-filter"
+              role="dialog"
+              aria-label="Filter by creator"
             >
-              Generate PDF{selectedIds.size === 1 ? '' : 's'} ({selectedIds.size || 0})
-            </button>
-
-            {selectedIds.size > 0 && (
-              <button
-                className="clear-sel-btn"
-                aria-label="Clear selections"
-                onClick={clearAll}
+              <div
+                className="note-head"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 8,
+                }}
               >
-                ×
-              </button>
-            )}
-          </span>
-        {/* ── Bill Through (UI-only) ───────────────────────────── */}
-      <div className="billthrough ml-auto">
-        <span className="bt-label">Bill Through:</span>
-        <button
-          type="button"
-          className={'bt-display'}
-          onClick={() => setBtOpen(v => !v)}
-          aria-haspopup="dialog"
-          aria-expanded={btOpen}
-          title={'Choose bill-through date'}
-        >
+                <span>Filter: Created By</span>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button
+                    type="button"
+                    className="created-filter-close"
+                    title="Clear all creators"
+                    onClick={clearCreators}
+                  >
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    className="created-filter-close"
+                    title="Close"
+                    onClick={() => setShowCreatedFilter(false)}
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
 
-          {fmtMMDDYYYY(billThrough)}
-          <svg className="bt-cal" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-            <rect x="3" y="4" width="18" height="17" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5"/>
-            <line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" strokeWidth="1.5"/>
-            <line x1="8" y1="2.5" x2="8" y2="5.5" stroke="currentColor" strokeWidth="1.5" />
-            <line x1="16" y1="2.5" x2="16" y2="5.5" stroke="currentColor" strokeWidth="1.5" />
-          </svg>
+              <div
+                className="note-body"
+                role="listbox"
+                aria-multiselectable="true"
+                aria-label="Creators"
+              >
+                <div className="created-filter-list">
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={createdByFilter.size === 0}
+                    className={`created-opt ${
+                      createdByFilter.size === 0 ? 'is-selected' : ''
+                    }`}
+                    onClick={clearCreators}
+                    title="Show drafts from all creators"
+                  >
+                    All Creators
+                  </button>
+
+                  {createdByOptions.map(name => {
+                    const selected = createdByFilter.has(name);
+                    return (
+                      <button
+                        key={name}
+                        type="button"
+                        role="option"
+                        aria-selected={selected}
+                        className={`created-opt ${selected ? 'is-selected' : ''}`}
+                        onClick={() => toggleCreator(name)}
+                        title={name}
+                      >
+                        {name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* RESET (filters + selections) */}
+        <button
+          className={`reset-btn ${hasChanges ? 'active' : ''}`}
+          disabled={!hasChanges}
+          onClick={resetFiltersAndSelections}
+        >
+          Reset
         </button>
 
-        {btOpen && (
-          <div className="bt-popover" role="dialog" aria-label="Choose bill-through date">
-            <div className="bt-head">
-              <button type="button" className="bt-nav" onClick={btPrev} aria-label="Previous month">‹</button>
-              <div className="bt-title">{btTitle}</div>
-              <button type="button" className="bt-nav" onClick={btNext} aria-label="Next month">›</button>
-            </div>
+        {/* GENERATE with tiny “X” when active */}
+        <span className="generate-wrap">
+          <button
+            className={`generate-btn ${selectedIds.size ? 'active' : ''}`}
+            disabled={!selectedIds.size}
+            onClick={() => handleGeneratePDF(Array.from(selectedIds))}
+          >
+            Generate PDF{selectedIds.size === 1 ? '' : 's'} ({selectedIds.size || 0})
+          </button>
 
-            <div className="bt-grid">
-              {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (
-                <div key={d} className="bt-dow">{d}</div>
-              ))}
-              {btGrid.map((cell, i) => (
+          {selectedIds.size > 0 && (
+            <button
+              className="clear-sel-btn"
+              aria-label="Clear selections"
+              onClick={clearAll}
+            >
+              ×
+            </button>
+          )}
+        </span>
+
+        {/* Bill Through */}
+        <div className="billthrough ml-auto">
+          <span className="bt-label">Bill Through:</span>
+          <button
+            type="button"
+            className={'bt-display'}
+            onClick={() => setBtOpen(v => !v)}
+            aria-haspopup="dialog"
+            aria-expanded={btOpen}
+            title={'Choose bill-through date'}
+          >
+            {fmtMMDDYYYY(billThrough)}
+            <svg
+              className="bt-cal"
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              aria-hidden="true"
+            >
+              <rect
+                x="3"
+                y="4"
+                width="18"
+                height="17"
+                rx="3"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              />
+              <line
+                x1="3"
+                y1="9"
+                x2="21"
+                y2="9"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              />
+              <line
+                x1="8"
+                y1="2.5"
+                x2="8"
+                y2="5.5"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              />
+              <line
+                x1="16"
+                y1="2.5"
+                x2="16"
+                y2="5.5"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              />
+            </svg>
+          </button>
+
+          {btOpen && (
+            <div
+              className="bt-popover"
+              role="dialog"
+              aria-label="Choose bill-through date"
+            >
+              <div className="bt-head">
                 <button
-                  key={i}
                   type="button"
-                  className={`bt-day ${cell.muted ? 'muted' : ''}`}
-                  onClick={async () => {
-                    const picked = cell.date;
-                    const iso = toIsoYmd(picked);
-                    try {
-                      if (isSuperUser) {
-                       await SetBillThroughBlob({ billThroughDate: iso, updatedBy: email });
-                       console.log('Updating blob for bill through date');
-                      }
-                      // (b) update UI + close popover
-                      await setRemoveBTFilter(false);
-                      setBillThrough(picked);
-                      setBtMonth(new Date(picked.getFullYear(), picked.getMonth(), 1));
-                      setBtOpen(false);
-                      console.log(removeBTFilter);
-                    } finally {
-                      setLoading(false);
-                    }
-                  }}
+                  className="bt-nav"
+                  onClick={btPrev}
+                  aria-label="Previous month"
                 >
-                  {cell.date.getDate()}
+                  ‹
                 </button>
-              ))}
-            </div>
+                <div className="bt-title">{btTitle}</div>
+                <button
+                  type="button"
+                  className="bt-nav"
+                  onClick={btNext}
+                  aria-label="Next month"
+                >
+                  ›
+                </button>
+              </div>
 
-            <div className="bt-footer">
-              <button type="button" className="bt-link" onClick={() => setRemoveBTFilter(true)}>Remove Date Filter</button>
-              <button type="button" className="bt-link" onClick={() => setBtOpen(false)}>Close</button>
+              <div className="bt-grid">
+                {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
+                  <div key={d} className="bt-dow">
+                    {d}
+                  </div>
+                ))}
+                {btGrid.map((cell, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    className={`bt-day ${cell.muted ? 'muted' : ''}`}
+                    onClick={async () => {
+                      const picked = cell.date;
+                      const iso = toIsoYmd(picked);
+                      try {
+                        if (isSuperUser) {
+                          await SetBillThroughBlob({
+                            billThroughDate: iso,
+                            updatedBy: email,
+                          });
+                          console.log('Updating blob for bill through date');
+                        }
+                        await setRemoveBTFilter(false);
+                        setBillThrough(picked);
+                        setBtMonth(
+                          new Date(
+                            picked.getFullYear(),
+                            picked.getMonth(),
+                            1
+                          )
+                        );
+                        setBtOpen(false);
+                        console.log(removeBTFilter);
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                  >
+                    {cell.date.getDate()}
+                  </button>
+                ))}
+              </div>
+
+              <div className="bt-footer">
+                <button
+                  type="button"
+                  className="bt-link"
+                  onClick={() => setRemoveBTFilter(true)}
+                >
+                  Remove Date Filter
+                </button>
+                <button
+                  type="button"
+                  className="bt-link"
+                  onClick={() => setBtOpen(false)}
+                >
+                  Close
+                </button>
+              </div>
             </div>
-          </div>
-        )}
-      </div>
-  
+          )}
         </div>
+      </div>
+    </div>
 
-        <input
-          type="text" className="search-input"
-          placeholder="Search code, name, roles, notes, or narratives…"
-          value={searchText} onChange={e => setSearchText(e.target.value)}
-        />
-
-        <div className="table-section">
-          <GeneralDataTable
-            keyField="DRAFTFEEIDX"
-            data={filteredRows}
-            columns={columns}
-            progressPending={loading}
-            pagination
-            paginationPerPage={rowsPerPage}
-            onChangePage={page => setCurrentPage(page)}
-            onChangeRowsPerPage={(num, page) => {
-              setRowsPerPage(num);
-              setCurrentPage(page);
-            }}
-            highlightOnHover
-            striped
-            expandableRows
-            expandableRowsComponent={Expandable}
+    {/* ROW 2: search + KPI strip */}
+    <div className="ed-secondary-row">
+      {/* LEFT: search box */}
+      <div className="ed-search">
+        <div className="ed-search-input-wrap">
+          <input
+            type="text"
+            className="ed-search-input"
+            placeholder="Search code, name, roles, notes, or narratives…"
+            value={searchText}
+            onChange={e => setSearchText(e.target.value)}
           />
         </div>
+      </div>
+
+      {/* RIGHT: KPI strip */}
+      <div className="ed-kpis">
+        <div className="ed-kpi-row">
+          <div className="ed-kpi-card ed-kpi-card--header">
+            <div className="ed-kpi-title">Total WIP</div>
+            <div className="ed-kpi-value">
+              {fmtCurrency0(kpis.totalWip)}
+            </div>
+          </div>
+
+          <div className="ed-kpi-card ed-kpi-card--header">
+            <div className="ed-kpi-title">Total Billed</div>
+            <div className="ed-kpi-value">
+              {fmtCurrency0(kpis.totalBilled)}
+            </div>
+          </div>
+
+          <div className="ed-kpi-card ed-kpi-card--header">
+            <div className="ed-kpi-title">Realization %</div>
+            <div className="ed-kpi-value">
+              {fmtPct1(kpis.realization || 0)}
+            </div>
+          </div>
+
+          <div className="ed-kpi-card ed-kpi-card--header">
+            <div className="ed-kpi-title">Unique Drafts</div>
+            <div className="ed-kpi-value">
+              {kpis.uniqueClients.toLocaleString('en-US')}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* Table */}
+  <div className="table-section">
+    <GeneralDataTable
+      keyField="DRAFTFEEIDX"
+      data={filteredRows}
+      columns={columns}
+      progressPending={loading}
+      pagination
+      paginationPerPage={rowsPerPage}
+      onChangePage={page => setCurrentPage(page)}
+      onChangeRowsPerPage={(num, page) => {
+        setRowsPerPage(num);
+        setCurrentPage(page);
+      }}
+      highlightOnHover
+      striped
+      expandableRows
+      expandableRowsComponent={Expandable}
+    />
+  </div>
+</div>
+
         <SelectScopeModal
           visibleCount={pageRows.length}
           totalCount={filteredRows.length}

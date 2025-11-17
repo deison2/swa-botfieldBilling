@@ -39,13 +39,7 @@
   opacity: 0.85;
 }
 
-/* ---------- search ---------- */
-.search-input {
-  width: 100%;
-  padding: 8px;
-  margin-bottom: 1rem;
-  box-sizing: border-box;
-}
+
 
 /* ---------- table shell ---------- */
 .table-section {
@@ -1889,3 +1883,118 @@ button.bare {
   line-height: 1;
   box-shadow: 0 0 2px rgba(0,0,0,0.3);
 }
+/* Stack header into two rows */
+.ed-header-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+/* Row 1: filters */
+.ed-filters-row {
+  display: flex;
+}
+
+.filter-bar.ed-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+
+/* Row 2: search + KPIs */
+.ed-secondary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;    /* bottom-align search with KPIs */
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+/* LEFT: search takes remaining space, but never less than 100px */
+.ed-search {
+  flex: 1 1 100px;
+  min-width: 100px;
+}
+
+/* RIGHT: KPI strip hugs the right */
+.ed-kpis {
+  flex: 0 0 auto;
+}
+
+/* KPI row on ExistingDrafts only */
+.ed-kpi-row {
+  display: flex;
+  gap: 8px;
+}
+
+/* Equal-width, compact KPI cards just for ExistingDrafts */
+.ed-kpi-card--header {
+  box-sizing: border-box;
+  flex: 0 0 180px;          /* all header KPIs same width */
+  min-width: 180px;
+  padding: 0.25rem 0.8rem;  /* less vertical padding => ~half height */
+  min-height: 2.2rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(6, 57, 65, 0.14);
+  box-shadow: 0 1px 6px rgba(6, 57, 65, 0.06);
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+}
+
+/* purple accent bar, matching your other KPIs */
+.ed-kpi-card--header::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: 0.75rem 0 0 0.75rem;
+  background: #4f46e5bf;
+}
+
+.ed-kpi-title {
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6b7280;
+  margin-bottom: 0.1rem;
+}
+
+.ed-kpi-value {
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #0b2a30;
+}
+
+/* Search box styling (scoped to ED so other search-inputs are untouched) */
+.ed-search-input-wrap {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.ed-search-input {
+  width: 100%;
+  height: 2.5rem;              /* matches KPI height */
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+/* Optional: subtle hover/focus to match pill controls */
+.ed-search-input:focus {
+  outline: none;
+  border-color: #4f46e5bf;
+  box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.15);
+}
+
