@@ -325,3 +325,20 @@
 
 /* (optional) center the label; remove if you prefer left-aligned */
  .chip2.role { justify-content: center; }
+
+ /* Make the population chip container take up the whole cell */
+.population-chips {
+  width: 100%;
+}
+
+/* Make every population chip the same width */
+.population-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start; /* or center if you prefer */
+  width: 100%;                 /* every chip spans full column width */
+  box-sizing: border-box;
+  white-space: nowrap;         /* keep text on one line */
+  overflow: hidden;
+  text-overflow: ellipsis;     /* add "..." if text is too long */
+}

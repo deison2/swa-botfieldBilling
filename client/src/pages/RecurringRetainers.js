@@ -281,15 +281,61 @@ async function handleConfirmDelete(uuid) {
 
 
   const filteredRows = useMemo(() => {
-  return enrichedRows
-    .filter(r => {
-      if (!filterText) return true;
+    // const filtered = enrichedRows
+    // .filter(r => {
+    //   if (!filterText) return true;
 
-      const text = filterText.toLowerCase();
-      console.log(text);
-      //if (r.Narrative.toLowerCase().includes(text)) return true;
+    //   const text = filterText.toLowerCase();
+    //   console.log(text);
+    //   //if (r.Narrative.toLowerCase().includes(text)) return true;
 
-      return false;
+    //   return false;
+    // })
+    const search = filterText.trim().toLowerCase();
+
+    const filtered = enrichedRows
+      .filter(r => {
+        if (!search) return true; // no search text -> keep everything
+
+        // Collect text from the columns you care about
+        const values = [];
+
+        // Basic fields
+        values.push(
+          r.ClientCode,
+          r.ClientName,
+          r.ClientOffice,
+          r.ClientPartner,
+          r.ClientManager,
+          r.BillType,
+          r.Level,
+          r.Frequency,
+          r.Narrative
+        );
+
+        // Population (handles SERV vs JOB arrays)
+        if (r.Level === 'SERV') {
+          if (Array.isArray(r.Population)) {
+            values.push(...r.Population);
+          } else if (r.Population) {
+            values.push(r.Population);
+          }
+        } else if (Array.isArray(r.Population)) {
+          values.push(...r.Population.map(i => jobLookup[i] || ''));
+        }
+
+        // Bill amount as text
+        if (r.BillAmount != null) {
+          values.push(String(r.BillAmount));
+        }
+
+        // Build one big lowercase string to search in
+        const haystack = values
+          .filter(Boolean)            // drop null/undefined/empty
+          .join(' ')
+          .toLowerCase();
+
+      return haystack.includes(search);
     })
     .filter(r =>
       // Level dropdown
@@ -303,11 +349,18 @@ async function handleConfirmDelete(uuid) {
       // Frequency dropdown
       !freqFilter || r.Frequency === freqFilter
     );
+
+    // Default sort is ascending ClientCode
+    return filtered.slice().sort((a,b) => {
+      const aCode = a.ClientCode || '';
+      const bCode = b.ClientCode || '';
+      return aCode.localeCompare(bCode);
+    });
 }, [enrichedRows, filterText, levelFilter, typeFilter, freqFilter]);
 
 
   const columns = [
-    { name: 'Client', selector: row => `${row.ClientCode} - ${row.ClientName}` , sortable: true , wrap: true , grow: 1, center: true 
+    { name: 'Client', selector: row => `${row.ClientCode} - ${row.ClientName}` , sortable: true , wrap: true , width: '184px', grow: 0, center: true 
     , cell: row => {
       const visible = [`${row.ClientCode} - ${row.ClientName}`];
 
@@ -320,8 +373,8 @@ async function handleConfirmDelete(uuid) {
       );
     }
     },
-    { name: 'Office', selector: row => row.ClientOffice , sortable: true , wrap: true , grow: .5, center: true },
-    { name : 'Client Roles', grow: .75, sortable:false, center: true,
+    { name: 'Office', selector: row => row.ClientOffice , sortable: true , wrap: true , width:'80px', grow: 0.5, center: true },
+    { name : 'Client Roles', grow: 0.5, sortable:false, center: true,
       cell : r => (
         <RoleChips
           partner={r.ClientPartner}
@@ -329,35 +382,65 @@ async function handleConfirmDelete(uuid) {
         />
       )
     },
-    { name: 'Bill Type', selector: row => row.BillType , sortable: true , wrap: true , grow: .5, center: true },
-    { name: 'Level', selector: row => row.Level, sortable: true , grow: .5, center: true },
+    { name: 'Bill Type', selector: row => row.BillType , sortable: true , wrap: true , width:'100px', grow: .5, center: true },
+    { name: 'Level', selector: row => row.Level, sortable: true , width:'80px', grow: .5, center: true },
     { 
-      name: 'Population' , sortable: true , wrap: true , width: '240px', grow: 2, center: true
+      name: 'Population' , sortable: true , wrap: true , width: '260px', grow: 2, center: true
       ,
     selector: row => {
-      if (row.Level === 'SERV') 
-          return row.Population.join(', ');
-      else 
-          return row.Population.map(i => jobLookup[i] || '').join(', ');
+      if (row.Level === 'SERV') {
+      const arr = Array.isArray(row.Population)
+        ? row.Population
+        : [row.Population];
+
+      return arr
+        .slice()
+        .sort((a, b) => (a || '').localeCompare(b || ''))
+        .join(', ');
+    } else {
+      const names = row.Population
+        .map(i => jobLookup[i] || '')
+        .filter(Boolean)
+        .slice()
+        .sort((a, b) => a.localeCompare(b));
+
+      return names.join(', ');
+    }
+      // if (row.Level === 'SERV') 
+      //     return row.Population.join(', ');
+      // else 
+      //     return row.Population.map(i => jobLookup[i] || '').join(', ');
     },
     cell: row => {
       // build a flat list of labels in every case
       let labels;
-        if (row.Level === 'SERV') 
-          {
-            labels = [row.Population]
-          }
-        else 
-            labels = row.Population.map(i => jobLookup[i] || `#${i}`);
+      if (row.Level === 'SERV') {
+        labels = Array.isArray(row.Population)
+          ? row.Population
+          : [row.Population];
+      } else {
+        labels = row.Population.map(i => jobLookup[i] || `#${i}`);
+      }
+
+      // sort alphabetically
+      const sortedLabels = labels
+        .slice()
+        .sort((a, b) => (a || '').localeCompare(b || ''));
+        // if (row.Level === 'SERV') 
+        //   {
+        //     labels = [row.Population]
+        //   }
+        // else 
+        //     labels = row.Population.map(i => jobLookup[i] || `#${i}`);
 
       // show up to 3 chips, stash the rest
-      const visible = labels.slice(0, 3);
-      const hidden  = labels.slice(3);
+      const visible = sortedLabels.slice(0, 3);
+      const hidden  = sortedLabels.slice(3);
 
       return (
-        <div className="chip2-container">
+        <div className="chip2-container population-chips">
           {visible.map(lbl => (
-            <span key={lbl} className="chip2">
+            <span key={lbl} className="chip2 population-chip">
               {lbl}
             </span>
           ))}
@@ -371,11 +454,39 @@ async function handleConfirmDelete(uuid) {
       );
     }
     },
-    { name: 'Frequency', selector: row => row.Frequency , sortable: true , wrap: true , grow: .5, center: true },
-    { name: 'Narrative', selector: row => ( <div title={row.Narrative}> {row.Narrative?.length > 75 ? row.Narrative.slice(0, 75) + '...' : row.Narrative} </div>
-  ), sortable: true , grow: 1, center: true },
-    { name: 'Bill Amount', selector: row => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
-      .format(row.BillAmount || 0), sortable: true , grow: .5, center: true },
+    { name: 'Frequency', selector: row => row.Frequency , sortable: true , wrap: true , width:'120px', grow: .5, center: true },
+    // { name: 'Narrative', selector: row => ( <div title={row.Narrative}> {row.Narrative?.length > 75 ? row.Narrative.slice(0, 75) + '...' : row.Narrative} </div>
+    //   ), sortable: true , wrap: true, width: '200px', grow: 1, center: true },
+    {
+      name: 'Narrative',
+      selector: row => row.Narrative || '',  // <-- plain string for sort
+      sortable: true,
+      wrap: true,
+      width: '260px',
+      grow: 1,
+      center: true,
+      cell: row => {
+        const full = row.Narrative || '';
+        const short =
+          full.length > 75 ? full.slice(0, 75) + '...' : full;
+
+        return <div title={full}>{short}</div>;
+      }
+    },
+    // { name: 'Bill Amount', selector: row => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
+    //   .format(row.BillAmount || 0), sortable: true , grow: .5, center: true },
+    {
+      name: 'Bill Amount',
+      selector: row => row.BillAmount ?? 0,  // <-- numeric value for sorting
+      sortable: true,
+      right: true,
+      grow: 0.5,
+      cell: row =>
+        new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'USD'
+        }).format(row.BillAmount || 0)
+    },
     {
       name: '',
       cell: row => <button className="ed-del-btn" onClick={() => openEditModal(row)}>Edit</button>,
