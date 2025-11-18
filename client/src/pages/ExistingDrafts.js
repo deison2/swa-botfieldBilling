@@ -1243,15 +1243,31 @@ useEffect(() => {
     { name : 'Real.%',    selector: r => r.BILLED / (r.WIP || 1), sortable:true,
                           format: r => `${((r.BILLED / (r.WIP || 1))*100).toFixed(1)}%`,
                           width:'84px', grow: 0 },
-    { name : 'Draft Link', width:'150px', ignoreRowClick:true, center: true,
-      cell : r => (
-        <a href={r.DRAFTHYPERLINK} target="_blank" rel="noopener noreferrer" className="open-link">
-          <img
-            src="https://storageacctbmssprod001.blob.core.windows.net/container-bmssprod001-public/images/ClickToOpen-PE.svg"
-            alt="Open draft in Practice Engine" className="open-link-icon"
-          />
-        </a>
-      )},
+    {
+      name: "Draft Link",
+      width: "90px",              // optional: match your PE Link column width
+      ignoreRowClick: true,
+      center: true,               // keep center if you like the alignment
+      button: true,               // optional, if other link columns use this
+      cell: (r) => {
+        const href = r?.DRAFTHYPERLINK ?? "";
+        if (!href) return null;
+
+        return (
+          <a
+            className="pe-link-btn"
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Open draft in Practice Engine"
+            aria-label="Open draft in Practice Engine"
+          >
+            <img className="pe-logo" src="https://storageacctbmssprod001.blob.core.windows.net/container-bmssprod001-public/images/PElogo.svg" alt="PE" />
+          </a>
+        );
+      },
+    },
+
       /*
     { name : 'Actions', ignoreRowClick:true, button:true, grow: 0.5,
       cell : r => {
