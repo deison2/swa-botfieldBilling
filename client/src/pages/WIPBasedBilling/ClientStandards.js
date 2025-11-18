@@ -3,6 +3,7 @@ import Sidebar from '../../components/Sidebar';
 import GeneralDataTable from '../../components/DataTable';
 import TopBar from '../../components/TopBar';
 import './OfficePartnerClientStandards.css';
+import { useAuth } from '../../auth/AuthContext';
 
 import { getStandards, updateStandards } from '../../services/OfficePartnerClientStandards';
 
@@ -25,6 +26,7 @@ function useDebouncedValue(value, delay = 500) {
 
 // --- Modal ---
 function EditClientStandardModal({ open, onClose, client, onSaved }) {
+  const { isSuperUser } = useAuth();
   const [rows, setRows] = useState(() => SERVICES.map(s => ({ serv: s, value: '' })));
   const [initialMap, setInitialMap] = useState({});
   const [loading, setLoading] = useState(false);
@@ -158,6 +160,7 @@ function EditClientStandardModal({ open, onClose, client, onSaved }) {
                           max={150}
                           step={1}
                           value={value}
+                          disabled={!isSuperUser}
                           onChange={(e) => onChangeCell(serv, e.target.value)}
                           onBlur={(e) => {
                             const n = Number.parseFloat(e.target.value);
@@ -346,7 +349,7 @@ function dedupePopulationRows(rows) {
               setModalOpen(true);
             }}
           >
-            Edit services
+            View Standards
           </button>
         ),
       },

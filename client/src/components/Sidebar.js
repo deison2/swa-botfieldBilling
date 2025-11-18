@@ -38,7 +38,7 @@ export default function Sidebar() {
         ─── WIP-Based section (super-users only) ─── 
         -- UPDATE FOR PROD-DEV SWITCH (&& for prod, || for dev) --        
         */}
-        {isSuperUser && (
+        {(
           <>
             <div
               className="wip-toggle"
@@ -50,7 +50,7 @@ export default function Sidebar() {
                 })
               }
             >
-              {wipOpen ? '▼' : '▶'} WIP-Based Billing
+              {wipOpen ? '▼' : '▶'} Standards
             </div>
 
             {wipOpen && (
@@ -111,13 +111,13 @@ export default function Sidebar() {
               Existing Drafts
             </NavLink>
           </li>
-          {isSuperUser && (
-            <>
               <li>
                 <NavLink to="/Recurring-Retainers" className={linkClass}>
                   Recurring Clients
                 </NavLink>
               </li>
+          {isSuperUser && (
+            <>
               <li>
                 <NavLink to="/Tech-Fees" className={linkClass}>
                   Tech Fees
