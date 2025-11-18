@@ -23,8 +23,15 @@ import {
   GetInvoiceLineItems,
   CreateInvoiceBulkPrintList,
   checkDraftInUse,
-  lockUnlockDraft
+  lockUnlockDraft,
+  getDraftFeeAnalysis,
+  getDraftFeeNarratives,
+  saveDraftFeeAnalysisRow,
+  updateDraftFeeNarrative,
+  logDraftEdits,
 } from '../services/ExistingDraftsService';
+
+import ExistingDraftsEditTray from './ExistingDraftsEditTray';
 
 // Recurring billing configuration (masterRecurrings.json)
 import { loadRecurrings } from '../services/RecurringService'; // <-- adjust path if needed
@@ -741,7 +748,14 @@ function loadFiltersFromStorage() {
   }
 }
 
-
+const [editTrayState, setEditTrayState] = useState({
+    open: false,
+    draftIdx: null,
+    clientName: "",
+    clientCode: "",
+    analysisItems: [],
+    narrativeItems: [],
+  });
 
   useEffect(() => {
   let cancelled = false;
@@ -830,6 +844,9 @@ useEffect(() => {
   /* ── AUTH ───────────────────────────────────────────────────── */
   const { ready, principal, isSuperUser } = useAuth();
   const email = principal?.userDetails?.toLowerCase() || '';
+  const currentUserName =
+  principal?.userDetails || principal?.userPrincipalName || email;
+
 
   /* ── RAW DATA  (dev stub) ───────────────────────────────────── */
   const [rawRows, setRawRows] = useState([]);
@@ -1339,7 +1356,7 @@ function DraftRow({ d, client, granData, onHover, onLeave, onPin, expanded, onTo
 }
 
   /* ── EXPANDABLE row render ────────────────────────────────── */
-const Expandable = ({ data }) => {
+const Expandable = ({ data, isSuperUser }) => {
   const [activeDetails, setActiveDetails] = React.useState(null);
   const hideTimer = React.useRef(null);
 
@@ -1381,11 +1398,17 @@ const Expandable = ({ data }) => {
   const [detailTitle, setDetailTitle] = React.useState('');
 
 
-  // for now this stays false; flip to true once wired up to PE
-  const [editDraftEnabled, setEditDraftEnabled] = useState(false);
+  const editDraftEnabled = !!isSuperUser;
+  const [showStandardizationTip, setShowStandardizationTip] = useState(false);
+
 
     // --- Edit Draft: lock check + lock/unlock stub ---
   const handleEditDraftClick = async () => {
+    if (!isSuperUser) {
+      // extra safety – shouldn’t fire because button is disabled, but just in case
+      alert('Coming Soon!');
+      return;
+    }
     const draftId = data?.DRAFTFEEIDX;
     if (!draftId) {
       console.warn('No DRAFTFEEIDX on expanded row – cannot lock for edit.');
@@ -1399,24 +1422,67 @@ const Expandable = ({ data }) => {
     try {
       setLoading(true);
 
-      const inUse = await checkDraftInUse(draftId);
+      // NEW: get detailed lock info
+      const { inUse, user } = await checkDraftInUse(draftId);
+
+      const me = (email || '').trim().toLowerCase();
+      const lockUser = (user || '').trim().toLowerCase();
+
       if (inUse) {
-        alert('This draft is currently being edited by another user. Please try again later.');
-        return;
+        // If we know who has it and it's NOT me, block with named message
+        if (lockUser && lockUser !== me) {
+          alert(
+            `This draft is currently being edited by ${user}. ` +
+            `Please try again after they finish.`
+          );
+          return;
+        }
+
+        // If it's in use but no user came back, be conservative and block
+        // (optional – you can remove this block if your API always returns an email)
+        if (!lockUser) {
+          alert('This draft is currently being edited by another user. Please try again later.');
+          return;
+        }
+
+        // If lockUser === me, fall through and allow re-entry
       }
 
+      // Lock for this user (or refresh the lock if it's already mine)
       await lockUnlockDraft(draftId, email);
-      alert(
-        'This draft is now locked for editing in Practice Engine. ' +
-        'Please remember to unlock it once you finish making changes.'
-      );
+
+      // fetch fresh data from PE
+      const [analysisRes, narrRes] = await Promise.all([
+        getDraftFeeAnalysis(draftId),
+        getDraftFeeNarratives(draftId),
+      ]);
+
+      // show standardization reminder only first time per browser
+      const tipKey = 'existingDrafts_standardizationTipSeen';
+      const tipSeen = window.localStorage.getItem(tipKey) === 'Y';
+      if (!tipSeen) {
+        setShowStandardizationTip(true);
+        window.localStorage.setItem(tipKey, 'Y');
+      }
+
+      // push data up to parent (ExistingDrafts) so tray can render
+      setEditTrayState({
+        open: true,
+        draftIdx: draftId,
+        clientName: (data.CLIENTS?.[0]?.name) || '',
+        clientCode: (data.CLIENTS?.[0]?.code) || '',
+        analysisItems: analysisRes?.Items || [],
+        narrativeItems: narrRes || [],
+      });
     } catch (err) {
-      console.error('Error locking draft for edit:', err);
-      alert('Sorry, something went wrong trying to lock this draft. Please try again or contact Data Analytics.');
+      console.error('Error preparing draft for edit:', err);
+      alert('Sorry, something went wrong trying to enter edit mode.');
     } finally {
       setLoading(false);
     }
   };
+
+
 
 
   // helper to open modal with filtered wip rows
@@ -1838,14 +1904,15 @@ const closeCreated = () => {
                 <div className="panel-actions">
                   <button
                     type="button"
-                    className="edit-draft-btn"
+                    className={`edit-draft-btn ${!editDraftEnabled ? 'is-disabled' : ''}`}
                     disabled={!editDraftEnabled}
-                    onClick={
+                    onClick={editDraftEnabled ? handleEditDraftClick : undefined}
+                    aria-disabled={!editDraftEnabled}
+                    title={
                       editDraftEnabled
-                        ? handleEditDraftClick          // you’ll wire this later
-                        : undefined
+                        ? 'Edit Draft'
+                        : 'Only super users can edit drafts'
                     }
-                    title={editDraftEnabled ? 'Edit Draft' : 'Coming Soon!'}
                   >
                     <svg
                       className="edit-draft-btn__icon"
@@ -1907,6 +1974,35 @@ const closeCreated = () => {
         title={detailTitle}
         rows={detailRows}
       />
+    {showStandardizationTip && (
+      <PopoverPortal open={showStandardizationTip}>
+        <div
+          className="std-tip-backdrop"
+          onClick={() => setShowStandardizationTip(false)}
+        >
+          <div
+            className="std-tip-modal"
+            onClick={e => e.stopPropagation()}
+            role="dialog"
+          >
+            <h3>Quick reminder</h3>
+            <p>
+              Remember that our goal is standardization that minimizes the need for
+              human touchpoints. Please consider maintaining standard verbiage and
+              amounts when possible and work to train your clients if this is new
+              to them.
+            </p>
+            <button
+              type="button"
+              className="ed-btn ed-btn--primary"
+              onClick={() => setShowStandardizationTip(false)}
+            >
+              Got it.
+            </button>
+          </div>
+        </div>
+      </PopoverPortal>
+    )}
 
     </div>
   );
@@ -2099,6 +2195,26 @@ const closeCreated = () => {
     return filteredRows.slice(start, start + rowsPerPage);
   }, [filteredRows, currentPage, rowsPerPage]);
   /* <<< pageRows END <<< */
+
+    async function reloadDraftsForCurrentBillThrough() {
+      try {
+        setLoading(true);
+
+        // use the current billThrough state
+        const iso = toIsoYmd(billThrough);
+
+        // re-fetch just the draft population – other datasets
+        // (granularData, granularWip, recurrings) don't change
+        // when you edit the draft amounts/narratives
+        const dRes = await GetDrafts(iso);
+
+        setRawRows(Array.isArray(dRes) ? dRes : []);
+      } catch (err) {
+        console.error('Reload drafts failed:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
 
   /* ── events ─────────────────────────────────────────── */
   const clearFilters = () => {
@@ -2655,7 +2771,9 @@ console.log('PDF header:', header);
       highlightOnHover
       striped
       expandableRows
-      expandableRowsComponent={Expandable}
+      expandableRowsComponent={(props) => (
+        <Expandable {...props} isSuperUser={isSuperUser} />
+      )}
     />
   </div>
 </div>
@@ -2674,6 +2792,107 @@ console.log('PDF header:', header);
           }
         }}
         /> 
+      <ExistingDraftsEditTray
+        open={editTrayState.open}
+        draftIdx={editTrayState.draftIdx}
+        clientName={editTrayState.clientName}
+        clientCode={editTrayState.clientCode}
+        analysisItems={editTrayState.analysisItems}
+        narrativeItems={editTrayState.narrativeItems}
+        currentUser={currentUserName}
+        onClose={async (saved) => {
+          // Always unlock the draft when the tray closes (save or cancel)
+          if (editTrayState.draftIdx && email) {
+            try {
+              await lockUnlockDraft(editTrayState.draftIdx, email); // same endpoint unlocks
+            } catch (e) {
+              console.warn('Unlock draft failed', e);
+            }
+          }
+
+          // Close tray (and optionally clear per-draft data)
+          setEditTrayState((s) => ({
+            ...s,
+            open: false,
+            // analysisItems: [],
+            // narrativeItems: [],
+          }));
+
+          // After a successful save, refresh the draft list so the table + KPIs update
+          if (saved) {
+            await reloadDraftsForCurrentBillThrough();
+          }
+        }}
+
+        onSave={async (payload) => {
+          const {
+            analysisRows,
+            narrativeRows,
+            draftIdx,
+            user,
+            when,
+            reason,
+            billingNotes,
+          } = payload;
+
+          // 1) Build promises for analysis rows (job-level Draft Amt / narrative)
+          const analysisPromises = analysisRows.map((r) =>
+            saveDraftFeeAnalysisRow({
+              AllocIndex: r.AllocIdx,
+              BillAmount: r.BillInClientCur ?? r.BillAmount ?? 0,
+              WIPOS: r.WIPInClientCur ?? r.MaxWIP ?? 0,
+              BillType: r.BillType,
+              BillWoff: r.WoffInClientCur ?? 0,
+              DebtTranIndex: r.DebtTranIndex,
+              Job_Allocation_Type: r.Job_Allocation_Type,
+              Narrative: r.Narrative || '',
+              VATCode: r.VATCode || '0',
+              WipAnalysis: r.WipAnalysis || '',
+              VATAmt: r.VATAmount ?? null,
+              DebtTranDate: r.DebtTranDate,
+              CFwd: false,
+            })
+          );
+
+          // 2) Build promises for narrative rows
+          //    (skip deleted rows until a delete API is available)
+          const narrativePromises = narrativeRows
+            .filter((r) => !r._deleted)
+            .map((r) =>
+              updateDraftFeeNarrative({
+                DebtNarrIndex: r.DebtNarrIndex,
+                DraftFeeIdx: draftIdx,
+                LineOrder: r.LineOrder,
+                WIPType: r.WIPType,
+                ServIndex: r.ServIndex,
+                Units: r.Units,
+                Amount: r.Amount,
+                VATRate: r.VATRate,
+                VATPercent: r.VATPercent,
+                VATAmount: r.VATAmount,
+                // NOTE: for now we pass through FeeNarrative as-is.
+                // Later you may want a helper to wrap plain text in the
+                // standard PE HTML font/paragraph structure.
+                FeeNarrative: r.FeeNarrative,
+              })
+            );
+
+          // Run all PE updates in parallel for speed
+          await Promise.all([...analysisPromises, ...narrativePromises]);
+
+          // 3) Log audit (Azure Function / future reporting)
+          await logDraftEdits({
+            draftIdx,
+            user,
+            when,
+            reason,
+            billingNotes,
+            analysisRows,
+            narrativeRows,
+          });
+        }}
+      />
+ 
       </main>
     </div>
   );

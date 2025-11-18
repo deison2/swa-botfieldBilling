@@ -1,12 +1,11 @@
 import { getAuthToken, setAuthToken } from './runtimeConfig';
 
 export async function getToken() {
-    console.log('calling getToken');
-    const res = await fetch('/api/getToken', {
+  console.log('calling getToken');
+  const res = await fetch('/api/getToken', {
     method: "POST"
-    })
-    ;
-    const token = await res.text();
+  });
+  const token = await res.text();
   if (!res.ok) { // capture error payload
     throw new Error(`Load failed: ${res.status} ${token}`);
   }
@@ -21,12 +20,12 @@ export async function CreateBulkPrintList(draftIndexes) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-        "indexArray": draftIndexes,
-        "token": token
-        })
+      indexArray: draftIndexes,
+      token
+    })
   });
   if (!res.ok) throw new Error("Create failed");
-  const bulkListId = res.text();
+  const bulkListId = await res.text(); // <-- need await
   return bulkListId;
 }
 
@@ -36,23 +35,44 @@ export async function DownloadBulkList(listId) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-        "token": token
-        })
+      token
+    })
   });
   if (!res.ok) throw new Error("Create failed");
   const response = await res.blob();
   return response;
 }
 
+/* ------------ SAFE JSON HELPER ------------ */
+
+async function safeJson(res) {
+  const text = await res.text();
+  if (!text) {
+    // empty / 204 / etc.
+    return null;
+  }
+  try {
+    return JSON.parse(text);
+  } catch (err) {
+    console.warn('Non-JSON response from', res.url, '=>', text);
+    // fall back to raw text so callers still get something
+    return text;
+  }
+}
+
+/* ------------ GENERIC FETCH WRAPPER ------------ */
+
 async function fetchWithErrors(url, init = {}) {
   try {
     const res = await fetch(url, init);
     if (!res.ok) {
       const payload = await res.text();
-      if (res.status === 504) throw new Error(`Gateway timeout (504) when loading ${url}`);
+      if (res.status === 504) {
+        throw new Error(`Gateway timeout (504) when loading ${url}`);
+      }
       throw new Error(`Load failed: ${res.status} ${payload}`);
     }
-    return res.json();
+    return safeJson(res);
   } catch (err) {
     console.error('Error fetching - ', err);
     throw err;
@@ -72,9 +92,14 @@ export async function SetBillThroughBlob({ billThroughDate, updatedBy }) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ billThroughDate, updatedBy, token }),
   });
-  return res.json();
-}
 
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`SetBillThroughBlob failed: ${res.status} ${msg}`);
+  }
+
+  return safeJson(res);
+}
 
 export async function GetDrafts(billThroughDate) {
   const res = await fetch('/api/getDraftPopulation', {
@@ -82,7 +107,13 @@ export async function GetDrafts(billThroughDate) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ billThroughDate }),
   });
-  return res.json();
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`GetDrafts failed: ${res.status} ${msg}`);
+  }
+
+  return safeJson(res);
 }
 
 export async function GetGranularJobData(billThroughDate) {
@@ -91,16 +122,27 @@ export async function GetGranularJobData(billThroughDate) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ billThroughDate }),
   });
-  return res.json();
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`GetGranularJobData failed: ${res.status} ${msg}`);
+  }
+
+  return safeJson(res);
 }
 
 export async function GetGranularWIPData() {
-    console.log('calling GetGranularWIPData');
-    const res = await fetch('/api/GetGranularWIPData', {
+  console.log('calling GetGranularWIPData');
+  const res = await fetch('/api/GetGranularWIPData', {
     method: "POST"
-    })
-    ;
-  return res.json();
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`GetGranularWIPData failed: ${res.status} ${msg}`);
+  }
+
+  return safeJson(res);
 }
 
 export async function GetInvoiceLineItems({ clientCode, startDate, endDate, dateRange } = {}) {
@@ -134,7 +176,7 @@ export async function GetInvoiceLineItems({ clientCode, startDate, endDate, date
     throw new Error(`GetInvoiceLineItems failed: ${res.status} ${msg}`);
   }
 
-  return res.json();
+  return safeJson(res);
 }
 
 // in services/ExistingDraftsService.js
@@ -158,7 +200,7 @@ export async function CreateInvoiceBulkPrintList(debtTranIndexes) {
     throw new Error(`CreateInvoiceBulkPrintList failed: ${res.status} ${msg}`);
   }
   // server returns text listId (like the draft flow)
-  return res.text();
+  return await res.text();
 }
 
 export async function lockUnlockDraft(DebtTranIndex, User) {
@@ -198,15 +240,111 @@ export async function checkDraftInUse(DebtTranIndex) {
   }
 
   const raw = (await res.text()).trim();
-  // Normalize: support "true"/"false", "1"/"0", or empty => false
-  if (raw === '') return false;
-  if (raw === 'true' || raw === '1') return true;
-  if (raw === 'false' || raw === '0') return false;
-  // If API returns a user email or object, treat non-empty as "in use"
-  try {
-    const maybeJson = JSON.parse(raw);
-    return !!maybeJson && (Array.isArray(maybeJson) ? maybeJson.length > 0 : true);
-  } catch {
-    return raw.length > 0;
+
+  // Empty → not in use
+  if (!raw) {
+    return { inUse: false, user: null };
   }
+
+  // Fallback support if backend ever returns boolean-ish values
+  if (raw === 'true' || raw === '1') {
+    return { inUse: true, user: null };
+  }
+  if (raw === 'false' || raw === '0') {
+    return { inUse: false, user: null };
+  }
+
+  // If backend just returns the email as plain text (our current pattern)
+  // then `raw` IS the user email.
+  return {
+    inUse: true,
+    user: raw
+  };
+}
+
+
+// === Draft editing (PE APIs) SURGICAL EDITS ===
+
+export async function getDraftFeeAnalysis(draftFeeIdx) {
+  const token = await getToken();
+  setAuthToken(token);
+
+  const res = await fetch(`/api/DraftEditing/GET/Analysis/${draftFeeIdx}`, {
+    method: "POST",
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token })
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`Get Draft Analysis Fail - ${draftFeeIdx} failed: ${res.status} ${msg}`);
+  }
+  return safeJson(res);
+}
+
+export async function getDraftFeeNarratives(draftFeeIdx) {
+  const token = await getToken();
+  setAuthToken(token);
+
+  const res = await fetch(`/api/DraftEditing/GET/Narrative/${draftFeeIdx}`, {
+    method: "POST",
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token })
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`Get Draft Narratives - ${draftFeeIdx} failed: ${res.status} ${msg}`);
+  }
+  return safeJson(res); // array of narrative rows (or null/text)
+}
+
+export async function saveDraftFeeAnalysisRow(payload) {
+  const token = await getToken();
+  setAuthToken(token);
+
+  const res = await fetch(`/api/DraftEditing/POST/Analysis/${payload.draftFeeIdx}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      token,
+      payload
+    })
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`Draft Edit Analysis failed: ${res.status} ${msg}`);
+  }
+
+  // May be empty / non-JSON, so use safeJson
+  return safeJson(res);
+}
+
+export async function updateDraftFeeNarrative(payload) {
+  const token = await getToken();
+  setAuthToken(token);
+
+  const res = await fetch(`/api/DraftEditing/POST/Narrative/${payload.draftFeeIdx}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      token,
+      payload
+    })
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`UpdateDraftFeeNarrative failed: ${res.status} ${msg}`);
+  }
+
+  // May be empty / non-JSON, so use safeJson
+  return safeJson(res);
+}
+
+// (optional placeholder) – you’ll wire this to your own audit API later
+export async function logDraftEdits(auditPayload) {
+  console.log('TODO: send audit log payload to backend', auditPayload);
+  // return fetch('/api/draftEditAudit', { method: 'POST', body: JSON.stringify(auditPayload), ... })
 }

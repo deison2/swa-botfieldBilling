@@ -12,12 +12,14 @@ const url = "https://prod-43.eastus.logic.azure.com/workflows/22d673f179c34ca1a0
   );
 
   const jsonBody = await mainBody.json();
-const draftInUse = jsonBody?.[0]?.DraftInUse ?? '';
-console.log("Value: ", draftInUse);
+  const draftInUseRaw = jsonBody?.[0]?.DraftInUse ?? '';
+  const draftInUse = (draftInUseRaw || '').trim();  // <-- trim spaces
 
-    context.res = {
-      status: 200,
-      body: draftInUse
-    };
-    return;
-  }
+  console.log("Value: ", draftInUse);
+
+  context.res = {
+    status: 200,
+    body: draftInUse   // just the email string or empty string
+  };
+  return;
+}

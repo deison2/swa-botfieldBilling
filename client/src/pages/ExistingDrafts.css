@@ -1,3 +1,7 @@
+:root {
+  --sidebar-width: 250px; /* match whatever width your layout uses */
+}
+
 /* layout mirrors NarrativeStandards.css */
 .app-container {
   display: grid;
@@ -2065,4 +2069,299 @@ button.bare {
   transform: none;
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.7) inset;
+}
+
+/* ---------- Edit tray shell ---------- */
+
+.edtray-backdrop {
+  position: fixed;
+  inset: 0; /* top:0; right:0; bottom:0; left:0 */
+  background: rgba(15, 23, 42, 0.55); /* same dim overlay */
+  z-index: 1200;
+}
+
+/* Tray is pinned to bottom, from sidebar edge to right edge */
+.edtray {
+  position: fixed;
+
+  /* span from end of sidebar to near right edge */
+  left: var(--sidebar-width, 260px);
+  right: 16px;
+
+  /* sit a bit above the very bottom */
+  bottom: 16px;
+  max-height: calc(100vh - 64px);
+  overflow: auto;
+
+  /* card styling */
+  background: #ffffff;
+  padding: 16px 20px 18px;
+  border-radius: 16px 0 0 0;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.28);
+
+  display: flex;
+  flex-direction: column;
+}
+
+.edtray,
+.edtray * {
+  box-sizing: border-box;
+}
+
+/* ---------- header / totals ---------- */
+
+.edtray__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 12px;
+}
+.edtray__title {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.edtray__meta {
+  font-size: 0.85rem;
+  color: #4b5b65;
+}
+
+.edtray__totals {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: 0.85rem;
+}
+.edtray__total-row {
+  display: flex;
+  gap: 8px;
+}
+.edtray__total-pill {
+  margin-top: 4px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+}
+.edtray__total-pill.ok {
+  background: #e4f5ea;
+  color: #1e8a4a;
+}
+.edtray__total-pill.warn {
+  background: #fff6d9;
+  color: #a97800;
+}
+
+/* ---------- body / columns ---------- */
+
+.edtray__body {
+  display: grid;
+  grid-template-columns: 1.3fr 1.1fr;
+  gap: 16px;
+  overflow: auto;
+  padding: 10px 0 12px;
+}
+
+.edtray__col {
+  background: #f8fafb;
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.edtray__subhead {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.edtray__subhead-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.edtray__table-wrap {
+  flex: 1;
+  overflow: auto;          /* x + y scroll for each panel */
+}
+
+/* ---------- tables (scoped just to tray) ---------- */
+
+.edtray .mini-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;     /* keeps headers + cells aligned */
+}
+
+.edtray .mini-table th,
+.edtray .mini-table td {
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  vertical-align: middle;
+}
+
+/* numeric alignment */
+.edtray .mini-table th.num,
+.edtray .mini-table td.num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* specific column widths so things don’t drift */
+
+/* left side: analysis table */
+.edtray__col--analysis .mini-table th:nth-child(1) { width: 16%; }  /* Service */
+.edtray__col--analysis .mini-table th:nth-child(2) { width: 46%; }  /* Job */
+.edtray__col--analysis .mini-table th:nth-child(3) { width: 10%; }  /* Type */
+.edtray__col--analysis .mini-table th:nth-child(4) { width: 14%; }  /* Draft Amt */
+.edtray__col--analysis .mini-table th:nth-child(5) { width: 14%; }  /* Narrative */
+
+/* right side: narrative table */
+.edtray__col--narr .mini-table th:nth-child(1) { width: 62%; }      /* Narrative text */
+.edtray__col--narr .mini-table th:nth-child(2) { width: 16%; }      /* Service */
+.edtray__col--narr .mini-table th:nth-child(3) { width: 16%; }      /* Amount */
+.edtray__col--narr .mini-table th:nth-child(4) { width: 6%; }       /* delete icon */
+
+/* make inputs fill the cell cleanly */
+.edtray .mini-table .ed-input {
+  width: 100%;
+  margin: 0;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+.edtray .mini-table .ed-input--num {
+  text-align: right;
+}
+
+/* service pill (non-editable service col on narrative side) */
+.edtray__svc-cell {
+  text-align: left;
+}
+.edtray__svc-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #e9f0f5;
+  font-size: 0.78rem;
+  color: #30424f;
+}
+
+/* delete column: keep the X centered and narrow */
+.edtray__delete-btn {
+  border: none;
+  background: transparent;
+  color: #c0392b;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  width: 28px;
+  text-align: center;
+}
+
+/* ---------- inputs (shared styles) ---------- */
+
+.ed-input {
+  border-radius: 6px;
+  border: 1px solid #d1dde5;
+  padding: 4px 6px;
+  font-size: 0.82rem;
+  font-family: inherit;
+  background: #fff;
+}
+.ed-input:focus {
+  outline: 2px solid #4b796e33;
+  border-color: #4b796e;
+}
+.ed-input--num {
+  text-align: right;
+}
+.ed-input--svc {
+  width: 80px;
+}
+.ed-input--textarea {
+  resize: vertical;
+}
+.ed-input--other {
+  margin-top: 4px;
+}
+
+/* ---------- footer ---------- */
+
+.edtray__foot {
+  display: grid;
+  grid-template-columns: 1.4fr 1.5fr auto;
+  gap: 16px;
+  padding-top: 10px;
+  border-top: 1px solid #dde6ee;
+  margin-top: 4px;
+  align-items: flex-end;
+}
+
+.ed-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 2px;
+  display: inline-block;
+}
+.ed-label .req {
+  color: #c0392b;
+  margin-left: 3px;
+}
+
+.edtray__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.edtray__error {
+  font-size: 0.78rem;
+  color: #b0413e;
+}
+
+/* buttons */
+
+.ed-btn {
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  border: none;
+  cursor: pointer;
+}
+.ed-btn--ghost {
+  background: transparent;
+  border: 1px solid #9ba9b3;
+  color: #30424f;
+}
+.ed-btn--primary {
+  background: #4b796e;
+  color: #fff;
+  margin-left: 6px;
+}
+.ed-btn[disabled] {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.edtray__add-btn {
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  border: 1px dashed #4b796e;
+  background: #e7f3ef;
+  color: #275247;
+  cursor: pointer;
+}
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 1100px) {
+  .edtray__body {
+    grid-template-columns: 1fr;
+  }
+  .edtray__foot {
+    grid-template-columns: 1fr;
+  }
 }
