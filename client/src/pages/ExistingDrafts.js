@@ -26,6 +26,10 @@ import {
   lockUnlockDraft
 } from '../services/ExistingDraftsService';
 
+// Recurring billing configuration (masterRecurrings.json)
+import { loadRecurrings } from '../services/RecurringService'; // <-- adjust path if needed
+
+
 import Loader           from '../components/Loader';
 import { createPortal } from "react-dom";
 
@@ -763,10 +767,11 @@ function loadFiltersFromStorage() {
       const iso = toIsoYmd(bt);
 
       // 2) Fetch data with billThroughDate in body
-      const [dRes, gRes, wipRes] = await Promise.allSettled([
+      const [dRes, gRes, wipRes, recRes] = await Promise.allSettled([
         GetDrafts(iso),
         GetGranularJobData(iso),
         GetGranularWIPData(),
+        loadRecurrings(),   // <-- recurring billing config from masterRecurrings.json
       ]);
       if (cancelled) return;
 
@@ -780,6 +785,19 @@ function loadFiltersFromStorage() {
 
       if (wipRes.status === 'fulfilled') setGranularWip(Array.isArray(wipRes.value) ? wipRes.value : []);
        else console.error('GetGranularWIPData failed:', wipRes.reason);
+            // Recurring clients: build a Set of ContIndex values
+      if (recRes.status === 'fulfilled') {
+        const arr = Array.isArray(recRes.value) ? recRes.value : [];
+        const contSet = new Set(
+          arr
+            .map(r => Number(r.ContIndex ?? r.CONTINDEX ?? r.contIndex))
+            .filter(n => Number.isFinite(n))
+        );
+        setRecurringContIndexes(contSet);
+        console.log('Recurring ▶ ContIndex count:', contSet.size);
+      } else {
+        console.error('loadRecurrings failed:', recRes.reason);
+      } 
     } finally {
       if (!cancelled) setLoading(false);
     }
@@ -829,6 +847,10 @@ useEffect(() => {
     }
     return m;
   }, [granularWip]);
+
+    // Recurring billing clients, keyed by ContIndex (matches CLIENTS[].cont)
+  const [recurringContIndexes, setRecurringContIndexes] = useState(() => new Set());
+
 
 
   /* >>> selection-state (NEW) >>> */
@@ -1974,13 +1996,32 @@ const closeCreated = () => {
     }
   };
 
-  const byFinal = (r) => {
-    if (finalFilter === 'all') return true;
-    const anyFinal =
-      Array.isArray(r.DRAFTDETAIL) &&
-      r.DRAFTDETAIL.some((d) => d.finalCheck === 'X');
-    return finalFilter === 'true' ? anyFinal : !anyFinal;
-  };
+    const byFinal = (r) => {
+        // For 'all' and 'recurring', do not filter on final status here.
+        if (finalFilter === 'all' || finalFilter === 'recurring') return true;
+
+        const anyFinal =
+          Array.isArray(r.DRAFTDETAIL) &&
+          r.DRAFTDETAIL.some((d) => d.finalCheck === 'X');
+
+        return finalFilter === 'true' ? anyFinal : !anyFinal;
+      };
+
+      const byRecurringClient = (r) => {
+        // Only apply when the dropdown is set to the recurring option
+        if (finalFilter !== 'recurring') return true;
+
+        // If we couldn't load the recurrings file, show nothing rather than misclassifying
+        if (!recurringContIndexes || recurringContIndexes.size === 0) return false;
+
+        // Each grouped row already has CLIENTS: [{ code, name, cont, ... }]
+        return (r.CLIENTS || []).some(c => {
+          const cont = Number(c.cont ?? c.CONTINDEX ?? c.contindex);
+          return Number.isFinite(cont) && recurringContIndexes.has(cont);
+        });
+      };
+
+
 
   const byCreatedBy = (r) => {
     if (!createdByFilter || createdByFilter.size === 0) return true;
@@ -2002,7 +2043,8 @@ const closeCreated = () => {
     .filter(byManager)
     .filter(byReal)
     .filter(byFinal)
-    .filter(byCreatedBy);
+    .filter(byCreatedBy)
+    .filter(byRecurringClient);
 
   console.log(`UI-FILTER ▶ ${rows.length} → ${out.length}`);
   return out;
@@ -2018,7 +2060,8 @@ const closeCreated = () => {
   realVal2,
   finalFilter,
   createdByFilter,
-  removeBTFilter
+  removeBTFilter,
+  recurringContIndexes
 ]);
 
   /* ── KPIs based on filtered rows ──────────────────────────── */
@@ -2256,7 +2299,9 @@ console.log('PDF header:', header);
           >
             <option value="all">All Drafts</option>
             <option value="true">Drafts w/ Jobs Nearing End</option>
+            <option value="recurring">Drafts for Recurring Billing Clients</option>
           </select>
+
         </div>
 
         {/* Created-by icon filter */}
