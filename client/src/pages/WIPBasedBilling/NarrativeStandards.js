@@ -11,6 +11,7 @@ import DeleteNarrativeModal from '../../components/DeleteNarrativeModal.js';
 import { v4 as uuidv4 } from 'uuid';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { useAuth } from '../../auth/AuthContext';
 // import { dataType } from '../../config.js'; // import dataType from config
 
 import {
@@ -35,6 +36,7 @@ const jobLookup = sortedJobMapping.reduce((acc, { Idx, JobName }) => {
 }, {});
 
 export default function NarrativeStandards() {
+  const { isSuperUser } = useAuth();
 
 const SERVICE_COLORS = {
   ACCTG:   '#003C4B',
@@ -132,7 +134,12 @@ const serviceOptions = useMemo(
   // 2. table/modal handlers
 
   async function openAddModal(item) {
-    setIsAddOpen(true);
+    if (isSuperUser) {
+      setIsAddOpen(true);
+    }
+    else {
+      toast.error('Only view access is allowed. Please contact the Billing Team to make any changes.');
+    }
   }
 
   async function handleCreate(item) {
@@ -164,14 +171,20 @@ async function handleUpdate(item) {
 
 
   function openEditModal(row) {
-    setSelectedRow(row);
-    setIsModalOpen(true);
+    if (isSuperUser) {
+      setSelectedRow(row);
+      setIsModalOpen(true);
+    }
+    else {
+      toast.error('Only view access is allowed. Please contact the Billing Team to make any changes.');
+    }
   }
   function closeEditModal() {
     setSelectedRow(null);
     setIsModalOpen(false);
   }
   function openDeleteModal(row) {
+    if (isSuperUser) {
     console.log('openDeleteModal called with row:', row);
     if (row.Level !== 'JOB')
     {
@@ -181,6 +194,10 @@ async function handleUpdate(item) {
     }
     setRowToDelete(row);
     setIsDeleteOpen(true);
+    }
+    else {
+      toast.error('Only view access is allowed. Please contact the Billing Team to make any changes.');
+    }
   }
   function closeDeleteModal() {
     setRowToDelete(null);

@@ -3,10 +3,12 @@ import Sidebar from '../../components/Sidebar';
 import GeneralDataTable from '../../components/DataTable';
 import TopBar from '../../components/TopBar';
 import './OfficePartnerClientStandards.css';
+import { useAuth } from '../../auth/AuthContext';
 
 import { getStandards, updateStandards } from '../../services/OfficePartnerClientStandards';
 
 export default function OfficeStandards() {
+  const { isSuperUser } = useAuth();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -102,6 +104,7 @@ useEffect(() => {
           placeholder=""
           aria-label="Office standard percentage"
           value={raw}
+          disabled={!isSuperUser}
           onChange={e => {
             const val = e.target.value; // keep raw while typing
             setRows(prev =>
