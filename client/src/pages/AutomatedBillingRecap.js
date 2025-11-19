@@ -99,13 +99,17 @@ function ExclusionBarChart({ totals }) {
 const getGroupAccessor = (key) => {
   switch (key) {
     case "Office":
-      return (r) => pick(r, ["CLIENTOFFICE", "BILLINGCLIENTOFFICE"]);
+      // Prefer billing office, then client office
+      return (r) => pick(r, ["BILLINGCLIENTOFFICE", "CLIENTOFFICE"]);
     case "Originator":
-      return (r) => pick(r, ["CLIENTORIGINATORNAME", "ORIGINATORNAME", "JOBPARTNERNAME"]);
+      return (r) =>
+        pick(r, ["CLIENTORIGINATORNAME", "ORIGINATORNAME", "JOBPARTNERNAME"]);
     case "Partner":
-      return (r) => pick(r, ["CLIENTPARTNERNAME"]);
+      // NEW: prefer BILLINGCLIENTPARTNER, then CLIENTPARTNERNAME
+      return (r) => pick(r, ["BILLINGCLIENTPARTNER", "CLIENTPARTNERNAME"]);
     case "Manager":
-      return (r) => pick(r, ["CLIENTMANAGERNAME"]);
+      // NEW: prefer BILLINGCLIENTMANAGER, then CLIENTMANAGERNAME
+      return (r) => pick(r, ["BILLINGCLIENTMANAGER", "CLIENTMANAGERNAME"]);
     default:
       return null;
   }
@@ -310,7 +314,7 @@ export default function AutomatedBillingRecap() {
       Manager: (r) => pick(r, ["CLIENTMANAGERNAME"]),
     };
 
-    const accessor = keyAccessors[groupKey] || (() => "Unassigned");
+    const accessor = getGroupAccessor(groupKey) || (() => "Unassigned");
 
     const map = new Map();
     for (const r of periodFiltered) {
@@ -406,24 +410,44 @@ export default function AutomatedBillingRecap() {
   }, [excludeDrafts, billingPeriod]);
 
   const nbPartnerOptions = useMemo(() => {
-    const set = new Set(nbRows.map((r) => r.CLIENTPARTNERNAME).filter(Boolean));
-    return [...set].sort((a, b) => a.localeCompare(b));
+    const set = new Set(
+      nbRows
+        .map((r) => r.BILLINGCLIENTPARTNER || r.CLIENTPARTNERNAME)
+        .filter((v) => v !== null && v !== undefined && v !== "")
+    );
+    return [...set].sort((a, b) =>
+      String(a).localeCompare(String(b))
+    );
   }, [nbRows]);
 
-  const nbManagerOptions = useMemo(() => {
-    const set = new Set(nbRows.map((r) => r.CLIENTMANAGERNAME).filter(Boolean));
-    return [...set].sort((a, b) => a.localeCompare(b));
-  }, [nbRows]);
+
+const nbManagerOptions = useMemo(() => {
+  const set = new Set(
+    nbRows
+      .map((r) => r.BILLINGCLIENTMANAGER || r.CLIENTMANAGERNAME)
+      .filter((v) => v !== null && v !== undefined && v !== "")
+  );
+  return [...set].sort((a, b) =>
+    String(a).localeCompare(String(b))
+  );
+}, [nbRows]);
 
   const nbFiltered = useMemo(() => {
     const draftSet = draftClientCodes;
     return nbRows.filter((r) => {
-      const pOk = nbPartner ? r.CLIENTPARTNERNAME === nbPartner : true;
-      const mOk = nbManager ? r.CLIENTMANAGERNAME === nbManager : true;
+      const partnerName =
+        r.BILLINGCLIENTPARTNER || r.CLIENTPARTNERNAME || "";
+      const managerName =
+        r.BILLINGCLIENTMANAGER || r.CLIENTMANAGERNAME || "";
+
+      const pOk = nbPartner ? partnerName === nbPartner : true;
+      const mOk = nbManager ? managerName === nbManager : true;
       const dOk = !excludeDrafts || !draftSet.has(String(r.CLIENTCODE));
+
       return pOk && mOk && dOk;
     });
   }, [nbRows, nbPartner, nbManager, excludeDrafts, draftClientCodes]);
+
 
   const nbKpis = useMemo(() => {
     const totalWip = nbFiltered.reduce((s, r) => s + Number(r?.WIPOUTSTANDING ?? 0), 0);
