@@ -1185,21 +1185,22 @@ useEffect(() => {
 
   /* ── columns (uses ChipSet + currency) ─────────────────────── */
   const columns = [
-      /* >>> checkbox-column (NEW) >>> */
+    /* >>> checkbox-column (NEW) >>> */
     {
-      name : (
-      <input
-        type="checkbox"
-        className="row-cb"
-        ref={headerCbRef}
-        onChange={handleSelectAll}
-      />
-    ),
-    selector : r => r.DRAFTFEEIDX,   // any stub selector – required by the lib
-    width : '55px',
-    ignoreRowClick : true,
-    sortable : false,
-      cell : r => (
+      id: 'row-select',  // <<< add this
+      name: (
+        <input
+          type="checkbox"
+          className="row-cb"
+          ref={headerCbRef}
+          onChange={handleSelectAll}
+        />
+      ),
+      selector: r => r.DRAFTFEEIDX,   // any stub selector – required by the lib
+      width: '55px',                  // optional now; CSS will override
+      ignoreRowClick: true,
+      sortable: false,
+      cell: r => (
         <input
           type="checkbox"
           className="row-cb"

@@ -2365,3 +2365,28 @@ button.bare {
     grid-template-columns: 1fr;
   }
 }
+/* === Narrow expander + checkbox columns without breaking header alignment === */
+
+/* Expander column (auto-added by react-data-table) */
+.existing-drafts .rdt_TableCol[data-column-id="expander"],
+.existing-drafts .rdt_TableCell[data-column-id="expander"] {
+  flex: 0 0 32px !important;
+  width: 32px !important;
+  max-width: 32px !important;
+  padding: 0 4px !important;
+}
+
+/* Checkbox column (uses id: 'row-select' from JS) */
+.existing-drafts .rdt_TableCol[data-column-id="row-select"],
+.existing-drafts .rdt_TableCell[data-column-id="row-select"] {
+  flex: 0 0 32px !important;  /* tweak 32–40px to taste */
+  width: 32px !important;
+  max-width: 32px !important;
+  padding: 0 4px !important;
+}
+
+/* Keep the checkbox itself compact */
+.existing-drafts .row-cb {
+  width: 16px;
+  height: 16px;
+}
