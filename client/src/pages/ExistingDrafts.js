@@ -1101,34 +1101,7 @@ useEffect(() => {
   const [rowsPerPage, setRowsPerPage]       = useState(10);
   /* <<< pagination-state END <<< */
 
-  /* ── options for dropdowns (derived) ───────────────────────── */
-  const originatorOptions = useMemo(
-    () => [...new Set(rows.map(r => r.ORIGINATOR))].sort(), [rows]);
-  const partnerOptions = useMemo(
-    () => [...new Set(rows.map(r => r.CLIENTPARTNER))].sort(), [rows]);
-  const managerOptions = useMemo(
-    () => [...new Set(rows.map(r => r.CLIENTMANAGER))].sort(), [rows]);
   
-    // Distinct CREATEDBY (group-level first, else first matching detail row)
-  const createdByOptions = useMemo(() => {
-    const set = new Set();
-    for (const g of rows) {
-      const groupCreator =
-        g?.CREATEDBY ?? g?.CreatedBy ?? g?.DRAFTCREATEDBY;
-      if (groupCreator) {
-        set.add(String(groupCreator));
-        continue;
-      }
-      const detail = (g.DRAFTDETAIL || []).find(
-        d => d?.CREATEDBY || d?.CreatedBy || d?.DRAFTCREATEDBY
-      );
-      if (detail) {
-        set.add(String(detail.CREATEDBY ?? detail.CreatedBy ?? detail.DRAFTCREATEDBY));
-      }
-    }
-    return [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-  }, [rows]);
-
 
   /* ── CHIP helper ───────────────────────────────────────────── */
   const ChipSet = ({ items, field }) => {
@@ -2176,6 +2149,63 @@ const closeCreated = () => {
   removeBTFilter,
   recurringContIndexes
 ]);
+
+  /* ── options for dropdowns (derived, based on filtered context) ───── */
+  const originatorOptions = useMemo(
+    () =>
+      [...new Set((filteredRows || [])
+        .map(r => r.ORIGINATOR)
+        .filter(Boolean)
+      )].sort(),
+    [filteredRows]
+  );
+
+  const partnerOptions = useMemo(
+    () =>
+      [...new Set((filteredRows || [])
+        .map(r => r.CLIENTPARTNER)
+        .filter(Boolean)
+      )].sort(),
+    [filteredRows]
+  );
+
+  const managerOptions = useMemo(
+    () =>
+      [...new Set((filteredRows || [])
+        .map(r => r.CLIENTMANAGER)
+        .filter(Boolean)
+      )].sort(),
+    [filteredRows]
+  );
+
+  // Distinct CREATEDBY (within the *filtered* context)
+  const createdByOptions = useMemo(() => {
+    const set = new Set();
+    for (const g of filteredRows || []) {
+      const groupCreator =
+        g?.CREATEDBY ?? g?.CreatedBy ?? g?.DRAFTCREATEDBY;
+      if (groupCreator) {
+        set.add(String(groupCreator));
+        continue;
+      }
+      const detail = (g.DRAFTDETAIL || []).find(
+        d => d?.CREATEDBY || d?.CreatedBy || d?.DRAFTCREATEDBY
+      );
+      if (detail) {
+        set.add(
+          String(
+            detail.CREATEDBY ??
+            detail.CreatedBy ??
+            detail.DRAFTCREATEDBY
+          )
+        );
+      }
+    }
+    return [...set].sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: 'base' })
+    );
+  }, [filteredRows]);
+
 
   /* ── KPIs based on filtered rows ──────────────────────────── */
   const kpis = useMemo(() => {
