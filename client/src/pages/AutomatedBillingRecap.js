@@ -481,14 +481,14 @@ export default function AutomatedBillingRecap() {
       },
       {
         name: "Partner",
-        selector: (r) => r.CLIENTPARTNERNAME || "Unassigned",
+        selector: (r) => r.BILLINGCLIENTPARTNER || r.CLIENTPARTNERNAME || "Unassigned",
         sortable: true,
         width: "170px",
         wrap: false,
       },
       {
         name: "Manager",
-        selector: (r) => r.CLIENTMANAGERNAME || "Unassigned",
+        selector: (r) => r.BILLINGCLIENTMANAGER || r.CLIENTMANAGERNAME || "Unassigned",
         sortable: true,
         width: "170px",
         wrap: false,
