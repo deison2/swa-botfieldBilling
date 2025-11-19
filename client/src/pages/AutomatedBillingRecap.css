@@ -521,7 +521,7 @@
 
 .kpi-row--compact .kpi-card {
   padding: 8px 12px;      /* was ~16-20px on your base style */
-  min-height: 56px;       /* was ~88-112px; keep it short */
+  min-height: 36px;       /* was ~88-112px; keep it short */
 }
 
 .kpi-row--compact .kpi-title {
@@ -1265,4 +1265,19 @@
   .aiinsights-body.prose h3 {
     page-break-after: avoid;
   }
+}
+
+
+.nb-search-input {
+  width: 90%;
+  padding: 0.55rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle, #dde3ea);
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.nb-search-input:focus {
+  box-shadow: 0 0 0 2px rgba(70, 149, 132, 0.18);
+  border-color: var(--brand, #4b796e);
 }

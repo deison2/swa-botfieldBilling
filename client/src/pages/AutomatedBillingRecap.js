@@ -134,6 +134,8 @@ export default function AutomatedBillingRecap() {
   const [nbPartner, setNbPartner] = useState("");
   const [nbManager, setNbManager] = useState("");
 
+  const [nbSearch, setNbSearch] = useState("");
+
   // NEW: exclude clients with existing drafts
   const [excludeDrafts, setExcludeDrafts] = useState(false);
   const [draftClientCodes, setDraftClientCodes] = useState(new Set());
@@ -434,6 +436,8 @@ const nbManagerOptions = useMemo(() => {
 
   const nbFiltered = useMemo(() => {
     const draftSet = draftClientCodes;
+    const search = nbSearch.trim().toLowerCase();
+
     return nbRows.filter((r) => {
       const partnerName =
         r.BILLINGCLIENTPARTNER || r.CLIENTPARTNERNAME || "";
@@ -444,9 +448,25 @@ const nbManagerOptions = useMemo(() => {
       const mOk = nbManager ? managerName === nbManager : true;
       const dOk = !excludeDrafts || !draftSet.has(String(r.CLIENTCODE));
 
-      return pOk && mOk && dOk;
+      if (!(pOk && mOk && dOk)) return false;
+
+      // --- search across all columns EXCEPT WIP + PE Link ---
+      if (!search) return true;
+
+      const haystack = [
+        r.CLIENTCODE,
+        r.CLIENTNAME,
+        partnerName,
+        managerName,
+        buildExclusionReasons(r),
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(search);
     });
-  }, [nbRows, nbPartner, nbManager, excludeDrafts, draftClientCodes]);
+  }, [nbRows, nbPartner, nbManager, excludeDrafts, draftClientCodes, nbSearch]);
+
 
 
   const nbKpis = useMemo(() => {
@@ -902,6 +922,16 @@ const nbManagerOptions = useMemo(() => {
                       </label>
                     </div>
 
+                    {/* NEW: search bar */}
+                    <div className="nb-search-row">
+                      <input
+                        type="text"
+                        className="nb-search-input"
+                        placeholder="Search clients, partners, managers, reasons…"
+                        value={nbSearch}
+                        onChange={(e) => setNbSearch(e.target.value)}
+                      />
+                    </div>
                     {/* chips row with single Clear Filters on the right */}
                     <div className="context-bar">
                       <div className="chip">
