@@ -24,6 +24,8 @@ import {
   CreateInvoiceBulkPrintList,
   checkDraftInUse,
   lockUnlockDraft,
+  lockDraft,
+  unlockDraft,
   getDraftFeeAnalysis,
   getDraftFeeNarratives,
   saveDraftFeeAnalysisRow,
@@ -2848,21 +2850,21 @@ console.log('PDF header:', header);
         narrativeItems={editTrayState.narrativeItems}
         currentUser={currentUserName}
         onClose={async (saved) => {
-          // Always unlock the draft when the tray closes (save or cancel)
-          if (editTrayState.draftIdx && email) {
+          const idx = editTrayState.draftIdx;
+
+          // Always try to unlock on close (save, cancel, or backdrop click)
+          if (idx) {
             try {
-              await lockUnlockDraft(editTrayState.draftIdx, email); // same endpoint unlocks
+              await unlockDraft(idx);
             } catch (e) {
               console.warn('Unlock draft failed', e);
             }
           }
 
-          // Close tray (and optionally clear per-draft data)
+          // Close tray
           setEditTrayState((s) => ({
             ...s,
             open: false,
-            // analysisItems: [],
-            // narrativeItems: [],
           }));
 
           // After a successful save, refresh the draft list so the table + KPIs update
@@ -2883,23 +2885,29 @@ console.log('PDF header:', header);
           } = payload;
 
           // 1) Build promises for analysis rows (job-level Draft Amt / narrative)
-          const analysisPromises = analysisRows.map((r) =>
-            saveDraftFeeAnalysisRow({
+          const analysisPromises = analysisRows.map((r) => {
+            const bill = Number(r.BillInClientCur ?? r.BillAmount ?? 0);
+            const wip  = Number(r.WIPInClientCur ?? r.MaxWIP ?? 0);
+            const bal  = Number(r.BalInClientCur ?? 0);          // usually 0 in your example
+            const woff = wip - bill - bal;                      // match PE behavior
+
+            return saveDraftFeeAnalysisRow({
               AllocIndex: r.AllocIdx,
-              BillAmount: r.BillInClientCur ?? r.BillAmount ?? 0,
-              WIPOS: r.WIPInClientCur ?? r.MaxWIP ?? 0,
+              BillAmount: bill,          // mapped to BillInClientCur on the PE side
+              WIPOS: wip,                // mapped to WIPInClientCur
               BillType: r.BillType,
-              BillWoff: r.WoffInClientCur ?? 0,
+              BillWoff: woff,            // mapped to WoffInClientCur (recomputed!)
               DebtTranIndex: r.DebtTranIndex,
               Job_Allocation_Type: r.Job_Allocation_Type,
-              Narrative: r.Narrative || '',
-              VATCode: r.VATCode || '0',
-              WipAnalysis: r.WipAnalysis || '',
+              Narrative: r.Narrative || "",
+              VATCode: r.VATCode || "0",
+              WipAnalysis: r.WipAnalysis || "",
               VATAmt: r.VATAmount ?? null,
               DebtTranDate: r.DebtTranDate,
               CFwd: false,
-            })
-          );
+            });
+          });
+
 
           // 2) Build promises for narrative rows
           //    (skip deleted rows until a delete API is available)

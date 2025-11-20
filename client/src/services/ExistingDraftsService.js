@@ -230,6 +230,22 @@ export async function lockUnlockDraft(DebtTranIndex, User) {
   return text ? JSON.parse(text) : null;
 }
 
+// Convenience helpers so the page code can be explicit:
+
+export async function lockDraft(draftFeeIdx, userEmail) {
+  if (!userEmail || !String(userEmail).trim()) {
+    throw new Error('lockDraft: user email is required when locking a draft.');
+  }
+  // route = /api/lockUnlockDraft/{idx}/{user}
+  return lockUnlockDraft(draftFeeIdx, userEmail);
+}
+
+export async function unlockDraft(draftFeeIdx) {
+  // route = /api/lockUnlockDraft/{idx}  (no user segment → UNLOCK)
+  return lockUnlockDraft(draftFeeIdx);
+}
+
+
 export async function checkDraftInUse(DebtTranIndex) {
   const url = ['/api', 'checkDraftInUse', String(DebtTranIndex)].join('/');
   const res = await fetch(url, { method: 'GET' });
