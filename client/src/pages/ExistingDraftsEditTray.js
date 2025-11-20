@@ -61,6 +61,7 @@ export default function ExistingDraftsEditTray({
   analysisItems,
   narrativeItems,
   currentUser,
+  billThroughDate,
   onSave,
 }) {
   // ---------- local editable state ----------
@@ -229,18 +230,22 @@ export default function ExistingDraftsEditTray({
     }));
 
     const payload = {
-      draftIdx,
-      user: currentUser,
-      when: nowIso,
-      reason: reasonText,
-      billingNotes: billingNotes.trim() || null,
-      analysisRows,
-      narrativeRows: narrativeRowsForSave,
-      _original: {
-        analysisItems,
-        narrativeItems,
-      },
-    };
+        draftIdx,
+        clientCode,                 // <-- NEW
+        clientName,                 // <-- NEW
+        billThroughDate,            // <-- NEW
+        user: currentUser,
+        when: nowIso,
+        reason: reasonText,
+        billingNotes: billingNotes.trim() || null,
+        analysisRows,
+        narrativeRows: narrativeRowsForSave,
+        _original: {
+            analysisItems,
+            narrativeItems,
+        },
+        };
+
 
     try {
       setSaving(true);

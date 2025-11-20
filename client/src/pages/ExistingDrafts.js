@@ -2849,6 +2849,7 @@ console.log('PDF header:', header);
         analysisItems={editTrayState.analysisItems}
         narrativeItems={editTrayState.narrativeItems}
         currentUser={currentUserName}
+        billThroughDate={billThrough}
         onClose={async (saved) => {
           const idx = editTrayState.draftIdx;
 
@@ -2882,21 +2883,25 @@ console.log('PDF header:', header);
             when,
             reason,
             billingNotes,
+            clientCode,
+            clientName,
+            _original,          // { analysisItems, narrativeItems } from tray open
           } = payload;
 
           // 1) Build promises for analysis rows (job-level Draft Amt / narrative)
-          const analysisPromises = analysisRows.map((r) => {
+          const analysisPromises = (analysisRows || []).map((r) => {
             const bill = Number(r.BillInClientCur ?? r.BillAmount ?? 0);
             const wip  = Number(r.WIPInClientCur ?? r.MaxWIP ?? 0);
-            const bal  = Number(r.BalInClientCur ?? 0);          // usually 0 in your example
-            const woff = wip - bill - bal;                      // match PE behavior
+            const bal  = Number(r.BalInClientCur ?? 0);
+            const woff = wip - bill - bal;             // keep PE-style recompute
 
             return saveDraftFeeAnalysisRow({
+              draftFeeIdx: draftIdx,
               AllocIndex: r.AllocIdx,
-              BillAmount: bill,          // mapped to BillInClientCur on the PE side
-              WIPOS: wip,                // mapped to WIPInClientCur
+              BillAmount: bill,                        // → BillInClientCur
+              WIPOS: wip,                              // → WIPInClientCur
               BillType: r.BillType,
-              BillWoff: woff,            // mapped to WoffInClientCur (recomputed!)
+              BillWoff: woff,                          // → WoffInClientCur
               DebtTranIndex: r.DebtTranIndex,
               Job_Allocation_Type: r.Job_Allocation_Type,
               Narrative: r.Narrative || "",
@@ -2908,15 +2913,13 @@ console.log('PDF header:', header);
             });
           });
 
-
-          // 2) Build promises for narrative rows
-          //    (skip deleted rows until a delete API is available)
-          const narrativePromises = narrativeRows
+          // 2) Build promises for narrative rows (skip deleted rows)
+          const narrativePromises = (narrativeRows || [])
             .filter((r) => !r._deleted)
             .map((r) =>
               updateDraftFeeNarrative({
+                draftFeeIdx: draftIdx,
                 DebtNarrIndex: r.DebtNarrIndex,
-                DraftFeeIdx: draftIdx,
                 LineOrder: r.LineOrder,
                 WIPType: r.WIPType,
                 ServIndex: r.ServIndex,
@@ -2925,25 +2928,143 @@ console.log('PDF header:', header);
                 VATRate: r.VATRate,
                 VATPercent: r.VATPercent,
                 VATAmount: r.VATAmount,
-                // NOTE: for now we pass through FeeNarrative as-is.
-                // Later you may want a helper to wrap plain text in the
-                // standard PE HTML font/paragraph structure.
                 FeeNarrative: r.FeeNarrative,
               })
             );
 
-          // Run all PE updates in parallel for speed
+          // Run all PE updates in parallel
           await Promise.all([...analysisPromises, ...narrativePromises]);
 
-          // 3) Log audit (Azure Function / future reporting)
+          // 3) Compute before/after totals for the audit blob
+
+          const beforeAnalysis  = _original?.analysisItems  || [];
+          const beforeNarrative = _original?.narrativeItems || [];
+
+          const sumAnalysis = (rows) =>
+            (rows || []).reduce(
+              (sum, r) =>
+                sum +
+                Number(
+                  r.BillInClientCur ?? r.BillAmount ?? r.BalInClientCur ?? 0
+                ),
+              0
+            );
+
+          const sumNarrative = (rows) =>
+            (rows || []).reduce(
+              (sum, r) => sum + Number(r.Amount ?? 0),
+              0
+            );
+
+          const totals = {
+            analysisTotalBefore:  sumAnalysis(beforeAnalysis),
+            narrativeTotalBefore: sumNarrative(beforeNarrative),
+            analysisTotalAfter:   sumAnalysis(analysisRows),
+            narrativeTotalAfter:  sumNarrative(narrativeRows),
+          };
+
+          // 4) Build plain-text narrative change summary
+          const normNarrText = (txt) =>
+            stripHtml(String(txt ?? ""))
+              .replace(/\s+/g, " ")
+              .trim();
+
+          // index BEFORE rows by DebtNarrIndex
+          const beforeByIdx = new Map(
+            (beforeNarrative || []).map((row) => [
+              row.DebtNarrIndex ?? row.DEBTNARRINDEX,
+              row,
+            ])
+          );
+
+          const afterByIdx = new Map(
+            (narrativeRows || [])
+              .filter((r) => !r._deleted)
+              .map((row) => [
+                row.DebtNarrIndex ?? row.DEBTNARRINDEX,
+                row,
+              ])
+          );
+
+          const narrativeChanges = [];
+
+          // changed or added narratives
+          for (const [idx, afterRow] of afterByIdx.entries()) {
+            const beforeRow = beforeByIdx.get(idx);
+
+            const beforeText = normNarrText(
+              beforeRow?.FeeNarrative ??
+              beforeRow?.FEENARRATIVE ??
+              beforeRow?.Narrative
+            );
+            const afterText = normNarrText(
+              afterRow?.FeeNarrative ??
+              afterRow?.FEENARRATIVE ??
+              afterRow?.Narrative
+            );
+
+            if (!beforeRow) {
+              // brand-new narrative line
+              if (afterText) {
+                narrativeChanges.push({
+                  type: "added",
+                  narrativeBefore: "",
+                  narrativeAfter: afterText,
+                });
+              }
+              continue;
+            }
+
+            if (beforeText !== afterText) {
+              narrativeChanges.push({
+                type: "modified",
+                narrativeBefore: beforeText,
+                narrativeAfter: afterText,
+              });
+            }
+          }
+
+          // removed narratives (present before, missing after)
+          for (const [idx, beforeRow] of beforeByIdx.entries()) {
+            if (afterByIdx.has(idx)) continue;
+
+            const beforeText = normNarrText(
+              beforeRow?.FeeNarrative ??
+              beforeRow?.FEENARRATIVE ??
+              beforeRow?.Narrative
+            );
+            if (beforeText) {
+              narrativeChanges.push({
+                type: "removed",
+                narrativeBefore: beforeText,
+                narrativeAfter: "",
+              });
+            }
+          }
+
+          // 5) Log audit – use the current billThrough state as the canonical date
+          const billThroughIso = toIsoYmd(billThrough);
+
           await logDraftEdits({
+            version: 1,
             draftIdx,
+            clientCode,
+            clientName,
+            billThroughDate: billThroughIso,
             user,
             when,
             reason,
             billingNotes,
-            analysisRows,
-            narrativeRows,
+            totals,
+            narratives: narrativeChanges,   // 👈 NEW summary array
+            before: {
+              analysisRows: beforeAnalysis,
+              narrativeRows: beforeNarrative,
+            },
+            after: {
+              analysisRows,
+              narrativeRows,
+            },
           });
         }}
       />

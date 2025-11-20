@@ -361,6 +361,21 @@ export async function updateDraftFeeNarrative(payload) {
 
 // (optional placeholder) – you’ll wire this to your own audit API later
 export async function logDraftEdits(auditPayload) {
-  console.log('TODO: send audit log payload to backend', auditPayload);
-  // return fetch('/api/draftEditAudit', { method: 'POST', body: JSON.stringify(auditPayload), ... })
+  try {
+    const res = await fetch('/api/draftEditAudit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(auditPayload),
+    });
+
+    if (!res.ok) {
+      const msg = await res.text().catch(() => '');
+      console.warn(
+        `logDraftEdits failed: ${res.status} ${msg}`
+      );
+    }
+  } catch (err) {
+    console.error('logDraftEdits error:', err);
+    // Intentionally do not throw – audit failure shouldn’t block billing
+  }
 }
