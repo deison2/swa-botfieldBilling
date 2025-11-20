@@ -105,6 +105,28 @@ export default function ExistingDraftsEditTray({
     setNarrRows(rows);
   }, [narrativeItems, open]);
 
+  // ---------- service options from analysis table ----------
+  const serviceOptions = useMemo(
+    () => {
+      const set = new Set();
+
+      (analysisRows || []).forEach((r) => {
+        if (r.WipService) {
+          set.add(r.WipService);
+        }
+      });
+
+      (narrRows || []).forEach((r) => {
+        if (r.ServIndex && !set.has(r.ServIndex)) {
+          set.add(r.ServIndex);
+        }
+      });
+
+      return Array.from(set).sort();
+    },
+    [analysisRows, narrRows]
+  );
+
   // ---------- derived totals ----------
   const analysisTotal = useMemo(
     () =>
@@ -147,12 +169,14 @@ export default function ExistingDraftsEditTray({
     );
   };
 
-  const addNarrRow = () => {
+    const addNarrRow = () => {
     const lineOrder =
       narrRows.reduce(
         (max, r) => Math.max(max, Number(r.LineOrder ?? 0)),
         0
       ) + 1;
+
+    const defaultService = serviceOptions[0] || "";
 
     setNarrRows((rows) => [
       ...rows,
@@ -161,7 +185,7 @@ export default function ExistingDraftsEditTray({
         DraftFeeIdx: draftIdx,
         LineOrder: lineOrder,
         WIPType: "TIME",
-        ServIndex: "",
+        ServIndex: defaultService,            // <-- prefill service
         Units: 0,
         Amount: 0,
         VATRate: "0",
@@ -174,6 +198,7 @@ export default function ExistingDraftsEditTray({
       },
     ]);
   };
+
 
   const deleteNarrRow = (idx) => {
     setNarrRows((rows) =>
@@ -385,15 +410,33 @@ export default function ExistingDraftsEditTray({
                             />
                           </td>
                           <td>
-                            {/* Service read-only for now */}
-                            <input
-                              type="text"
-                              className="ed-input ed-input--svc"
-                              value={r.ServIndex || ""}
-                              readOnly
-                              disabled
-                            />
-                          </td>
+                            {r._isNew ? (
+                                // NEW rows: editable picklist
+                                <select
+                                className="ed-input ed-input--svc"
+                                value={r.ServIndex || ""}
+                                onChange={(e) =>
+                                    updateNarr(i, "ServIndex", e.target.value)
+                                }
+                                >
+                                <option value="">Select service...</option>
+                                {serviceOptions.map((svc) => (
+                                    <option key={svc} value={svc}>
+                                    {svc}
+                                    </option>
+                                ))}
+                                </select>
+                            ) : (
+                                // EXISTING rows: read-only, same as before
+                                <input
+                                type="text"
+                                className="ed-input ed-input--svc"
+                                value={r.ServIndex || ""}
+                                readOnly
+                                disabled
+                                />
+                            )}
+                            </td>
                           <td className="num">
                             <input
                               type="text"
