@@ -856,6 +856,11 @@ useEffect(() => {
   const [granularWip, setGranularWip]   = useState([]); // <<< live WIP rows (staff/task-level)
   const [loading, setLoading] = useState(false);
 
+  // which draft is currently being edited (for table focus)
+  const [editingDraftIdx, setEditingDraftIdx] = useState(null);
+  // tray-only loading state
+  const [trayLoading, setTrayLoading] = useState(false);
+
   const wipByDraftJob = useMemo(() => {
     const m = new Map();
     for (const r of granularWip) {
@@ -1348,7 +1353,7 @@ function DraftRow({ d, client, granData, onHover, onLeave, onPin, expanded, onTo
 }
 
   /* ── EXPANDABLE row render ────────────────────────────────── */
-const Expandable = ({ data, isSuperUser }) => {
+const Expandable = ({ data, isSuperUser, editingDraftIdx }) => {
   const [activeDetails, setActiveDetails] = React.useState(null);
   const hideTimer = React.useRef(null);
 
@@ -1394,13 +1399,14 @@ const Expandable = ({ data, isSuperUser }) => {
   const [showStandardizationTip, setShowStandardizationTip] = useState(false);
 
 
-    // --- Edit Draft: lock check + lock/unlock stub ---
+  // --- Edit Draft: lock check + lock/unlock stub ---
   const handleEditDraftClick = async () => {
     if (!isSuperUser) {
       // extra safety – shouldn’t fire because button is disabled, but just in case
-      alert('Coming Soon!');
+      alert('Only super users can edit drafts.');
       return;
     }
+
     const draftId = data?.DRAFTFEEIDX;
     if (!draftId) {
       console.warn('No DRAFTFEEIDX on expanded row – cannot lock for edit.');
@@ -1411,45 +1417,58 @@ const Expandable = ({ data, isSuperUser }) => {
       return;
     }
 
-    try {
-      setLoading(true);
+    // 1) Immediately open tray + focus table on this draft
+    setEditingDraftIdx(draftId);
+    setTrayLoading(true);
 
-      // NEW: get detailed lock info
+    setEditTrayState({
+      open: true,
+      draftIdx: draftId,
+      clientName: (data.CLIENTS?.[0]?.name) || '',
+      clientCode: (data.CLIENTS?.[0]?.code) || '',
+      analysisItems: [],    // will be populated after API returns
+      narrativeItems: [],   // will be populated after API returns
+    });
+
+    try {
+      // 2) Check lock status
       const { inUse, user } = await checkDraftInUse(draftId);
 
       const me = (email || '').trim().toLowerCase();
       const lockUser = (user || '').trim().toLowerCase();
 
       if (inUse) {
-        // If we know who has it and it's NOT me, block with named message
+        // If another user has the lock, block entry
         if (lockUser && lockUser !== me) {
           alert(
             `This draft is currently being edited by ${user}. ` +
             `Please try again after they finish.`
           );
+          // undo editing focus + close tray
+          setEditingDraftIdx(null);
+          setEditTrayState((prev) => ({ ...prev, open: false }));
           return;
         }
 
-        // If it's in use but no user came back, be conservative and block
-        // (optional – you can remove this block if your API always returns an email)
         if (!lockUser) {
           alert('This draft is currently being edited by another user. Please try again later.');
+          setEditingDraftIdx(null);
+          setEditTrayState((prev) => ({ ...prev, open: false }));
           return;
         }
-
         // If lockUser === me, fall through and allow re-entry
       }
 
-      // Lock for this user (or refresh the lock if it's already mine)
+      // 3) Lock for this user (or refresh the lock)
       await lockUnlockDraft(draftId, email);
 
-      // fetch fresh data from PE
+      // 4) Fetch fresh data for the tray (PE APIs)
       const [analysisRes, narrRes] = await Promise.all([
         getDraftFeeAnalysis(draftId),
         getDraftFeeNarratives(draftId),
       ]);
 
-      // show standardization reminder only first time per browser
+      // 5) Show standardization reminder only first time per browser
       const tipKey = 'existingDrafts_standardizationTipSeen';
       const tipSeen = window.localStorage.getItem(tipKey) === 'Y';
       if (!tipSeen) {
@@ -1457,20 +1476,21 @@ const Expandable = ({ data, isSuperUser }) => {
         window.localStorage.setItem(tipKey, 'Y');
       }
 
-      // push data up to parent (ExistingDrafts) so tray can render
-      setEditTrayState({
-        open: true,
-        draftIdx: draftId,
-        clientName: (data.CLIENTS?.[0]?.name) || '',
-        clientCode: (data.CLIENTS?.[0]?.code) || '',
+      // 6) Push data into tray, leaving it open and focused on this draft
+      setEditTrayState((prev) => ({
+        ...prev,
         analysisItems: analysisRes?.Items || [],
         narrativeItems: narrRes || [],
-      });
+      }));
     } catch (err) {
       console.error('Error preparing draft for edit:', err);
       alert('Sorry, something went wrong trying to enter edit mode.');
+
+      // On hard failure, close tray and reset focus
+      setEditTrayState((prev) => ({ ...prev, open: false }));
+      setEditingDraftIdx(null);
     } finally {
-      setLoading(false);
+      setTrayLoading(false);
     }
   };
 
@@ -1564,6 +1584,35 @@ const closeCreated = () => {
       String(b.SERVPERIOD ?? ""), undefined, { numeric: true, sensitivity: "base" }
     );
   });
+
+  //const hasAutoExpandedRef = React.useRef(false);
+
+  // When a draft is being edited, auto-expand all detail rows (once)
+  //React.useEffect(() => {
+    // if edit is cleared, allow future auto-expands
+    //if (!editingDraftIdx) {
+      //hasAutoExpandedRef.current = false;
+      //return;
+    //}
+
+    // only care about the row that matches the editing draft
+    //if (Number(data.DRAFTFEEIDX) !== Number(editingDraftIdx)) return;
+
+    // already did the auto-expand for this session
+    //if (hasAutoExpandedRef.current) return;
+
+    //hasAutoExpandedRef.current = true;
+
+    //setOpenRows((prev) => {
+    //  const next = { ...prev };
+    //  for (const d of rows) {
+    //    const key = `${d.DRAFTFEEIDX}-${d.SERVPERIOD}-${d.CONTINDEX}`;
+    //    next[key] = true;
+    //  }
+    //  return next;
+  //  });
+  //}, [editingDraftIdx, data.DRAFTFEEIDX, rows]);
+
 
   // helper: aggregate Hours, WIP, Bill, Woff by Staff or Task
   const aggregate = (rows, by) => {
@@ -2238,11 +2287,20 @@ const closeCreated = () => {
   }, [filteredRows]);
 
 
+  // When editing a draft, focus the table on that single draft row
+  const tableRows = useMemo(() => {
+    if (!editingDraftIdx) return filteredRows;
+    return (filteredRows || []).filter(
+      r => Number(r.DRAFTFEEIDX) === Number(editingDraftIdx)
+    );
+  }, [filteredRows, editingDraftIdx]);
+
+
   /* >>> pageRows (NEW) >>> */
-  const pageRows = useMemo(() => {
-    const start = (currentPage - 1) * rowsPerPage;   // 1-based page index
-    return filteredRows.slice(start, start + rowsPerPage);
-  }, [filteredRows, currentPage, rowsPerPage]);
+    const pageRows = useMemo(() => {
+      const start = (currentPage - 1) * rowsPerPage;   // 1-based page index
+      return tableRows.slice(start, start + rowsPerPage);
+    }, [tableRows, currentPage, rowsPerPage]);
   /* <<< pageRows END <<< */
 
     async function reloadDraftsForCurrentBillThrough() {
@@ -2363,7 +2421,12 @@ console.log('PDF header:', header);
       <Sidebar />
       <TopBar />
 
-      <main className="main-content existing-drafts">
+      <main
+        className={`main-content existing-drafts ${
+          editTrayState.open ? "has-edit-tray" : ""
+        }`}
+      >
+
 
    <div className="existingDrafts-page">
   <div className="ed-header-row">
@@ -2793,7 +2856,7 @@ console.log('PDF header:', header);
           </div>
 
           <div className="ed-kpi-card ed-kpi-card--header">
-            <div className="ed-kpi-title">Unique Drafts</div>
+            <div className="ed-kpi-title">Unique Clients</div>
             <div className="ed-kpi-value">
               {kpis.uniqueClients.toLocaleString('en-US')}
             </div>
@@ -2807,7 +2870,7 @@ console.log('PDF header:', header);
   <div className="table-section">
     <GeneralDataTable
       keyField="DRAFTFEEIDX"
-      data={filteredRows}
+      data={tableRows}
       columns={columns}
       progressPending={loading}
       pagination
@@ -2821,7 +2884,11 @@ console.log('PDF header:', header);
       striped
       expandableRows
       expandableRowsComponent={(props) => (
-        <Expandable {...props} isSuperUser={isSuperUser} />
+        <Expandable
+          {...props}
+          isSuperUser={isSuperUser}
+          editingDraftIdx={editingDraftIdx}
+        />
       )}
     />
   </div>
@@ -2829,18 +2896,19 @@ console.log('PDF header:', header);
 
         <SelectScopeModal
           visibleCount={pageRows.length}
-          totalCount={filteredRows.length}
+          totalCount={tableRows.length}
           onSelectVisible={() => toggleMany(pageRows.map(r => r.DRAFTFEEIDX))}
-          onSelectAll  ={() => toggleMany(filteredRows.map(r => r.DRAFTFEEIDX))}
+          onSelectAll  ={() => toggleMany(tableRows.map(r => r.DRAFTFEEIDX))}
           onClose={() => {
-          setShowScopeModal(false);
-          /* reset the header checkbox visual state */
-          if (headerCbRef.current) {
-            headerCbRef.current.checked       = false;
-            headerCbRef.current.indeterminate = false;
-          }
-        }}
-        /> 
+            setShowScopeModal(false);
+            /* reset the header checkbox visual state */
+            if (headerCbRef.current) {
+              headerCbRef.current.checked       = false;
+              headerCbRef.current.indeterminate = false;
+            }
+          }}
+        />
+ 
       <ExistingDraftsEditTray
         open={editTrayState.open}
         draftIdx={editTrayState.draftIdx}
@@ -2850,6 +2918,7 @@ console.log('PDF header:', header);
         narrativeItems={editTrayState.narrativeItems}
         currentUser={currentUserName}
         billThroughDate={billThrough}
+        loading={trayLoading}   
         onClose={async (saved) => {
           const idx = editTrayState.draftIdx;
 
@@ -2862,11 +2931,13 @@ console.log('PDF header:', header);
             }
           }
 
-          // Close tray
+          // Close tray and clear editing focus
           setEditTrayState((s) => ({
             ...s,
             open: false,
           }));
+          setEditingDraftIdx(null);
+          setTrayLoading(false);
 
           // After a successful save, refresh the draft list so the table + KPIs update
           if (saved) {

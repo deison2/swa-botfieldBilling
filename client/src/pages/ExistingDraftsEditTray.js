@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { PopoverPortal } from "./ExistingDrafts";
 import "./ExistingDrafts.css";
+import KbRunnerLoader from "../components/KbRunnerLoader"; // adjust path as needed
+import LoaderMini from "../components/LoaderMini"; // adjust path if needed
+
 
 const currency = (n) =>
   new Intl.NumberFormat("en-US", {
@@ -54,6 +57,7 @@ const formatMoneyInput = (value) => {
 
 export default function ExistingDraftsEditTray({
   open,
+  loading,          // 👈 NEW: tray-only loading state
   onClose,
   draftIdx,
   clientName,
@@ -151,9 +155,6 @@ export default function ExistingDraftsEditTray({
     [narrRows]
   );
 
-  // ---------- early return AFTER all hooks ----------
-  if (!open) return null;
-
   const totalsMatch =
     Math.round(analysisTotal) === Math.round(narrativeTotal);
 
@@ -170,7 +171,7 @@ export default function ExistingDraftsEditTray({
     );
   };
 
-    const addNarrRow = () => {
+  const addNarrRow = () => {
     const lineOrder =
       narrRows.reduce(
         (max, r) => Math.max(max, Number(r.LineOrder ?? 0)),
@@ -199,7 +200,6 @@ export default function ExistingDraftsEditTray({
       },
     ]);
   };
-
 
   const deleteNarrRow = (idx) => {
     setNarrRows((rows) =>
@@ -230,22 +230,21 @@ export default function ExistingDraftsEditTray({
     }));
 
     const payload = {
-        draftIdx,
-        clientCode,                 // <-- NEW
-        clientName,                 // <-- NEW
-        billThroughDate,            // <-- NEW
-        user: currentUser,
-        when: nowIso,
-        reason: reasonText,
-        billingNotes: billingNotes.trim() || null,
-        analysisRows,
-        narrativeRows: narrativeRowsForSave,
-        _original: {
-            analysisItems,
-            narrativeItems,
-        },
-        };
-
+      draftIdx,
+      clientCode,
+      clientName,
+      billThroughDate,
+      user: currentUser,
+      when: nowIso,
+      reason: reasonText,
+      billingNotes: billingNotes.trim() || null,
+      analysisRows,
+      narrativeRows: narrativeRowsForSave,
+      _original: {
+        analysisItems,
+        narrativeItems,
+      },
+    };
 
     try {
       setSaving(true);
@@ -259,16 +258,14 @@ export default function ExistingDraftsEditTray({
     }
   };
 
+  // NOTE: no early `if (!open) return null;`
+
   return (
     <PopoverPortal open={open}>
-      <div
-        className="edtray-backdrop"
-        onClick={() => !saving && onClose(false)}
-      >
+        <div className="edtray-backdrop">
         <section
-          className="edtray"
-          onClick={(e) => e.stopPropagation()}
-          aria-label="Edit Draft"
+            className={`edtray ${open ? "edtray--open" : ""}`}
+            aria-label="Edit Draft"
         >
           <header className="edtray__head">
             <div>
@@ -299,217 +296,229 @@ export default function ExistingDraftsEditTray({
           </header>
 
           <div className="edtray__body">
-            {/* -------- left: analysis table -------- */}
-            <div className="edtray__col edtray__col--analysis">
-              <div className="edtray__subhead">Draft WIP Analysis</div>
-              <div className="edtray__table-wrap">
-                <table className="mini-table mini-table--tight">
-                  <thead>
-                    <tr>
-                      <th>Service</th>
-                      <th>Job</th>
-                      <th>Type</th>
-                      <th className="num">Draft Amt</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {analysisRows.map((r, i) => (
-                      <tr key={i}>
-                        <td>{r.WipService}</td>
-                        <td>{r.JobTitle}</td>
-                        <td>{r.WipType}</td>
-                        <td className="num">
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            className="ed-input ed-input--num"
-                            value={r._draftAmtDisplay ?? ""}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setAnalysisRows((rows) =>
-                                rows.map((row, idx) =>
-                                  idx === i
-                                    ? {
-                                        ...row,
-                                        _draftAmtDisplay: val,
-                                        BillInClientCur:
-                                          parseMoneyInput(val),
-                                      }
-                                    : row
-                                )
-                              );
-                            }}
-                            onBlur={() => {
-                              setAnalysisRows((rows) =>
-                                rows.map((row, idx) => {
-                                  if (idx !== i) return row;
-                                  const num = parseMoneyInput(
-                                    row._draftAmtDisplay
-                                  );
-                                  return {
-                                    ...row,
-                                    BillInClientCur: num,
-                                    _draftAmtDisplay: formatMoneyInput(
-                                      num
-                                    ),
-                                  };
-                                })
-                              );
-                            }}
-                            onFocus={(e) => e.target.select()}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                    {analysisRows.length === 0 && (
-                      <tr>
-                        <td colSpan={4} className="muted">
-                          No analysis rows returned from Practice Engine.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* -------- right: narrative table -------- */}
-            <div className="edtray__col edtray__col--narr">
-              <div className="edtray__subhead-row">
-                <div className="edtray__subhead">Narrative Lines</div>
-                <button
-                  type="button"
-                  className="edtray__add-btn"
-                  onClick={addNarrRow}
-                >
-                  + Add Line
-                </button>
-              </div>
-
-              <div className="edtray__table-wrap">
-                <table className="mini-table mini-table--tight">
-                  <thead>
-                    <tr>
-                      <th>Narrative Text</th>
-                      <th>Service</th>
-                      <th className="num">Amount</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {narrRows.map((r, i) =>
-                      r._deleted ? null : (
-                        <tr key={i}>
-                          <td>
-                            <textarea
-                              className="ed-input ed-input--textarea"
-                              value={r.FeeNarrative || ""}
-                              onChange={(e) =>
-                                updateNarr(
-                                  i,
-                                  "FeeNarrative",
-                                  e.target.value
-                                )
-                              }
-                              rows={2}
-                            />
-                          </td>
-                          <td>
-                            {r._isNew ? (
-                                // NEW rows: editable picklist
-                                <select
-                                className="ed-input ed-input--svc"
-                                value={r.ServIndex || ""}
-                                onChange={(e) =>
-                                    updateNarr(i, "ServIndex", e.target.value)
-                                }
-                                >
-                                <option value="">Select service...</option>
-                                {serviceOptions.map((svc) => (
-                                    <option key={svc} value={svc}>
-                                    {svc}
-                                    </option>
-                                ))}
-                                </select>
-                            ) : (
-                                // EXISTING rows: read-only, same as before
-                                <input
-                                type="text"
-                                className="ed-input ed-input--svc"
-                                value={r.ServIndex || ""}
-                                readOnly
-                                disabled
-                                />
-                            )}
-                            </td>
-                          <td className="num">
-                            <input
-                              type="text"
-                              inputMode="decimal"
-                              className="ed-input ed-input--num"
-                              value={r._amountDisplay ?? ""}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setNarrRows((rows) =>
-                                  rows.map((row, idx) =>
-                                    idx === i
-                                      ? {
-                                          ...row,
-                                          _amountDisplay: val,
-                                          Amount: parseMoneyInput(val),
-                                        }
-                                      : row
-                                  )
-                                );
-                              }}
-                              onBlur={() => {
-                                setNarrRows((rows) =>
-                                  rows.map((row, idx) => {
-                                    if (idx !== i) return row;
-                                    const num = parseMoneyInput(
-                                      row._amountDisplay
-                                    );
-                                    return {
-                                      ...row,
-                                      Amount: num,
-                                      _amountDisplay: formatMoneyInput(
-                                        num
-                                      ),
-                                    };
-                                  })
-                                );
-                              }}
-                              onFocus={(e) => e.target.select()}
-                            />
-                          </td>
-                          <td className="num">
-                            <button
-                              type="button"
-                              className="edtray__delete-btn"
-                              onClick={() => deleteNarrRow(i)}
-                              title="Delete line"
-                            >
-                              ×
-                            </button>
-                          </td>
+            {loading ? (
+              // 👇 In-tray loading state while APIs fetch data
+              <div className="ed-tray__loading ed-tray__loading--kb">
+                    <LoaderMini primary="#4F46E5" />
+                </div>
+            ) : (
+              <>
+                {/* -------- left: analysis table -------- */}
+                <div className="edtray__col edtray__col--analysis">
+                  <div className="edtray__subhead">Draft WIP Analysis</div>
+                  <div className="edtray__table-wrap">
+                    <table className="mini-table mini-table--tight">
+                      <thead>
+                        <tr>
+                          <th>Service</th>
+                          <th>Job</th>
+                          <th>Type</th>
+                          <th className="num">Draft Amt</th>
                         </tr>
-                      )
-                    )}
-                    {narrRows.filter((r) => !r._deleted).length === 0 && (
-                      <tr>
-                        <td colSpan={4} className="muted">
-                          No narrative lines. Use “Add Line” to start a
-                          new invoice body.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                      </thead>
+                      <tbody>
+                        {analysisRows.map((r, i) => (
+                          <tr key={i}>
+                            <td>{r.WipService}</td>
+                            <td>{r.JobTitle}</td>
+                            <td>{r.WipType}</td>
+                            <td className="num">
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                className="ed-input ed-input--num"
+                                value={r._draftAmtDisplay ?? ""}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setAnalysisRows((rows) =>
+                                    rows.map((row, idx) =>
+                                      idx === i
+                                        ? {
+                                            ...row,
+                                            _draftAmtDisplay: val,
+                                            BillInClientCur:
+                                              parseMoneyInput(val),
+                                          }
+                                        : row
+                                    )
+                                  );
+                                }}
+                                onBlur={() => {
+                                  setAnalysisRows((rows) =>
+                                    rows.map((row, idx) => {
+                                      if (idx !== i) return row;
+                                      const num = parseMoneyInput(
+                                        row._draftAmtDisplay
+                                      );
+                                      return {
+                                        ...row,
+                                        BillInClientCur: num,
+                                        _draftAmtDisplay:
+                                          formatMoneyInput(num),
+                                      };
+                                    })
+                                  );
+                                }}
+                                onFocus={(e) => e.target.select()}
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                        {analysisRows.length === 0 && (
+                          <tr>
+                            <td colSpan={4} className="muted">
+                              No analysis rows returned from Practice Engine.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* -------- right: narrative table -------- */}
+                <div className="edtray__col edtray__col--narr">
+                  <div className="edtray__subhead-row">
+                    <div className="edtray__subhead">Narrative Lines</div>
+                    <button
+                      type="button"
+                      className="edtray__add-btn"
+                      onClick={addNarrRow}
+                    >
+                      + Add Line
+                    </button>
+                  </div>
+
+                  <div className="edtray__table-wrap">
+                    <table className="mini-table mini-table--tight">
+                      <thead>
+                        <tr>
+                          <th>Narrative Text</th>
+                          <th>Service</th>
+                          <th className="num">Amount</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {narrRows.map((r, i) =>
+                          r._deleted ? null : (
+                            <tr key={i}>
+                              <td>
+                                <textarea
+                                  className="ed-input ed-input--textarea"
+                                  value={r.FeeNarrative || ""}
+                                  onChange={(e) =>
+                                    updateNarr(
+                                      i,
+                                      "FeeNarrative",
+                                      e.target.value
+                                    )
+                                  }
+                                  rows={2}
+                                />
+                              </td>
+                              <td>
+                                {r._isNew ? (
+                                  // NEW rows: editable picklist
+                                  <select
+                                    className="ed-input ed-input--svc"
+                                    value={r.ServIndex || ""}
+                                    onChange={(e) =>
+                                      updateNarr(
+                                        i,
+                                        "ServIndex",
+                                        e.target.value
+                                      )
+                                    }
+                                  >
+                                    <option value="">Select service...</option>
+                                    {serviceOptions.map((svc) => (
+                                      <option key={svc} value={svc}>
+                                        {svc}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  // EXISTING rows: read-only, same as before
+                                  <input
+                                    type="text"
+                                    className="ed-input ed-input--svc"
+                                    value={r.ServIndex || ""}
+                                    readOnly
+                                    disabled
+                                  />
+                                )}
+                              </td>
+                              <td className="num">
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  className="ed-input ed-input--num"
+                                  value={r._amountDisplay ?? ""}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setNarrRows((rows) =>
+                                      rows.map((row, idx) =>
+                                        idx === i
+                                          ? {
+                                              ...row,
+                                              _amountDisplay: val,
+                                              Amount:
+                                                parseMoneyInput(val),
+                                            }
+                                          : row
+                                      )
+                                    );
+                                  }}
+                                  onBlur={() => {
+                                    setNarrRows((rows) =>
+                                      rows.map((row, idx) => {
+                                        if (idx !== i) return row;
+                                        const num = parseMoneyInput(
+                                          row._amountDisplay
+                                        );
+                                        return {
+                                          ...row,
+                                          Amount: num,
+                                          _amountDisplay:
+                                            formatMoneyInput(num),
+                                        };
+                                      })
+                                    );
+                                  }}
+                                  onFocus={(e) => e.target.select()}
+                                />
+                              </td>
+                              <td className="num">
+                                <button
+                                  type="button"
+                                  className="edtray__delete-btn"
+                                  onClick={() => deleteNarrRow(i)}
+                                  title="Delete line"
+                                >
+                                  ×
+                                </button>
+                              </td>
+                            </tr>
+                          )
+                        )}
+                        {narrRows.filter((r) => !r._deleted).length === 0 && (
+                          <tr>
+                            <td colSpan={4} className="muted">
+                              No narrative lines. Use “Add Line” to start a new
+                              invoice body.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
-          <footer className="edtray__foot">
+        <footer className="edtray__foot">
             <div className="edtray__reason-block">
               <label className="ed-label">
                 Reason for change<span className="req">*</span>
@@ -548,7 +557,7 @@ export default function ExistingDraftsEditTray({
                 Billing Notes (optional)
               </label>
               <textarea
-                className="ed-input ed-input--textarea"
+                className="ed-input ed-input--textarea edtray__notes-textarea"
                 rows={2}
                 placeholder="Context for partner / reviewer…"
                 value={billingNotes}
@@ -562,22 +571,25 @@ export default function ExistingDraftsEditTray({
                   {error}
                 </div>
               )}
-              <button
-                type="button"
-                className="ed-btn ed-btn--ghost"
-                disabled={saving}
-                onClick={() => onClose(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="ed-btn ed-btn--primary"
-                disabled={saving}
-                onClick={handleSave}
-              >
-                {saving ? "Saving…" : "Save & Close"}
-              </button>
+
+              <div className="edtray__btn-row">
+                <button
+                  type="button"
+                  className="ed-btn ed-btn--ghost"
+                  disabled={saving}
+                  onClick={() => onClose(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="ed-btn ed-btn--primary"
+                  disabled={saving}
+                  onClick={handleSave}
+                >
+                  {saving ? "Saving…" : "Save & Close"}
+                </button>
+              </div>
             </div>
           </footer>
         </section>

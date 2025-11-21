@@ -2071,38 +2071,49 @@ button.bare {
     0 0 0 1px rgba(255, 255, 255, 0.7) inset;
 }
 
-/* ---------- Edit tray shell ---------- */
+/* ---------- Edit tray shell (new unified version) ---------- */
 
+/* Backdrop is just a positioning layer now – no dimming, no blocking */
 .edtray-backdrop {
   position: fixed;
-  inset: 0; /* top:0; right:0; bottom:0; left:0 */
-  background: rgba(15, 23, 42, 0.55); /* same dim overlay */
+  inset: 0;                  /* full viewport */
   z-index: 1200;
+  pointer-events: none;      /* let clicks fall through except on tray */
 }
 
-/* Tray is pinned to bottom, from sidebar edge to right edge */
+/* Tray itself – pinned to bottom, from sidebar to right edge */
 .edtray {
-  position: fixed;
-
-  /* span from end of sidebar to near right edge */
+  position: absolute;        /* relative to .edtray-backdrop */
   left: var(--sidebar-width, 260px);
-  right: 16px;
+  right: 0;
+  bottom: 0;
 
-  /* sit a bit above the very bottom */
-  bottom: 16px;
-  max-height: calc(100vh - 64px);
+  max-height: calc(100vh - 40px);
   overflow: auto;
 
   /* card styling */
   background: #ffffff;
   padding: 16px 20px 18px;
   border-radius: 16px 0 0 0;
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.28);
+  box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.28);
 
   display: flex;
   flex-direction: column;
+
+  /* interaction + animation base state */
+  pointer-events: auto;      /* tray is clickable */
+  transform: translateY(100%);
+  opacity: 0;
+  transition: transform 220ms ease-out, opacity 220ms ease-out;
 }
 
+/* Open state – slides up into view */
+.edtray--open {
+  transform: translateY(0%);
+  opacity: 1;
+}
+
+/* Keep all children box-sized nicely */
 .edtray,
 .edtray * {
   box-sizing: border-box;
@@ -2291,13 +2302,26 @@ button.bare {
 
 .edtray__foot {
   display: grid;
-  grid-template-columns: 1.4fr 1.5fr auto;
-  gap: 16px;
-  padding-top: 10px;
+  grid-template-columns: minmax(220px, 1.1fr) minmax(260px, 1.4fr) minmax(200px, 0.9fr);
+  gap: 16px 24px;
+  padding-top: 12px;
   border-top: 1px solid #dde6ee;
-  margin-top: 4px;
-  align-items: flex-end;
+  margin-top: 8px;
+  align-items: flex-start;
 }
+
+.edtray__reason-block,
+.edtray__notes-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.edtray__notes-textarea {
+  min-height: 60px;
+}
+
+/* labels */
 
 .ed-label {
   font-size: 0.8rem;
@@ -2310,12 +2334,18 @@ button.bare {
   margin-left: 3px;
 }
 
+/* actions column */
+
 .edtray__actions {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
+  align-items: stretch;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 200px;
+  margin-top: 25px;
 }
+
 .edtray__error {
   font-size: 0.78rem;
   color: #b0413e;
@@ -2323,70 +2353,133 @@ button.bare {
 
 /* buttons */
 
+.edtray__btn-row {
+  display: flex;
+  gap: 8px;
+}
+
 .ed-btn {
   border-radius: 999px;
   padding: 6px 14px;
   font-size: 0.85rem;
   border: none;
   cursor: pointer;
+  flex: 1 1 0;          /* make Cancel and Save same width */
+  text-align: center;
 }
+
 .ed-btn--ghost {
   background: transparent;
   border: 1px solid #9ba9b3;
   color: #30424f;
 }
+
 .ed-btn--primary {
   background: #4b796e;
   color: #fff;
-  margin-left: 6px;
 }
+
 .ed-btn[disabled] {
   opacity: 0.6;
   cursor: default;
 }
 
-.edtray__add-btn {
-  border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 0.8rem;
-  border: 1px dashed #4b796e;
-  background: #e7f3ef;
-  color: #275247;
-  cursor: pointer;
+/* keep existing "Other" spacing */
+.ed-input--other {
+  margin-top: 4px;
 }
 
 /* ---------- responsive ---------- */
 
 @media (max-width: 1100px) {
-  .edtray__body {
-    grid-template-columns: 1fr;
-  }
   .edtray__foot {
     grid-template-columns: 1fr;
   }
-}
-/* === Narrow expander + checkbox columns without breaking header alignment === */
 
-/* Expander column (auto-added by react-data-table) */
-.existing-drafts .rdt_TableCol[data-column-id="expander"],
-.existing-drafts .rdt_TableCell[data-column-id="expander"] {
-  flex: 0 0 32px !important;
-  width: 32px !important;
-  max-width: 32px !important;
-  padding: 0 4px !important;
+  .edtray__actions {
+    align-items: flex-end;
+  }
 }
 
-/* Checkbox column (uses id: 'row-select' from JS) */
-.existing-drafts .rdt_TableCol[data-column-id="row-select"],
-.existing-drafts .rdt_TableCell[data-column-id="row-select"] {
-  flex: 0 0 32px !important;  /* tweak 32–40px to taste */
-  width: 32px !important;
-  max-width: 32px !important;
-  padding: 0 4px !important;
+/* When the edit tray is open, leave room at the bottom so
+   the table can scroll above the tray instead of hiding behind it */
+.main-content.existing-drafts.has-edit-tray {
+  padding-bottom: 400px; /* tweak to match your tray height */
 }
 
-/* Keep the checkbox itself compact */
-.existing-drafts .row-cb {
-  width: 16px;
-  height: 16px;
+.edtray__add-btn {
+    background: #e7f3ef;
+    border: 1px dashed #4b796e;
+    border-radius: 999px;
+    color: #275247;
+    cursor: pointer;
+    font-size: .8rem;
+    padding: 4px 10px;
+}
+
+.kb-runner-inline {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+}
+
+.kb-runner-inline__hud {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  text-shadow: 0 0 6px rgba(116, 242, 206, 0.55);
+}
+
+.kb-runner-inline__frame {
+  position: relative;
+  border-radius: 14px;
+  border: 1px solid rgba(54, 194, 166, 0.55);
+  background: #02070a;
+  box-shadow: inset 0 0 0 1px #1d343b;
+  overflow: hidden;
+}
+
+.kb-runner-inline__frame canvas {
+  width: 100%;
+  height: 180px; /* fits comfortably in the tray body */
+  display: block;
+  image-rendering: pixelated;
+}
+
+.kb-runner-inline__hint {
+  font-size: 10px;
+  opacity: 0.75;
+}
+
+/* Old spinner wrapper probably had max-width + centered margin.
+   This modifier makes the KB runner fill the whole tray body. */
+.ed-tray__loading--kb {
+  width: 100%;
+  max-width: none;       /* override any previous max-width */
+  margin: 0;             /* no auto-centering */
+  padding: 10px 0 10px;        /* optional, just adds some breathing room */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Ensure the runner component itself stretches */
+.ed-tray__loading--kb .kb-runner-inline {
+  width: 100%;
+}
+
+.kb-runner-inline__frame {
+  width: 100%;
+}
+.kb-runner-inline__frame canvas {
+  width: 100%;
+}
+
+/* When used inside the grid body, make the loader span both columns */
+.edtray__body .ed-tray__loading--kb {
+  grid-column: 1 / -1;   /* span full width of the grid */
 }
