@@ -490,7 +490,7 @@ const nbManagerOptions = useMemo(() => {
   const nbExclusionTotals = useMemo(() => {
     const buckets = {
       excluded: { key: "excluded", label: "Excluded from Automation", value: 0 },
-      etf: { key: "etf", label: "ETF or GovCon", value: 0 },
+      etf: { key: "etf", label: "GovCon", value: 0 },
       recent: { key: "recent", label: "Recent Bill", value: 0 },
       draft: { key: "draft", label: "Draft Exists", value: 0 },
       threshold: { key: "threshold", label: "O/S WIP Below Threshold", value: 0 },
