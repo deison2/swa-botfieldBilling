@@ -56,12 +56,23 @@ const formatYmd = (ymd) => {
 // Build exclusion reasons string from boolean flags
 const buildExclusionReasons = (r) => {
   const reasons = [];
+  if(r?.THRESHOLD) reasons.push("Outstanding WIP below threshold");
   if (r?.ED_CLIENT) reasons.push("Client excluded because existing draft already exists");
-  if (r?.ETF_GCC_JOB) reasons.push("Client has ETF or GovCon services and was therefore excluded");
+  if (r?.ETF_GCC_JOB ?? r?.GCC_JOB) reasons.push("Client has ETF or GovCon services and was therefore excluded");
   if (r?.EXCLUDED_CLIENT) reasons.push("Client has been granted exclusion from automated billing");
   if (r?.RB_CLIENT) reasons.push("Client excluded because a bill has been sent in the last 30 days");
   return reasons.join("; ");
 };
+
+// Safely format a value for CSV (quote if needed)
+const toCsvValue = (v) => {
+  const s = String(v ?? "");
+  if (s.includes('"') || s.includes(",") || s.includes("\n")) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+};
+
 
 // safe picker for multiple possible fields
 const pick = (row, keys, fallback = "Unassigned") => {
@@ -482,6 +493,7 @@ const nbManagerOptions = useMemo(() => {
       etf: { key: "etf", label: "ETF or GovCon", value: 0 },
       recent: { key: "recent", label: "Recent Bill", value: 0 },
       draft: { key: "draft", label: "Draft Exists", value: 0 },
+      threshold: { key: "threshold", label: "O/S WIP Below Threshold", value: 0 },
     };
 
     for (const r of nbFiltered) {
@@ -489,14 +501,61 @@ const nbManagerOptions = useMemo(() => {
       if (!wip) continue;
 
       // priority hierarchy (top → bottom)
-      if (r?.EXCLUDED_CLIENT) buckets.excluded.value += wip;
-      else if (r?.ETF_GCC_JOB) buckets.etf.value += wip;
+      if (r?.THRESHOLD) buckets.threshold.value += wip;
+      else if (r?.EXCLUDED_CLIENT) buckets.excluded.value += wip;
+      else if (r?.ETF_GCC_JOB ?? r?.GCC_JOB) {
+        buckets.etf.value += wip;
+      }
       else if (r?.RB_CLIENT) buckets.recent.value += wip;
       else if (r?.ED_CLIENT) buckets.draft.value += wip;
     }
 
-    return [buckets.excluded, buckets.etf, buckets.recent, buckets.draft];
+    return [buckets.excluded, buckets.etf, buckets.recent, buckets.draft, buckets.threshold];
   }, [nbFiltered]);
+
+
+  // Download Not Billed filtered rows as CSV (Excel-friendly)
+  const handleDownloadNotBilled = () => {
+    if (!nbFiltered || !nbFiltered.length) return;
+
+    const headers = [
+      "Client Code",
+      "Client Name",
+      "Partner",
+      "Manager",
+      "WIP Outstanding",
+      "Exclusion Reason(s)",
+    ];
+
+    const rowsForCsv = nbFiltered.map((r) => [
+      r.CLIENTCODE ?? "",
+      r.CLIENTNAME ?? "",
+      r.BILLINGCLIENTPARTNER || r.CLIENTPARTNERNAME || "",
+      r.BILLINGCLIENTMANAGER || r.CLIENTMANAGERNAME || "",
+      Number(r?.WIPOUTSTANDING ?? 0).toFixed(2),
+      buildExclusionReasons(r) || "",
+    ]);
+
+    const lines = [headers, ...rowsForCsv];
+    const csv = lines
+      .map((row) => row.map(toCsvValue).join(","))
+      .join("\r\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const labelDate = billingPeriod
+      ? formatYmd(billingPeriod).replace(/\//g, "-")
+      : "all";
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `NotBilled_${labelDate}.csv`; // Excel will open this CSV
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   // Public PE logo (your blob)
   const PE_LOGO_SRC =
@@ -899,18 +958,24 @@ const nbManagerOptions = useMemo(() => {
                 <div className="nb-row">
                   {/* LEFT HALF: KPIs + chips (no controls here now) */}
                   <div className="nb-left">
-                    <section className="kpi-row kpi-row--compact" aria-label="Key Performance Indicators">
-                      <div className="kpi-card">
-                        <div className="kpi-title">WIP</div>
-                        <div className="kpi-value">{fmtCurrency0(nbKpis.totalWip)}</div>
-                      </div>
-                      <div className="kpi-card">
-                        <div className="kpi-title">Distinct Clients</div>
-                        <div className="kpi-value">
-                          {nbKpis.distinctClients.toLocaleString()}
+                    <div className="nb-kpi-export-row">
+                      <section
+                        className="kpi-row kpi-row--compact"
+                        aria-label="Key Performance Indicators"
+                      >
+                        <div className="kpi-card">
+                          <div className="kpi-title">WIP</div>
+                          <div className="kpi-value">{fmtCurrency0(nbKpis.totalWip)}</div>
                         </div>
-                      </div>
-                    </section>
+                        <div className="kpi-card">
+                          <div className="kpi-title">Distinct Clients</div>
+                          <div className="kpi-value">
+                            {nbKpis.distinctClients.toLocaleString()}
+                          </div>
+                        </div>
+                      </section>
+                    </div>
+
                     <div className="nb-inline-option">
                       <label className="checkbox-pill">
                         <input
@@ -920,6 +985,16 @@ const nbManagerOptions = useMemo(() => {
                         />
                         <span>Check here to exclude clients with existing drafts</span>
                       </label>
+                      
+                      <button
+                        type="button"
+                        className="pill-btn nb-export-btn"
+                        onClick={handleDownloadNotBilled}
+                        disabled={!nbFiltered.length}
+                        title="Download filtered data to Excel"
+                      >
+                        Download to Excel
+                      </button>
                     </div>
 
                     {/* NEW: search bar */}

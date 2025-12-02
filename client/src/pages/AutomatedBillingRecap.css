@@ -1281,3 +1281,25 @@
   box-shadow: 0 0 0 2px rgba(70, 149, 132, 0.18);
   border-color: var(--brand, #4b796e);
 }
+
+.nb-kpi-export-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.nb-kpi-export-row .kpi-row {
+  flex: 1 1 auto;
+}
+
+.nb-export-btn {
+  white-space: nowrap;
+  margin-bottom: 4px; /* nudges it down to visually align with cards */
+  margin-left: 8px;
+}
+
+.nb-export-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
