@@ -626,12 +626,14 @@ const billThroughValue = useMemo(() => {
               null,
 
             CLIENTPARTNERNAME:
+              r.BILLINGCLIENTPARTNER ??
               r.CLIENTPARTNERNAME ??
               r.CLIENTPARTNER ??
               r.clientpartner ??
               null,
 
             CLIENTMANAGERNAME:
+              r.BILLINGCLIENTMANAGER ??
               r.CLIENTMANAGERNAME ??
               r.CLIENTMANAGER ??
               r.clientmanager ??
@@ -701,8 +703,8 @@ const billThroughValue = useMemo(() => {
           ClientName: pick(d, ["CLIENTNAME", "BILLINGCLIENTNAME"]),
 
           Office: pick(d, ["CLIENTOFFICE", "BILLINGCLIENTOFFICE"]),
-          Partner: pick(d, ["CLIENTPARTNERNAME"]),
-          Manager: pick(d, ["CLIENTMANAGERNAME"]),
+          Partner: pick(d, ["BILLINGCLIENTPARTNER"]),
+          Manager: pick(d, ["BILLINGCLIENTMANAGER"]),
           Service: pick(d, ["SERVINDEX"]),
           DraftBill: 0,
           DraftWip: 0,
@@ -771,12 +773,12 @@ const billThroughValue = useMemo(() => {
             "billingclientoffice",
           ]),
           Partner: pick(inv, [
-            "CLIENTPARTNERNAME",
+            "BILLINGCLIENTPARTNER",
             "CLIENTPARTNER",
             "clientpartner",
           ]),
           Manager: pick(inv, [
-            "CLIENTMANAGERNAME",
+            "BILLINGCLIENTMANAGER",
             "CLIENTMANAGER",
             "clientmanager",
           ]),
@@ -1363,10 +1365,10 @@ const billThroughValue = useMemo(() => {
         groupKey === "Office"
           ? pick(r, ["CLIENTOFFICE", "BILLINGCLIENTOFFICE"])
           : groupKey === "Manager"
-          ? pick(r, ["CLIENTMANAGERNAME"])
+          ? pick(r, ["BILLINGCLIENTMANAGER"])
           : groupKey === "Service"
           ? pick(r, ["SERVINDEX"])
-          : pick(r, ["CLIENTPARTNERNAME"]);
+          : pick(r, ["BILLINGCLIENTPARTNER"]);
       return (name || "Unassigned") === nameFilter;
     });
 
@@ -1450,11 +1452,13 @@ const billThroughValue = useMemo(() => {
 
         for (const inv of invoices) {
           const partner =
+            inv.BILLINGCLIENTPARTNER ??
             inv.CLIENTPARTNERNAME ??
             inv.CLIENTPARTNER ??
             inv.clientpartner ??
             null;
           const manager =
+            inv.BILLINGCLIENTMANAGER ??
             inv.CLIENTMANAGERNAME ??
             inv.CLIENTMANAGER ??
             inv.clientmanager ??
