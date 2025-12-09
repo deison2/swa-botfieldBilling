@@ -114,7 +114,7 @@ const getGroupAccessor = (key) => {
       return (r) => pick(r, ["BILLINGCLIENTOFFICE", "CLIENTOFFICE"]);
     case "Originator":
       return (r) =>
-        pick(r, ["CLIENTORIGINATORNAME", "ORIGINATORNAME", "JOBPARTNERNAME"]);
+        pick(r, ["CLIENTORIGINATORNAME", "CLIENTORIGINATOR"]);
     case "Partner":
       // NEW: prefer BILLINGCLIENTPARTNER, then CLIENTPARTNERNAME
       return (r) => pick(r, ["BILLINGCLIENTPARTNER", "CLIENTPARTNERNAME"]);
@@ -323,8 +323,8 @@ export default function AutomatedBillingRecap() {
     const keyAccessors = {
       Office: (r) => pick(r, ["CLIENTOFFICE", "BILLINGCLIENTOFFICE"]),
       Originator: (r) => pick(r, ["CLIENTORIGINATORNAME", "ORIGINATORNAME", "JOBPARTNERNAME"]),
-      Partner: (r) => pick(r, ["CLIENTPARTNERNAME"]),
-      Manager: (r) => pick(r, ["CLIENTMANAGERNAME"]),
+      Partner: (r) => pick(r, ["BILLINGCLIENTPARTNER"]),
+      Manager: (r) => pick(r, ["BILLINGCLIENTMANAGER"]),
     };
 
     const accessor = getGroupAccessor(groupKey) || (() => "Unassigned");
