@@ -48,6 +48,7 @@ export default function RecurringRetainers() {
 
   const { principal } = useAuth();
   const email = principal?.userDetails?.toLowerCase() || '';
+  console.log('Logged in user email:', email);
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -56,7 +57,8 @@ export default function RecurringRetainers() {
   const [rowToDelete, setRowToDelete]   = useState(null);
   const [clientMapping, setClientMapping] = useState([]);
   const [clientLookup, setClientLookup] = useState({});
-
+  
+  console.log(clientMapping);
 
   // Filtering
   const [typeFilter, setTypeFilter]       = useState('');

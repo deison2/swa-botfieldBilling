@@ -4,7 +4,7 @@ import UnderConstructionPage from './components/UnderConstructionPage';
 
 // Import page components
 //import RecurringRetainers from "./pages/RecurringRetainers";
-//import TechFees from "./pages/TechFees";
+import TechFees from "./pages/TechFees";
 import ExistingDrafts from "./pages/ExistingDrafts";
 import MiscReports from "./pages/MiscReports";
 import AutomatedBillingRecap from "./pages/AutomatedBillingRecap";
@@ -58,7 +58,7 @@ export default function App() {
           <Route path="Existing-Drafts" element={<ExistingDrafts />} />
           <Route path="Automated-Billing-Recap" element={<AutomatedBillingRecap />} />
           <Route path="Recurring-Retainers" element={<RecurringClients />} />
-          <Route path="Tech-Fees" element={<UnderConstructionPage />} />
+          <Route path="Tech-Fees" element={<TechFees />} />
           <Route path="Billing-Groups" element={<BillingGroups />} />
           <Route path="Misc-Reports" element={<MiscReports />} />
 
