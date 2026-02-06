@@ -24,7 +24,6 @@ import {
   CreateInvoiceBulkPrintList,
   checkDraftInUse,
   lockUnlockDraft,
-  lockDraft,
   unlockDraft,
   getDraftFeeAnalysis,
   getDraftFeeNarratives,
@@ -759,67 +758,73 @@ const [editTrayState, setEditTrayState] = useState({
     narrativeItems: [],
   });
 
-  useEffect(() => {
+useEffect(() => {
   let cancelled = false;
-  (async () => {
-    try {
-      setLoading(true);
 
+  (async () => {
+    setLoading(true);
+
+    try {
       // 1) Fetch bill-through from blob (or default to EOM-1 if missing)
       let bt = endOfPrevMonth();
       try {
         const blob = await GetBillThroughBlob();
-          if (blob?.billThroughDate) {
-            const parsed = parseYmdLocal(blob.billThroughDate); // <-- local parse
-            if (!isNaN(parsed)) bt = parsed;
-          }
+        if (blob?.billThroughDate) {
+          const parsed = parseYmdLocal(blob.billThroughDate);
+          if (!isNaN(parsed)) bt = parsed;
+        }
       } catch (e) {
-        console.warn('Bill-through blob missing/unreadable; defaulting to EOM-1', e);
+        console.warn("Bill-through blob missing/unreadable; defaulting to EOM-1", e);
       }
       if (cancelled) return;
 
       setBillThrough(bt);
-
       const iso = toIsoYmd(bt);
 
-      // 2) Fetch data with billThroughDate in body
-      const [dRes, gRes, wipRes, recRes] = await Promise.allSettled([
+      // 2) Fire granular job data WITHOUT blocking loading
+      // (keep same functionality: still sets granularData + logs errors)
+      void GetGranularJobData(iso)
+        .then((data) => {
+          if (cancelled) return;
+          setGranularData(Array.isArray(data) ? data : []);
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          console.error("GetGranularJobData failed:", err);
+        });
+
+      // 3) Await only the stuff you want loading to depend on
+      const [dRes, wipRes, recRes] = await Promise.allSettled([
         GetDrafts(iso),
-        GetGranularJobData(iso),
         GetGranularWIPData(),
-        loadRecurrings(),   // <-- recurring billing config from masterRecurrings.json
+        loadRecurrings(),
       ]);
       if (cancelled) return;
 
-      if (dRes.status === 'fulfilled') setRawRows(Array.isArray(dRes.value) ? dRes.value : []);
-      else {
-        console.error('GetDrafts failed:', dRes.reason);
-      }
+      if (dRes.status === "fulfilled") setRawRows(Array.isArray(dRes.value) ? dRes.value : []);
+      else console.error("GetDrafts failed:", dRes.reason);
 
-      if (gRes.status === 'fulfilled') setGranularData(Array.isArray(gRes.value) ? gRes.value : []);
-      else console.error('GetGranularJobData failed:', gRes.reason);
+      if (wipRes.status === "fulfilled") setGranularWip(Array.isArray(wipRes.value) ? wipRes.value : []);
+      else console.error("GetGranularWIPData failed:", wipRes.reason);
 
-      if (wipRes.status === 'fulfilled') setGranularWip(Array.isArray(wipRes.value) ? wipRes.value : []);
-       else console.error('GetGranularWIPData failed:', wipRes.reason);
-            // Recurring clients: build a Set of ContIndex values
-      if (recRes.status === 'fulfilled') {
+      if (recRes.status === "fulfilled") {
         const arr = Array.isArray(recRes.value) ? recRes.value : [];
-        const contSet = new Set(
-          arr
-            .map(r => Number(r.ContIndex ?? r.CONTINDEX ?? r.contIndex))
-            .filter(n => Number.isFinite(n))
-        );
+        const contSet = new Set( arr .map(r => Number(r.ContIndex ?? r.CONTINDEX ?? r.contIndex)) .filter(n => Number.isFinite(n)) );
         setRecurringContIndexes(contSet);
-        console.log('Recurring ▶ ContIndex count:', contSet.size);
+        console.log("Recurring ▶ ContIndex count:", contSet.size);
       } else {
-        console.error('loadRecurrings failed:', recRes.reason);
-      } 
+        console.error("loadRecurrings failed:", recRes.reason);
+      }
     } finally {
       if (!cancelled) setLoading(false);
     }
   })();
-  return () => { cancelled = true; };
+
+  return () => {
+    cancelled = true;
+  };
 }, []);
+
 
 useEffect(() => {
   const saved = loadFiltersFromStorage();
@@ -1352,6 +1357,20 @@ function DraftRow({ d, client, granData, onHover, onLeave, onPin, expanded, onTo
   );
 }
 
+const refreshEditTrayData = React.useCallback(async (draftId) => {
+  const [analysisRes, narrRes] = await Promise.all([
+    getDraftFeeAnalysis(draftId),
+    getDraftFeeNarratives(draftId),
+  ]);
+
+  setEditTrayState((prev) => ({
+    ...prev,
+    analysisItems: analysisRes?.Items || [],
+    narrativeItems: narrRes || [],
+  }));
+}, []);
+
+
   /* ── EXPANDABLE row render ────────────────────────────────── */
 const Expandable = ({ data, isSuperUser, editingDraftIdx }) => {
   const [activeDetails, setActiveDetails] = React.useState(null);
@@ -1406,10 +1425,19 @@ const Expandable = ({ data, isSuperUser, editingDraftIdx }) => {
       alert('Only super users can edit drafts.');
       return;
     }
-
+    console.log(data);
     const draftId = data?.DRAFTFEEIDX;
     if (!draftId) {
       console.warn('No DRAFTFEEIDX on expanded row – cannot lock for edit.');
+      return;
+    }
+    const wipindexes = data?.WIPINDEXES.split(',');
+    const billedClient = data?.BILLEDCLIENT;
+    const debttrandate = data?.DEBTTRANDATE;
+    console.log('Billed Client:', billedClient);
+
+    if (!wipindexes) {
+      console.warn('No WIPINDEXES on expanded row – cannot lock for edit.');
       return;
     }
     if (!email) {
@@ -1426,8 +1454,11 @@ const Expandable = ({ data, isSuperUser, editingDraftIdx }) => {
       draftIdx: draftId,
       clientName: (data.CLIENTS?.[0]?.name) || '',
       clientCode: (data.CLIENTS?.[0]?.code) || '',
+      billedClient: billedClient, //ClientCode + Name of the clinet receiving the draft
       analysisItems: [],    // will be populated after API returns
       narrativeItems: [],   // will be populated after API returns
+      wipindexes: wipindexes,
+      debttrandate: debttrandate
     });
 
     try {
@@ -2914,6 +2945,7 @@ console.log('PDF header:', header);
         draftIdx={editTrayState.draftIdx}
         clientName={editTrayState.clientName}
         clientCode={editTrayState.clientCode}
+        billedClient={editTrayState.billedClient}
         analysisItems={editTrayState.analysisItems}
         narrativeItems={editTrayState.narrativeItems}
         currentUser={currentUserName}
@@ -3138,6 +3170,7 @@ console.log('PDF header:', header);
             },
           });
         }}
+        onWipAdded={() => refreshEditTrayData(editTrayState.draftIdx)}
       />
  
       </main>

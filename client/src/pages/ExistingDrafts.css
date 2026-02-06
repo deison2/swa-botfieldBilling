@@ -2212,8 +2212,7 @@ button.bare {
   vertical-align: middle;
 }
 
-/* numeric alignment */
-.edtray .mini-table th.num,
+/* numeric alignment */ 
 .edtray .mini-table td.num {
   text-align: right;
   white-space: nowrap;
@@ -2222,17 +2221,20 @@ button.bare {
 /* specific column widths so things don’t drift */
 
 /* left side: analysis table */
-.edtray__col--analysis .mini-table th:nth-child(1) { width: 16%; }  /* Service */
-.edtray__col--analysis .mini-table th:nth-child(2) { width: 46%; }  /* Job */
-.edtray__col--analysis .mini-table th:nth-child(3) { width: 10%; }  /* Type */
-.edtray__col--analysis .mini-table th:nth-child(4) { width: 14%; }  /* Draft Amt */
-.edtray__col--analysis .mini-table th:nth-child(5) { width: 14%; }  /* Narrative */
+.edtray__col--analysis .mini-table th:nth-child(1) { width: 20%; }  /* Service */
+.edtray__col--analysis .mini-table th:nth-child(2) { width: 8%; }  /* Job */
+.edtray__col--analysis .mini-table th:nth-child(3) { width: 25%; }  /* Type */
+.edtray__col--analysis .mini-table th:nth-child(4) { width: 8%; }  /* Draft Amt */
+.edtray__col--analysis .mini-table th:nth-child(5) { width: 10%; }  /* delete icon */
+.edtray__col--analysis .mini-table th:nth-child(6) { width: 10%; }  /* delete icon */
+.edtray__col--analysis .mini-table th:nth-child(7) { width: 10%; }  /* delete icon */
+.edtray__col--analysis .mini-table th:nth-child(8) { width: 4%; }  /* delete icon */
 
 /* right side: narrative table */
-.edtray__col--narr .mini-table th:nth-child(1) { width: 62%; }      /* Narrative text */
+.edtray__col--narr .mini-table th:nth-child(1) { width: 63%; }      /* Narrative text */
 .edtray__col--narr .mini-table th:nth-child(2) { width: 16%; }      /* Service */
 .edtray__col--narr .mini-table th:nth-child(3) { width: 16%; }      /* Amount */
-.edtray__col--narr .mini-table th:nth-child(4) { width: 6%; }       /* delete icon */
+.edtray__col--narr .mini-table th:nth-child(4) { width: 5%; }       /* delete icon */
 
 /* make inputs fill the cell cleanly */
 .edtray .mini-table .ed-input {
@@ -2259,16 +2261,28 @@ button.bare {
   color: #30424f;
 }
 
+.edtray__delete-center {
+  display: table-cell;
+  justify-content: center;
+  margin: 0;
+  border-radius: 4px;
+}
+
 /* delete column: keep the X centered and narrow */
 .edtray__delete-btn {
   border: none;
   background: transparent;
   color: #c0392b;
   font-size: 1.2rem;
-  line-height: 1;
   cursor: pointer;
+
   width: 28px;
-  text-align: center;
+  height: 28px;              /* or whatever your row height is */
+  display: inline-flex;
+  align-items: center;        /* vertical center */
+  justify-content: center;    /* horizontal center */
+  padding: 0;                 /* avoids offset from default padding */
+  line-height: 1;
 }
 
 /* ---------- inputs (shared styles) ---------- */
@@ -2284,9 +2298,6 @@ button.bare {
 .ed-input:focus {
   outline: 2px solid #4b796e33;
   border-color: #4b796e;
-}
-.ed-input--num {
-  text-align: right;
 }
 .ed-input--svc {
   width: 80px;

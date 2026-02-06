@@ -6,7 +6,7 @@
 "direction": "in",
 "name": "req",
 "methods": [ "get", "post"],
-"route": "DraftEditing/{MethodType}/{EditType}/{DebtTranIndex}"
+"route": "DraftEditing/{MethodType}/{EditType}/{DebtTranIndex}/{DebtNarrIndex?}"
 },
 {
 "type": "http",

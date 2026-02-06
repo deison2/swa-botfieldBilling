@@ -281,6 +281,51 @@ export async function checkDraftInUse(DebtTranIndex) {
 
 // === Draft editing (PE APIs) SURGICAL EDITS ===
 
+// WIP ALLOCATION POPULATION
+export async function draftFeeClientOrGroupWIPList(draftIdx, contindex) {
+  const token = await getToken();
+  setAuthToken(token);
+
+  const res = await fetch(`/api/DraftEditing/GET/WIP/${draftIdx}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      token,
+      payload: { "DraftFeeIndex": draftIdx
+               , "Client": contindex 
+              }
+    })
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`Draft Get WIP List failed: ${res.status} ${msg}`);
+  }
+
+  // May be empty / non-JSON, so use safeJson
+  return safeJson(res);
+}
+export async function getDraftFeeWIPSpecialList(draftIdx) {
+  const token = await getToken();
+  setAuthToken(token);
+
+  const res = await fetch(`/api/DraftEditing/POST/WIP/${draftIdx}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      token
+    })
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`Draft Get WIP List failed: ${res.status} ${msg}`);
+  }
+
+  // May be empty / non-JSON, so use safeJson
+  return safeJson(res);
+}
+// ANALYSIS SECTION
 export async function getDraftFeeAnalysis(draftFeeIdx) {
   const token = await getToken();
   setAuthToken(token);
@@ -297,6 +342,78 @@ export async function getDraftFeeAnalysis(draftFeeIdx) {
   }
   return safeJson(res);
 }
+
+export async function draftFeeAddClients(draftIdx, contindexarray, wipindexes) {
+  const token = await getToken();
+  setAuthToken(token);
+
+  const res = await fetch(`/api/DraftEditing/POST/Analysis/${draftIdx}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      token,
+      payload: { "DraftFeeIdx": draftIdx
+               , "Clients": contindexarray
+               , "WIPIndexes": wipindexes 
+              }
+    })
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`Draft Add Analysis failed: ${res.status} ${msg}`);
+  }
+
+  // May be empty / non-JSON, so use safeJson
+  return safeJson(res);
+}
+
+export async function saveDraftFeeAnalysisRow(draftIdx, payload) {
+  const token = await getToken();
+  setAuthToken(token);
+
+  const res = await fetch(`/api/DraftEditing/PUT/Analysis/${draftIdx}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      token,
+      payload
+    })
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`Draft Edit/Update Analysis failed: ${res.status} ${msg}`);
+  }
+
+  // May be empty / non-JSON, so use safeJson
+  return safeJson(res);
+}
+
+export async function draftFeeDeleteWipAllocation(draftFeeIdx, allocIndexes) {
+  const token = await getToken();
+  setAuthToken(token);
+
+  const res = await fetch(`/api/DraftEditing/DELETE/Analysis/${draftFeeIdx}`, {
+    method: "POST",
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, 
+              payload: { 
+                "DraftFeeIdx": draftFeeIdx,
+                "AllocIndexes": allocIndexes 
+              }
+
+              })
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`Delete Draft Analysis Rows - ${draftFeeIdx} failed: ${res.status} ${msg}`);
+  }
+  return safeJson(res); // array of narrative rows (or null/text)
+}
+
+// NARRATIVES SECTION
 
 export async function getDraftFeeNarratives(draftFeeIdx) {
   const token = await getToken();
@@ -315,22 +432,21 @@ export async function getDraftFeeNarratives(draftFeeIdx) {
   return safeJson(res); // array of narrative rows (or null/text)
 }
 
-export async function saveDraftFeeAnalysisRow(payload) {
+export async function addDraftFeeNarrative(draftFeeIdx) {
   const token = await getToken();
   setAuthToken(token);
 
-  const res = await fetch(`/api/DraftEditing/POST/Analysis/${payload.draftFeeIdx}`, {
+  const res = await fetch(`/api/DraftEditing/POST/Narrative/${draftFeeIdx}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      token,
-      payload
+      token
     })
   });
 
   if (!res.ok) {
     const msg = await res.text().catch(() => '');
-    throw new Error(`Draft Edit Analysis failed: ${res.status} ${msg}`);
+    throw new Error(`addDraftFeeNarrative failed: ${res.status} ${msg}`);
   }
 
   // May be empty / non-JSON, so use safeJson
@@ -341,7 +457,7 @@ export async function updateDraftFeeNarrative(payload) {
   const token = await getToken();
   setAuthToken(token);
 
-  const res = await fetch(`/api/DraftEditing/POST/Narrative/${payload.draftFeeIdx}`, {
+  const res = await fetch(`/api/DraftEditing/PUT/Narrative/${payload.DraftFeeIdx}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -357,6 +473,23 @@ export async function updateDraftFeeNarrative(payload) {
 
   // May be empty / non-JSON, so use safeJson
   return safeJson(res);
+}
+
+export async function deleteDraftFeeNarrative(draftFeeIdx, debtNarrIndex) {
+  const token = await getToken();
+  setAuthToken(token);
+
+  const res = await fetch(`/api/DraftEditing/DELETE/Narrative/${draftFeeIdx}/${debtNarrIndex}`, {
+    method: "POST",
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token })
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`Delete Draft Narratives - ${draftFeeIdx} - ${debtNarrIndex} failed: ${res.status} ${msg}`);
+  }
+  return safeJson(res); // array of narrative rows (or null/text)
 }
 
 // (optional placeholder) – you’ll wire this to your own audit API later

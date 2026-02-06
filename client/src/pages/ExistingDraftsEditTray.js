@@ -5,6 +5,23 @@ import KbRunnerLoader from "../components/KbRunnerLoader"; // adjust path as nee
 import LoaderMini from "../components/LoaderMini"; // adjust path if needed
 
 
+import {
+  getDraftFeeAnalysis,
+  getDraftFeeWIPSpecialList,
+  getDraftFeeNarratives,
+  saveDraftFeeAnalysisRow,
+  updateDraftFeeNarrative,
+  deleteDraftFeeNarrative,
+  addDraftFeeNarrative,
+  draftFeeDeleteWipAllocation,
+  draftFeeAddClients,
+  draftFeeClientOrGroupWIPList //show wip population
+} from '../services/ExistingDraftsService';
+
+import {
+  dynamicClientLoad as getClients
+} from "../services/BillingGroups";
+
 const currency = (n) =>
   new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -55,28 +72,136 @@ const formatMoneyInput = (value) => {
   return currency(num);
 };
 
+
+function rowKey(row, i) {
+  return String(row?.WIPIndex ?? row?.WipIndex ?? row?.Id ?? `row-${i}`);
+}
+
+const styles = {
+  backdrop: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.4)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 9999,
+    padding: 16,
+  },
+  modal: {
+    width: "min(1100px, 95vw)",
+    maxHeight: "90vh",
+    background: "#fff",
+    borderRadius: 12,
+    overflow: "hidden",
+    display: "flex",
+    flexDirection: "column",
+  },
+  header: {
+    padding: "12px 16px",
+    borderBottom: "1px solid #eee",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  closeBtn: {
+    border: "none",
+    background: "transparent",
+    cursor: "pointer",
+    fontSize: 18,
+    lineHeight: 1,
+  },
+  section: { padding: 16, display: "flex", flexDirection: "column", gap: 10 },
+  row: { display: "flex", alignItems: "center", gap: 12 },
+  rowBetween: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  input: {
+    width: "min(420px, 100%)",
+    padding: "8px 10px",
+    borderRadius: 8,
+    border: "1px solid #ddd",
+  },
+  tableWrap: { overflow: "auto", border: "1px solid #eee", borderRadius: 10 },
+  table: { width: "100%", borderCollapse: "collapse", fontSize: 14 },
+  primaryBtn: {
+    border: "1px solid #1f6feb",
+    background: "#1f6feb",
+    color: "#fff",
+    borderRadius: 8,
+    padding: "7px 10px",
+  },
+  secondaryBtn: {
+    border: "1px solid #ddd",
+    background: "#fff",
+    borderRadius: 8,
+    padding: "7px 10px",
+    cursor: "pointer",
+  },
+  muted: { color: "#666", fontSize: 13 },
+  error: { color: "#b42318", fontSize: 13 },
+  empty: { textAlign: "center", padding: 14, color: "#666" },
+  footer: {
+    padding: 12,
+    borderTop: "1px solid #eee",
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: 10,
+  },
+};
+
 export default function ExistingDraftsEditTray({
-  open,
-  loading,          // 👈 NEW: tray-only loading state
-  onClose,
-  draftIdx,
-  clientName,
-  clientCode,
-  analysisItems,
-  narrativeItems,
-  currentUser,
-  billThroughDate,
-  onSave,
+      open,
+      loading,
+      onClose,
+      draftIdx,
+      contindex,
+      clientName,
+      clientCode,
+      billedClient,
+      analysisItems,
+      narrativeItems,
+      currentUser,
+      billThroughDate,
+      onSave,
+      debttrandate,
+      wipindexes,
+      onWipAdded
 }) {
   // ---------- local editable state ----------
-  const [analysisRows, setAnalysisRows] = useState([]);
-  const [narrRows, setNarrRows] = useState([]);
+  const [analysisRows_Orig, setanalysisRows_Orig] = useState([]);
+  const [narrRows_Orig, setnarrRows_Orig] = useState([]);
+  const [analysisRows_New, setanalysisRows_New] = useState([]);
+  const [narrRows_New, setnarrRows_New] = useState([]);
+  const [wipIndexes_Orig, setWipIndexes_Orig] = useState([]);
+  const updateTimersRef = React.useRef({});
+  const narrUpdateTimersRef = React.useRef({}); // { [rowKey]: timeoutId }
+
 
   const [reason, setReason] = useState("");
   const [otherReason, setOtherReason] = useState("");
   const [billingNotes, setBillingNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const [searchText, setSearchText] = useState("");
+  const [clients, setClients] = useState([]);
+  const [clientsLoading, setClientsLoading] = useState(false);
+  const [clientsError, setClientsError] = useState("");
+
+  const [selectedContIndex, setSelectedContIndex] = useState(null);
+  const [selectedClientCode, setSelectedClientCode] = useState(null);
+  const [selectedClientName, setSelectedClientName] = useState(null);
+  const [clientModalOpen, setClientModalOpen] = useState(false);
+  const [wipModalOpen, setWipModalOpen] = useState(false);
+
+
+
+  const [wipRows, setWipRows] = useState([]);
+  const [wipLoading, setWipLoading] = useState(false);
+  const [wipError, setWipError] = useState("");
+
+  const [checkedMap, setCheckedMap] = useState({}); // key -> boolean
+  const [addLoading, setAddLoading] = useState(false);
+  const [addError, setAddError] = useState("");
 
   // ---------- sync props -> local state whenever we get fresh data ----------
   useEffect(() => {
@@ -90,7 +215,8 @@ export default function ExistingDraftsEditTray({
         _draftAmtDisplay: formatMoneyInput(base),
       };
     });
-    setAnalysisRows(rows);
+    setanalysisRows_Orig(rows);
+    setanalysisRows_New(rows);
   }, [analysisItems, open]);
 
   useEffect(() => {
@@ -107,21 +233,241 @@ export default function ExistingDraftsEditTray({
         _isNew: false,
       };
     });
-    setNarrRows(rows);
+    setnarrRows_Orig(rows);
+    setnarrRows_New(rows);
   }, [narrativeItems, open]);
+
+  // set wipindexes original on open, for later comparison when reverting
+useEffect(() => {
+  if (!open || !draftIdx) return;
+
+  let cancelled = false;
+
+  (async () => {
+    try {
+      const raw = await getDraftFeeWIPSpecialList(draftIdx);
+      const wipIndexes = (Array.isArray(raw) ? raw : [])
+        .map((x) => x?.WipIndex ?? x?.WIPIndex ?? x?.wipIndex)
+        .filter((v) => v != null);
+
+      if (!cancelled) setWipIndexes_Orig(wipIndexes);
+    } catch (e) {
+      console.error("Failed to load special WIP list", e);
+      if (!cancelled) setWipIndexes_Orig([]);
+    }
+  })();
+
+  return () => {
+    cancelled = true;
+  };
+}, [open, draftIdx]);
+
+
+
+// When opening the CLIENT modal
+useEffect(() => {
+  if (!clientModalOpen) return;
+
+  // mimic's PE functionality - retains search results w out retaining the selected client
+  setClientsError("");
+  setClientsLoading(false);
+
+  setSelectedContIndex(null);
+  setSelectedClientCode(null);
+  setSelectedClientName(null);
+
+  // clear all wip population
+  setWipRows([]);
+  setWipError("");
+  setCheckedMap({});
+  setAddError("");
+}, [clientModalOpen]);
+
+// When opening the WIP modal, clear selection state
+useEffect(() => {
+  if (!wipModalOpen) return;
+
+  setWipError("");
+  setCheckedMap({});
+  setAddError("");
+}, [wipModalOpen]);
+
+
+
+  // Debounced search -> getClients(searchText)
+useEffect(() => {
+  if (!clientModalOpen) return;
+
+  const q = searchText.trim();
+
+  // enforce minimum 3 characters
+  if (q.length < 3) {
+    setClients([]);
+    setClientsError(q.length === 0 ? "" : "Enter at least 3 characters.");
+    return;
+  }
+
+  const handle = setTimeout(async () => {
+    try {
+      setClientsLoading(true);
+      setClientsError("");
+      const res = await getClients(q);
+      setClients(Array.isArray(res) ? res : []);
+    } catch (e) {
+      setClientsError("Failed to load clients.");
+      setClients([]);
+    } finally {
+      setClientsLoading(false);
+    }
+  }, 300);
+
+  return () => clearTimeout(handle);
+}, [clientModalOpen, searchText]);
+
+// stable key per narrative row for debouncing
+const narrDebounceKey = (row, i) =>
+  String(row?.DebtNarrIndex ?? row?.DebtNarrIdx ?? `narr-${i}`);
+
+// Calls backend to update the narrative row
+const updateNarrative = async (idx, lang, servindex, amount) => {
+  const row = narrRows_New[idx];
+  console.log(row);
+  if (!row) return;
+
+  // If your API cannot update "new" rows until they exist, guard here:
+  if (!row.DebtNarrIndex || Number(row.DebtNarrIndex) === 0) {
+    // optional: skip backend updates for brand-new unsaved rows
+    return;
+  }
+
+  await updateDraftFeeNarrative({
+    DebtNarrIndex: row.DebtNarrIndex,
+    DraftFeeIdx: draftIdx,
+    LineOrder: row.LineOrder,
+    WIPType: row.WIPType ?? "TIME",
+    ServIndex: servindex ?? "",
+    Amount: Number(amount ?? 0) || 0,
+    FeeNarrative: wrapNarrativeHtml(lang ?? ""),
+    Units: row.Units ?? 0,
+    VATRate: row.VATRate ?? "0",
+    VATPercent: row.VATPercent ?? 0,
+    VATAmount: row.VATAmount ?? 0,
+  });
+};
+
+// Debounce wrapper
+const scheduleNarrativeUpdate = (row, i) => {
+  const key = narrDebounceKey(row, i);
+
+  if (narrUpdateTimersRef.current[key]) {
+    clearTimeout(narrUpdateTimersRef.current[key]);
+  }
+
+  narrUpdateTimersRef.current[key] = setTimeout(() => {
+    const lang = row?.FeeNarrative ?? "";
+    const servindex = row?.ServIndex ?? "";
+    const amount = Number(row?.Amount ?? 0) || 0;
+
+    updateNarrative(i, lang, servindex, amount).catch((e) => {
+      console.error("Failed updating narrative:", e);
+    });
+  }, 500);
+};
+
+// Optional but recommended: clear timers on unmount/close
+useEffect(() => {
+  if (!open) return;
+  return () => {
+    Object.values(narrUpdateTimersRef.current).forEach(clearTimeout);
+    narrUpdateTimersRef.current = {};
+  };
+}, [open]);
+
+
+
+
+  const canAdd = useMemo(() => {
+    return wipRows.length > 0 && Object.values(checkedMap).some(Boolean) && !addLoading;
+  }, [wipRows.length, checkedMap, addLoading]);
+
+const onSelectClient = async (contIndex, clientcode, clientname) => {
+  // Step 1: lock in the selected client and move to step 2
+  setSelectedContIndex(contIndex);
+  setSelectedClientCode(clientcode);
+  setSelectedClientName(clientname);
+
+  // close client modal, open WIP modal
+  setClientModalOpen(false);
+  setWipModalOpen(true);
+
+  // now load WIP rows for this client
+  try {
+    setWipLoading(true);
+    setWipError("");
+    setAddError("");
+    setCheckedMap({});
+
+    const payload = await draftFeeClientOrGroupWIPList(draftIdx, contIndex);
+    const rows = Array.isArray(payload) ? payload : [];
+    setWipRows(rows);
+
+    const initial = {};
+    rows.forEach((r, i) => {
+      initial[rowKey(r, i)] = false;
+    });
+    setCheckedMap(initial);
+  } catch (e) {
+    setWipError("Failed to load WIP list for selected client.");
+    setWipRows([]);
+    setCheckedMap({});
+  } finally {
+    setWipLoading(false);
+  }
+};
+
+
+  const toggleRow = (r, i) => {
+    const key = rowKey(r, i);
+    setCheckedMap((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const onAddWip = async () => {
+    try {
+      setAddLoading(true);
+      setAddError("");
+
+      const selected = wipRows.filter((r, i) => checkedMap[rowKey(r, i)]);
+      console.log(selected);
+      const selectedWipIndexes = selected.map(r => Number(r.WIPIds)).filter(Boolean);
+      console.log(selectedWipIndexes);
+      await draftFeeAddClients(draftIdx, [selectedContIndex], selectedWipIndexes);
+
+      if (typeof onWipAdded === "function") {
+          await onWipAdded();
+        } else {
+          console.warn("onWipAdded prop is not a function:", onWipAdded);
+        }
+
+      setWipModalOpen(false);
+    } catch (e) {
+      setAddError("Failed to add WIP.");
+    } finally {
+      setAddLoading(false);
+    }
+  };
 
   // ---------- service options from analysis table ----------
   const serviceOptions = useMemo(
     () => {
       const set = new Set();
 
-      (analysisRows || []).forEach((r) => {
+      (analysisRows_New || []).forEach((r) => {
         if (r.WipService) {
           set.add(r.WipService);
         }
       });
 
-      (narrRows || []).forEach((r) => {
+      (narrRows_New || []).forEach((r) => {
         if (r.ServIndex && !set.has(r.ServIndex)) {
           set.add(r.ServIndex);
         }
@@ -129,13 +475,13 @@ export default function ExistingDraftsEditTray({
 
       return Array.from(set).sort();
     },
-    [analysisRows, narrRows]
+    [analysisRows_New, narrRows_New]
   );
 
   // ---------- derived totals ----------
   const analysisTotal = useMemo(
     () =>
-      analysisRows.reduce(
+      analysisRows_New.reduce(
         (sum, r) =>
           sum +
           Number(
@@ -143,69 +489,117 @@ export default function ExistingDraftsEditTray({
           ),
         0
       ),
-    [analysisRows]
+    [analysisRows_New]
   );
 
   const narrativeTotal = useMemo(
     () =>
-      narrRows.reduce(
+      narrRows_New.reduce(
         (sum, r) => (r._deleted ? sum : sum + Number(r.Amount ?? 0)),
         0
       ),
-    [narrRows]
+    [narrRows_New]
   );
 
   const totalsMatch =
     Math.round(analysisTotal) === Math.round(narrativeTotal);
 
   // --- generic handlers for non-money fields ------------------------------------------------
-  const updateAnalysis = (idx, field, value) => {
-    setAnalysisRows((rows) =>
-      rows.map((r, i) => (i === idx ? { ...r, [field]: value } : r))
+  const updateAnalysis = (idx, value) => {
+      const matchingRow = analysisRows_New[idx];
+      const allocIndex = matchingRow?.['AllocIdx'];
+      const OSWIP = matchingRow?.['WIPInClientCur'];
+      const billAmount = value;
+      const Woff = OSWIP - billAmount;
+
+      const payload = {
+          "AllocIndex": allocIndex,
+          "BillAmount": billAmount,
+          "WIPOS": matchingRow?.['WIPInClientCur'],
+          "BillType": matchingRow?.['BillType'],
+          "BillWoff": Woff,
+          "DebtTranIndex": draftIdx,
+          "Job_Allocation_Type": matchingRow?.['Job_Allocation_Type'],
+          "Narrative": "",
+          "VATCode": "0",
+          "WipAnalysis": matchingRow?.['WipAnalysis'],
+          "VATAmt": 0,
+          "DebtTranDate": debttrandate,
+          "CFwd": false
+        };
+        console.log(payload);
+      if (matchingRow) {
+         saveDraftFeeAnalysisRow(draftIdx, payload);
+      }
+    setanalysisRows_New((rows) =>
+      rows.map((r, i) => (i === idx ? { ...r, BillAmount: value } : r))
     );
   };
 
-  const updateNarr = (idx, field, value) => {
-    setNarrRows((rows) =>
-      rows.map((r, i) => (i === idx ? { ...r, [field]: value } : r))
+
+
+  const addNarrRow = async () => {
+  const lineOrder =
+    narrRows_New.reduce((max, r) => Math.max(max, Number(r.LineOrder ?? 0)), 0) + 1;
+
+  const defaultService = serviceOptions[0] || "";
+
+  // ✅ wait for backend to create the row and return the new index
+  const res = await addDraftFeeNarrative(draftIdx);
+  const items = await getDraftFeeNarratives(draftIdx);
+  const lastObj = Array.isArray(items) && items.length ? items[items.length - 1] : null;
+
+
+  // depending on what your service returns, pick the right property:
+  const debtNarrIndex = lastObj?.DebtNarrIndex;
+
+  setnarrRows_New((rows) => [
+    ...rows,
+    {
+      DebtNarrIndex: debtNarrIndex,
+      DraftFeeIdx: draftIdx,
+      LineOrder: lineOrder,
+      WIPType: "TIME",
+      ServIndex: defaultService,
+      Units: 0,
+      Amount: 0,
+      VATRate: "0",
+      VATPercent: 0,
+      VATAmount: 0,
+      FeeNarrative: "",
+      _amountDisplay: "",
+      _isNew: true,
+      _deleted: false,
+    },
+  ]);
+};
+
+
+
+const deleteNarrRow = async (i) => {
+  const row = narrRows_New[i];
+  if (!row) return;
+
+  try {
+    // Only call backend delete if it exists server-side
+    if (row.DebtNarrIndex && Number(row.DebtNarrIndex) !== 0) {
+      await deleteDraftFeeNarrative(draftIdx, row.DebtNarrIndex);
+    }
+
+    setnarrRows_New((rows) =>
+      rows.map((r, idx) => (idx === i ? { ...r, _deleted: true } : r))
     );
-  };
-
-  const addNarrRow = () => {
-    const lineOrder =
-      narrRows.reduce(
-        (max, r) => Math.max(max, Number(r.LineOrder ?? 0)),
-        0
-      ) + 1;
-
-    const defaultService = serviceOptions[0] || "";
-
-    setNarrRows((rows) => [
-      ...rows,
-      {
-        DebtNarrIndex: 0,
-        DraftFeeIdx: draftIdx,
-        LineOrder: lineOrder,
-        WIPType: "TIME",
-        ServIndex: defaultService,            // <-- prefill service
-        Units: 0,
-        Amount: 0,
-        VATRate: "0",
-        VATPercent: 0,
-        VATAmount: 0,
-        FeeNarrative: "",
-        _amountDisplay: "",
-        _isNew: true,
-        _deleted: false,
-      },
-    ]);
-  };
-
-  const deleteNarrRow = (idx) => {
-    setNarrRows((rows) =>
-      rows.map((r, i) => (i === idx ? { ...r, _deleted: true } : r))
-    );
-  };
+  } catch (e) {
+    console.error("Failed to delete narrative row:", e);
+    setError("Failed to delete narrative row.");
+  }
+};
+const deleteAnalysisRow = (idx) => { 
+  const allocIndexes = [analysisRows_New?.[idx].AllocIdx]; 
+  console.log(allocIndexes); 
+  draftFeeDeleteWipAllocation(draftIdx, allocIndexes); 
+  setanalysisRows_New(rows => rows.filter((_, i) => i !== idx)); 
+};
 
   const handleSave = async () => {
     setError("");
@@ -224,7 +618,7 @@ export default function ExistingDraftsEditTray({
     const nowIso = new Date().toISOString();
 
     // Wrap narratives back into standard HTML before sending up
-    const narrativeRowsForSave = narrRows.map((r) => ({
+    const narrativeRowsForSave = narrRows_New.map((r) => ({
       ...r,
       FeeNarrative: wrapNarrativeHtml(r.FeeNarrative),
     }));
@@ -238,7 +632,7 @@ export default function ExistingDraftsEditTray({
       when: nowIso,
       reason: reasonText,
       billingNotes: billingNotes.trim() || null,
-      analysisRows,
+      analysisRows_New,
       narrativeRows: narrativeRowsForSave,
       _original: {
         analysisItems,
@@ -258,6 +652,141 @@ export default function ExistingDraftsEditTray({
     }
   };
 
+  
+
+  const handleCancel = async () => {
+
+// syncronously delete all current analysis + narr rows and re-add original rows
+
+    try { 
+const processes = [];
+
+if (analysisRows_Orig !== analysisRows_New) {
+  processes.push((async () => {
+  console.log('Reverting to original analysis lines...');
+    const allocIndexes = analysisRows_New.map((r) => r.AllocIdx);
+    await draftFeeDeleteWipAllocation(draftIdx, allocIndexes);
+
+    // Get uniquer contindexes from original analysis rows to re-add clients
+    const uniqueContIndexes = Array.from(
+      new Set((analysisRows_Orig || [])
+      .map(item => item?.ContIndex)
+      .filter(v => v !== null && v !== undefined)
+      .map(Number) // optional: force to number
+      .filter(Number.isFinite)
+  )
+  );
+
+    await draftFeeAddClients(draftIdx, uniqueContIndexes, wipIndexes_Orig);
+    
+    console.log(analysisRows_Orig);
+    // add analysis row back
+    await Promise.all(
+/*
+      const payload = {
+          "AllocIndex": allocIndex,
+          "BillAmount": billAmount,
+          "WIPOS": matchingRow?.['WIPInClientCur'],
+          "BillType": matchingRow?.['BillType'],
+          "BillWoff": Woff,
+          "DebtTranIndex": draftIdx,
+          "Job_Allocation_Type": matchingRow?.['Job_Allocation_Type'],
+          "Narrative": "",
+          "VATCode": "0",
+          "WipAnalysis": matchingRow?.['WipAnalysis'],
+          "VATAmt": 0,
+          "DebtTranDate": debttrandate,
+          "CFwd": false
+        };
+        */
+      (analysisRows_Orig || []).map((item) => {
+        const payload = {
+          AllocIndex: item.AllocIdx,
+          BillAmount: item.BillInClientCur,
+          WIPOS: item.WIPInClientCur,
+          BillType: item.Job_Billing_Type,
+          BillWoff: item.WoffInClientCur,
+          DebtTranIndex: draftIdx,
+          Job_Allocation_Type: item.Job_Allocation_Type,
+          Narrative: "",
+          VATCode: "0",
+          WipAnalysis: item.WipAnalysis,
+          VATAmt: 0,
+          DebtTranDate: debttrandate,
+          CFwd: false,
+        };
+
+        return saveDraftFeeAnalysisRow(draftIdx, payload);
+      })
+    );
+    
+
+
+  })());
+}
+
+if (narrRows_Orig !== narrRows_New) {
+  console.log('Reverting to original narratives...');
+  processes.push((async () => {
+      await Promise.all(
+        (narrRows_New || []).map((row) =>
+          deleteDraftFeeNarrative(draftIdx, row.DebtNarrIndex)
+        )
+      );
+
+      // 2) Add back blanks (one per original row) (wait for completion)
+      await Promise.all(
+        (narrRows_Orig || []).map(() =>
+          addDraftFeeNarrative(draftIdx)
+        )
+      );
+
+    const blankNarrs = await getDraftFeeNarratives(draftIdx); //needs creation
+    console.log('Blank narratives after re-adding:', blankNarrs);
+
+    
+await Promise.all(
+  blankNarrs.map((narr, idx) => {
+    const src = narrRows_Orig[idx];
+    console.log(src);
+    if (!src) {
+      console.warn("No source row for blank narrative idx", idx, narr);
+      return Promise.resolve();
+    }
+
+    const payload = {
+      Amount: Number(src.Amount ?? 0),
+      DebtNarrIndex: narr.DebtNarrIndex,     // keep the NEW blank row’s index
+      DraftFeeIdx: draftIdx,
+      FeeNarrative: src.FeeNarrative ?? "",
+      LineOrder: Number(narr.LineOrder ?? src.LineOrder ?? 0), // preserve blank’s line order
+      ServIndex: src.ServIndex ?? "",
+      Units: Number(src.Units ?? 0),
+      VATAmount: Number(src.VATAmount ?? 0),
+      VATPercent: Number(src.VATPercent ?? 0),
+      VATRate: src.VATRate ?? "0",
+      WIPType: src.WIPType ?? "TIME",
+    };
+
+    return updateDraftFeeNarrative(payload);
+  })
+);
+  })());
+}
+
+await Promise.all(processes);
+
+
+      setSaving(true);
+      onClose(true); // true = saved
+    } catch (err) {
+      console.error(err);
+      setError("Sorry, something went wrong reverting your changes.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // NOTE: no early `if (!open) return null;`
 
   return (
@@ -271,7 +800,7 @@ export default function ExistingDraftsEditTray({
             <div>
               <div className="edtray__title">Edit Draft</div>
               <div className="edtray__meta">
-                {clientCode} &mdash; {clientName} &middot; Draft #{draftIdx}
+                {billedClient} &middot; Draft #{draftIdx}
               </div>
             </div>
             <div className="edtray__totals">
@@ -294,229 +823,252 @@ export default function ExistingDraftsEditTray({
               </div>
             </div>
           </header>
+<div className="edtray__body">
+  {loading ? (
+    <div className="ed-tray__loading ed-tray__loading--kb">
+      <LoaderMini primary="#4F46E5" />
+    </div>
+  ) : (
+    <>
+      {/* -------- left: analysis table -------- */}
+      <div className="edtray__col edtray__col--analysis">
+        <div className="edtray__subhead-row">
+          <div className="edtray__subhead">Draft WIP Analysis</div>
+          <button
+            type="button"
+            className="edtray__add-btn"
+            onClick={() => setClientModalOpen(true)}
+          >
+            + Add WIP
+          </button>
+        </div>
 
-          <div className="edtray__body">
-            {loading ? (
-              // 👇 In-tray loading state while APIs fetch data
-              <div className="ed-tray__loading ed-tray__loading--kb">
-                    <LoaderMini primary="#4F46E5" />
-                </div>
-            ) : (
-              <>
-                {/* -------- left: analysis table -------- */}
-                <div className="edtray__col edtray__col--analysis">
-                  <div className="edtray__subhead">Draft WIP Analysis</div>
-                  <div className="edtray__table-wrap">
-                    <table className="mini-table mini-table--tight">
-                      <thead>
-                        <tr>
-                          <th>Service</th>
-                          <th>Job</th>
-                          <th>Type</th>
-                          <th className="num">Draft Amt</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {analysisRows.map((r, i) => (
-                          <tr key={i}>
-                            <td>{r.WipService}</td>
-                            <td>{r.JobTitle}</td>
-                            <td>{r.WipType}</td>
-                            <td className="num">
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                className="ed-input ed-input--num"
-                                value={r._draftAmtDisplay ?? ""}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  setAnalysisRows((rows) =>
-                                    rows.map((row, idx) =>
-                                      idx === i
-                                        ? {
-                                            ...row,
-                                            _draftAmtDisplay: val,
-                                            BillInClientCur:
-                                              parseMoneyInput(val),
-                                          }
-                                        : row
-                                    )
-                                  );
-                                }}
-                                onBlur={() => {
-                                  setAnalysisRows((rows) =>
-                                    rows.map((row, idx) => {
-                                      if (idx !== i) return row;
-                                      const num = parseMoneyInput(
-                                        row._draftAmtDisplay
-                                      );
-                                      return {
-                                        ...row,
-                                        BillInClientCur: num,
-                                        _draftAmtDisplay:
-                                          formatMoneyInput(num),
-                                      };
-                                    })
-                                  );
-                                }}
-                                onFocus={(e) => e.target.select()}
-                              />
-                            </td>
-                          </tr>
-                        ))}
-                        {analysisRows.length === 0 && (
-                          <tr>
-                            <td colSpan={4} className="muted">
-                              No analysis rows returned from Practice Engine.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+        <div className="edtray__table-wrap">
+          <table className="mini-table mini-table--tight">
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Service</th>
+                <th>Job</th>
+                <th>Type</th>
+                <th className="num">WIP</th>
+                <th className="num">OOS</th>
+                <th className="num">Draft Amt</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {analysisRows_New.map((r, i) => (
+                <tr key={i}>
+                  <td>{r.ClientName ?? ""}</td>
+                  <td>{r.WipService ?? ""}</td>
+                  <td>{r.JobTitle ?? ""}</td>
+                  <td>{r.WipType ?? ""}</td>
+                  <td className="num">{currency(Number(r.WIPInClientCur ?? 0))}</td>
+                  <td className="num">{currency(Number(r.OOSAmount ?? 0))}</td>
 
-                {/* -------- right: narrative table -------- */}
-                <div className="edtray__col edtray__col--narr">
-                  <div className="edtray__subhead-row">
-                    <div className="edtray__subhead">Narrative Lines</div>
-                    <button
-                      type="button"
-                      className="edtray__add-btn"
-                      onClick={addNarrRow}
-                    >
-                      + Add Line
-                    </button>
-                  </div>
+                  <td className="num">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      className="ed-input ed-input--num"
+                      value={r._draftAmtDisplay ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const num = parseMoneyInput(val);
 
-                  <div className="edtray__table-wrap">
-                    <table className="mini-table mini-table--tight">
-                      <thead>
-                        <tr>
-                          <th>Narrative Text</th>
-                          <th>Service</th>
-                          <th className="num">Amount</th>
-                          <th></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {narrRows.map((r, i) =>
-                          r._deleted ? null : (
-                            <tr key={i}>
-                              <td>
-                                <textarea
-                                  className="ed-input ed-input--textarea"
-                                  value={r.FeeNarrative || ""}
-                                  onChange={(e) =>
-                                    updateNarr(
-                                      i,
-                                      "FeeNarrative",
-                                      e.target.value
-                                    )
-                                  }
-                                  rows={2}
-                                />
-                              </td>
-                              <td>
-                                {r._isNew ? (
-                                  // NEW rows: editable picklist
-                                  <select
-                                    className="ed-input ed-input--svc"
-                                    value={r.ServIndex || ""}
-                                    onChange={(e) =>
-                                      updateNarr(
-                                        i,
-                                        "ServIndex",
-                                        e.target.value
-                                      )
-                                    }
-                                  >
-                                    <option value="">Select service...</option>
-                                    {serviceOptions.map((svc) => (
-                                      <option key={svc} value={svc}>
-                                        {svc}
-                                      </option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  // EXISTING rows: read-only, same as before
-                                  <input
-                                    type="text"
-                                    className="ed-input ed-input--svc"
-                                    value={r.ServIndex || ""}
-                                    readOnly
-                                    disabled
-                                  />
-                                )}
-                              </td>
-                              <td className="num">
-                                <input
-                                  type="text"
-                                  inputMode="decimal"
-                                  className="ed-input ed-input--num"
-                                  value={r._amountDisplay ?? ""}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    setNarrRows((rows) =>
-                                      rows.map((row, idx) =>
-                                        idx === i
-                                          ? {
-                                              ...row,
-                                              _amountDisplay: val,
-                                              Amount:
-                                                parseMoneyInput(val),
-                                            }
-                                          : row
-                                      )
-                                    );
-                                  }}
-                                  onBlur={() => {
-                                    setNarrRows((rows) =>
-                                      rows.map((row, idx) => {
-                                        if (idx !== i) return row;
-                                        const num = parseMoneyInput(
-                                          row._amountDisplay
-                                        );
-                                        return {
-                                          ...row,
-                                          Amount: num,
-                                          _amountDisplay:
-                                            formatMoneyInput(num),
-                                        };
-                                      })
-                                    );
-                                  }}
-                                  onFocus={(e) => e.target.select()}
-                                />
-                              </td>
-                              <td className="num">
-                                <button
-                                  type="button"
-                                  className="edtray__delete-btn"
-                                  onClick={() => deleteNarrRow(i)}
-                                  title="Delete line"
-                                >
-                                  ×
-                                </button>
-                              </td>
-                            </tr>
+                        // 1) Immediate UI update
+                        setanalysisRows_New((rows) =>
+                          rows.map((row, idx) =>
+                            idx === i
+                              ? { ...row, _draftAmtDisplay: val, BillInClientCur: num }
+                              : row
                           )
-                        )}
-                        {narrRows.filter((r) => !r._deleted).length === 0 && (
-                          <tr>
-                            <td colSpan={4} className="muted">
-                              No narrative lines. Use “Add Line” to start a new
-                              invoice body.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
+                        );
+
+                        // 2) Debounced backend update
+                        const key = String(i);
+                        if (updateTimersRef.current[key]) clearTimeout(updateTimersRef.current[key]);
+                        updateTimersRef.current[key] = setTimeout(() => {
+                          updateAnalysis(i, num);
+                        }, 1000);
+                      }}
+                      onBlur={() => {
+                        setanalysisRows_New((rows) =>
+                          rows.map((row, idx) => {
+                            if (idx !== i) return row;
+                            const num = parseMoneyInput(row._draftAmtDisplay);
+                            return {
+                              ...row,
+                              BillInClientCur: num,
+                              _draftAmtDisplay: formatMoneyInput(num),
+                            };
+                          })
+                        );
+                      }}
+                      onFocus={(e) => e.target.select()}
+                    />
+                  </td>
+                  <td className="edtray__delete-center"> 
+                    <button type="button" 
+                    className="edtray__delete-btn" 
+                    onClick={() => deleteAnalysisRow(i)} title="Delete line" > 
+                    × 
+                    </button> 
+                    </td>
+                </tr>
+              ))}
+
+              {analysisRows_New.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="muted">
+                    No analysis rows returned from Practice Engine.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+
+      {/* -------- right: narrative table -------- */}
+      <div className="edtray__col edtray__col--narr">
+        <div className="edtray__subhead-row">
+          <div className="edtray__subhead">Narrative Lines</div>
+          <button
+            type="button"
+            className="edtray__add-btn"
+            onClick={addNarrRow}
+          >
+            + Add Line
+          </button>
+        </div>
+
+        <div className="edtray__table-wrap">
+          <table className="mini-table mini-table--tight">
+            <thead>
+              <tr>
+                <th>Narrative Text</th>
+                <th>Service</th>
+                <th className="num">Amount</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {narrRows_New.map((r, i) =>
+                r._deleted ? null : (
+                  <tr key={r.DebtNarrIndex ?? `narr-${i}`}>
+                    <td>
+                      <textarea
+                        className="ed-input ed-input--textarea"
+                        value={r.FeeNarrative || ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+
+                          setnarrRows_New((rows) => {
+                            const next = rows.map((row, idx) =>
+                              idx === i ? { ...row, FeeNarrative: val } : row
+                            );
+                            scheduleNarrativeUpdate(next[i], i);
+                            return next;
+                          });
+                        }}
+                        rows={2}
+                      />
+                    </td>
+
+                    <td>
+                      <select
+                        className="ed-input ed-input--svc"
+                        value={r.ServIndex || ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+
+                          setnarrRows_New((rows) => {
+                            const next = rows.map((row, idx) =>
+                              idx === i ? { ...row, ServIndex: val } : row
+                            );
+                            scheduleNarrativeUpdate(next[i], i);
+                            return next;
+                          });
+                        }}
+                      >
+                        <option value="">Select service...</option>
+                        {serviceOptions.map((svc) => (
+                          <option key={svc} value={svc}>
+                            {svc}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+
+                    <td className="num">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        className="ed-input ed-input--num"
+                        value={r._amountDisplay ?? ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const num = parseMoneyInput(val);
+
+                          setnarrRows_New((rows) => {
+                            const next = rows.map((row, idx) =>
+                              idx === i
+                                ? { ...row, _amountDisplay: val, Amount: num }
+                                : row
+                            );
+                            scheduleNarrativeUpdate(next[i], i);
+                            return next;
+                          });
+                        }}
+                        onBlur={() => {
+                          setnarrRows_New((rows) =>
+                            rows.map((row, idx) => {
+                              if (idx !== i) return row;
+                              const num = parseMoneyInput(row._amountDisplay);
+                              return {
+                                ...row,
+                                Amount: num,
+                                _amountDisplay: formatMoneyInput(num),
+                              };
+                            })
+                          );
+                        }}
+                        onFocus={(e) => e.target.select()}
+                      />
+                    </td>
+
+                    <td className="edtray__delete-center">
+                      <button
+                        type="button"
+                        className="edtray__delete-btn"
+                        onClick={() => deleteNarrRow(i)}
+                        title="Delete line"
+                      >
+                        ×
+                      </button>
+                    </td>
+                  </tr>
+                )
+              )}
+
+              {narrRows_New.filter((x) => !x._deleted).length === 0 && (
+                <tr>
+                  <td colSpan={4} className="muted">
+                    No narrative lines. Use “Add Line” to start a new invoice body.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
+  )}
+</div>
+
 
         <footer className="edtray__foot">
             <div className="edtray__reason-block">
@@ -577,7 +1129,7 @@ export default function ExistingDraftsEditTray({
                   type="button"
                   className="ed-btn ed-btn--ghost"
                   disabled={saving}
-                  onClick={() => onClose(false)}
+                  onClick={() => handleCancel(false)}
                 >
                   Cancel
                 </button>
@@ -592,6 +1144,164 @@ export default function ExistingDraftsEditTray({
               </div>
             </div>
           </footer>
+                      
+                      {clientModalOpen && (
+  <div style={styles.backdrop} onMouseDown={() => setClientModalOpen(false)}>
+    <div style={styles.modal} onMouseDown={(e) => e.stopPropagation()}>
+      <div style={styles.header}>
+        <div style={{ fontWeight: 700 }}>Search Clients</div>
+        <button onClick={() => setClientModalOpen(false)} style={styles.closeBtn}>✕</button>
+      </div>
+
+      <div style={styles.section}>
+        <div style={styles.row}>
+          <input
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            placeholder="Search clients (min 3 chars)..."
+            style={styles.input}
+          />
+          {clientsLoading && <span style={styles.muted}>Loading…</span>}
+        </div>
+
+        {clientsError && <div style={styles.error}>{clientsError}</div>}
+
+        <div style={styles.tableWrap}>
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th>ClientCode</th>
+                <th>ClientName</th>
+                <th>ClientPartner</th>
+                <th>ClientManager</th>
+                <th>ClientOffice</th>
+                <th style={{ width: 90 }}>Select</th>
+              </tr>
+            </thead>
+            <tbody>
+              {clients.map((c) => (
+                <tr key={c.ClientCode ?? `${c.ContIndex}-${c.ClientName}`}>
+                  <td>{c.ClientCode}</td>
+                  <td>{c.ClientName}</td>
+                  <td>{c.ClientPartner}</td>
+                  <td>{c.ClientManager}</td>
+                  <td>{c.ClientOffice}</td>
+                  <td style={{ textAlign: "center" }}>
+                    <button
+                      onClick={() => onSelectClient(Number(c.ContIndex), c.ClientCode, c.ClientName)}
+                      style={styles.primaryBtn}
+                    >
+                      Select
+                    </button>
+                  </td>
+                </tr>
+              ))}
+
+              {!clientsLoading && searchText.trim().length >= 3 && clients.length === 0 && (
+                <tr>
+                  <td colSpan={6} style={styles.empty}>No results</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style={styles.footer}>
+        <button onClick={() => setClientModalOpen(false)} style={styles.secondaryBtn}>
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+{wipModalOpen && (
+  <div style={styles.backdrop} onMouseDown={() => setWipModalOpen(false)}>
+    <div style={styles.modal} onMouseDown={(e) => e.stopPropagation()}>
+      <div style={styles.header}>
+        <div style={{ fontWeight: 700 }}>
+          Select WIP - ({selectedClientCode}) {selectedClientName}
+        </div>
+        <button onClick={() => setWipModalOpen(false)} style={styles.closeBtn}>✕</button>
+      </div>
+
+      <div style={styles.section}>
+        <div style={styles.rowBetween}>
+          <div style={{ fontWeight: 700 }}>WIP Results</div>
+
+          <button
+            onClick={onAddWip}
+            disabled={!canAdd}
+            style={{
+              ...styles.primaryBtn,
+              opacity: canAdd ? 1 : 0.5,
+              cursor: canAdd ? "pointer" : "not-allowed",
+            }}
+          >
+            {addLoading ? "Adding…" : "Add WIP"}
+          </button>
+        </div>
+
+        {wipLoading && <div style={styles.muted}>Loading WIP…</div>}
+        {wipError && <div style={styles.error}>{wipError}</div>}
+        {addError && <div style={styles.error}>{addError}</div>}
+
+        <div style={styles.tableWrap}>
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th style={{ width: 42 }}></th>
+                <th>Service</th>
+                <th>Job Name</th>
+                <th>Type</th>
+                <th>Hours</th>
+                <th style={{ width: 120, textAlign: "right" }}>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {wipRows.map((r, i) => (
+                <tr key={rowKey(r, i)}>
+                  <td style={{ textAlign: "center" }}>
+                    <input
+                      type="checkbox"
+                      checked={!!checkedMap[rowKey(r, i)]}
+                      onChange={() => toggleRow(r, i)}
+                    />
+                  </td>
+                  <td>{r.ServiceTitle}</td>
+                  <td>{r.JobName}</td>
+                  <td>{r.WIPType}</td>
+                  <td style={{ textAlign: "right" }}>
+                    {typeof r.WIPHours === "number" ? r.WIPHours.toFixed(2) : (r.WIPHours ?? "-")}
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    {typeof r.WIPValue === "number" ? r.WIPValue.toFixed(2) : (r.WIPValue ?? "-")}
+                  </td>
+                </tr>
+              ))}
+
+              {!wipLoading && wipRows.length === 0 && (
+                <tr>
+                  <td colSpan={4} style={styles.empty}>
+                    No WIP rows returned for this client
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style={styles.footer}>
+        <button onClick={() => setWipModalOpen(false)} style={styles.secondaryBtn}>
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
         </section>
       </div>
     </PopoverPortal>
