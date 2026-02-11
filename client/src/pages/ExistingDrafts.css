@@ -2221,14 +2221,26 @@ button.bare {
 /* specific column widths so things don’t drift */
 
 /* left side: analysis table */
-.edtray__col--analysis .mini-table th:nth-child(1) { width: 20%; }  /* Service */
-.edtray__col--analysis .mini-table th:nth-child(2) { width: 8%; }  /* Job */
-.edtray__col--analysis .mini-table th:nth-child(3) { width: 25%; }  /* Type */
-.edtray__col--analysis .mini-table th:nth-child(4) { width: 8%; }  /* Draft Amt */
-.edtray__col--analysis .mini-table th:nth-child(5) { width: 10%; }  /* delete icon */
+.edtray__col--analysis .mini-table th:nth-child(1) { width: 4%; }  /* Service */
+.edtray__col--analysis .mini-table th:nth-child(2) { width: 20%; }  /* Service */
+.edtray__col--analysis .mini-table th:nth-child(3) { width: 8%; }  /* Job */
+.edtray__col--analysis .mini-table th:nth-child(4) { width: 21%; }  /* Type */
+.edtray__col--analysis .mini-table th:nth-child(5) { width: 8%; }  /* Draft Amt */
 .edtray__col--analysis .mini-table th:nth-child(6) { width: 10%; }  /* delete icon */
 .edtray__col--analysis .mini-table th:nth-child(7) { width: 10%; }  /* delete icon */
-.edtray__col--analysis .mini-table th:nth-child(8) { width: 4%; }  /* delete icon */
+.edtray__col--analysis .mini-table th:nth-child(8) { width: 10%; }  /* delete icon */
+.edtray__col--analysis .mini-table th:nth-child(9) { width: 4%; }  /* delete icon */
+
+
+/* left side: analysis table - DRILLDOWN */
+.edtray__col--analysis .mini-table2 th:nth-child(1) { width: 20%; }  /* Service */
+.edtray__col--analysis .mini-table2 th:nth-child(2) { width: 10%; }  /* Service */
+.edtray__col--analysis .mini-table2 th:nth-child(3) { width: 10%; }  /* Job */
+.edtray__col--analysis .mini-table2 th:nth-child(4) { width: 10%; }  /* Type */
+.edtray__col--analysis .mini-table2 th:nth-child(5) { width: 16%; }  /* Draft Amt */
+.edtray__col--analysis .mini-table2 th:nth-child(6) { width: 10%; }  /* delete icon */
+.edtray__col--analysis .mini-table2 th:nth-child(7) { width: 10%; }  /* delete icon */
+.edtray__col--analysis .mini-table2 th:nth-child(8) { width: 4%; }  /* delete icon */
 
 /* right side: narrative table */
 .edtray__col--narr .mini-table th:nth-child(1) { width: 63%; }      /* Narrative text */
@@ -2493,4 +2505,124 @@ button.bare {
 /* When used inside the grid body, make the loader span both columns */
 .edtray__body .ed-tray__loading--kb {
   grid-column: 1 / -1;   /* span full width of the grid */
+}
+/* the inserted drill row cell should not add padding */
+.edtray__drill-row > td {
+  padding: 0;
+  border-top: none;
+}
+
+/* make drill area nicely spaced */
+.edtray__drill-wrap {
+  padding: 12px;
+}
+
+/* ✅ two-column layout: left options, right table */
+.edtray__drill-body {
+  display: grid;
+  grid-template-columns: 180px 1fr; /* left column width */
+  gap: 12px;
+  align-items: start;
+}
+
+/* ✅ options stack vertically as rows */
+.edtray__drill-left {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* make each option full-width so it feels like a row */
+.edtray__drill-tab {
+  width: 100%;
+  text-align: left;
+  white-space: nowrap;
+}
+
+/* keep right side from squishing */
+.edtray__drill-right {
+  min-width: 0; /* important for grid + overflow */
+}
+
+/* prevent the table from spilling outside its column */
+.edtray__drill-right .edtray__table-wrap {
+  overflow: auto;
+}
+/* drill toggle: no background, bigger arrow */
+.edtray__drill-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-size: 18px;      /* make arrow bigger */
+  line-height: 1;
+  cursor: pointer;
+  color: inherit;       /* or set a specific color */
+}
+
+/* optional: give it a bigger click target without showing background */
+.edtray__drill-btn {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* optional: subtle hover without a "button background" */
+.edtray__drill-btn:hover {
+  opacity: 0.75;
+}
+
+/* accessible focus ring (recommended) */
+.edtray__drill-btn:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+/* Drilldown option "pill rows" */
+.edtray__drill-tab {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #063941;
+  background-color: #e4f0ef;
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  cursor: pointer;            /* you had default; buttons should be pointer */
+  width: 140px;
+  min-width: 140px;
+  max-width: 140px;
+
+  border: none;               /* usually needed for buttons */
+  text-align: left;
+  justify-content: flex-start; /* keep text left inside the pill */
+}
+.edtray__drill-tab:hover {
+  filter: brightness(0.98);
+}
+
+.edtray__drill-tab.is-active {
+  background-color: #cfe8e6;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+}
+.edtray__drill-title {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem 1rem 1rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #063941;
+  border-radius: 16px;
+  cursor: default;
+
+  width: 440px;
+  min-width: 440px;
+  max-width: 440px;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

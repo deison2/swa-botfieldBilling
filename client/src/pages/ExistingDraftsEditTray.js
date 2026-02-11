@@ -15,7 +15,9 @@ import {
   addDraftFeeNarrative,
   draftFeeDeleteWipAllocation,
   draftFeeAddClients,
-  draftFeeClientOrGroupWIPList //show wip population
+  draftFeeClientOrGroupWIPList, //show wip population
+  populateWIPAnalysisDrillDown,
+  recalculateWIPAllocFromSummary
 } from '../services/ExistingDraftsService';
 
 import {
@@ -203,7 +205,72 @@ export default function ExistingDraftsEditTray({
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState("");
 
+const DRILL_OPTIONS = ["Staff", "Analysis", "Task", "Roles"];
+const [drillOpen, setDrillOpen] = useState(false);
+const [drillParentIndex, setDrillParentIndex] = useState(null); // which analysis row is drilled
+const [drillSelected, setDrillSelected] = useState("Staff");
+const [drillRows, setDrillRows] = useState([]); // whatever populate returns
+
+const clearAllTimers = () => {
+  Object.values(updateTimersRef.current).forEach(clearTimeout);
+  updateTimersRef.current = {};
+
+  Object.values(narrUpdateTimersRef.current).forEach(clearTimeout);
+  narrUpdateTimersRef.current = {};
+};
+
+const resetAllState = () => {
+  clearAllTimers();
+
+  // revert editable data back to original (or empty if you prefer)
+  setanalysisRows_New(analysisRows_Orig);
+  setnarrRows_New(narrRows_Orig);
+
+  // top-level form fields
+  setReason("");
+  setOtherReason("");
+  setBillingNotes("");
+  setError("");
+  setSaving(false);
+
+  // modals + client/wip state
+  setSearchText("");
+  setClients([]);
+  setClientsLoading(false);
+  setClientsError("");
+
+  setSelectedContIndex(null);
+  setSelectedClientCode(null);
+  setSelectedClientName(null);
+
+  setClientModalOpen(false);
+  setWipModalOpen(false);
+
+  setWipRows([]);
+  setWipLoading(false);
+  setWipError("");
+  setCheckedMap({});
+  setAddLoading(false);
+  setAddError("");
+
+  // drill state
+  setDrillOpen(false);
+  setDrillParentIndex(null);
+  setDrillSelected("Staff");
+  setDrillRows([]);
+};
+
+
+
   // ---------- sync props -> local state whenever we get fresh data ----------
+
+useEffect(() => {
+  if (!open) {
+    resetAllState();
+  }
+}, [open]);
+
+
   useEffect(() => {
     if (!open) return;
     const rows = (analysisItems ?? []).map((r) => {
@@ -323,6 +390,65 @@ useEffect(() => {
 
   return () => clearTimeout(handle);
 }, [clientModalOpen, searchText]);
+
+
+  /*  DRILLDOWN FUNCTIONALITY */
+// Dummy delete for drill rows
+const deleteDrillRow = (rowIndex, WIPIds) => {
+  //WIPIds
+  const newWIPIndexArray = WIPIds.split(',');
+  draftFeeDeleteWipAllocation(draftIdx, newWIPIndexArray); 
+  setDrillRows((rows) => rows.filter((_, i) => i !== rowIndex));
+};
+
+// Load drilldown rows whenever open + selection changes (and we have a parent)
+useEffect(() => {
+  if (!drillOpen || drillParentIndex == null) return;
+
+  (async () => {
+    try {
+      const allocIndex = analysisRows_New[drillParentIndex]?.AllocIdx;
+
+      const rows = await populateWIPAnalysisDrillDown(draftIdx, drillSelected, allocIndex);
+      setDrillRows(rows ?? []);
+    } catch (e) {
+      console.error(e);
+      setDrillRows([]);
+    }
+  })();
+}, [drillOpen, drillParentIndex, drillSelected]);
+useEffect(() => {
+  if (!drillOpen || drillParentIndex == null) return;
+
+  const sum = (drillRows || []).reduce(
+    (s, r) => s + Number(r?.BillInClientCur ?? 0),
+    0
+  );
+
+  setanalysisRows_New((rows) =>
+    rows.map((row, idx) =>
+      idx === drillParentIndex
+        ? { ...row, BillInClientCur: sum, _draftAmtDisplay: formatMoneyInput(sum) }
+        : row
+    )
+  );
+}, [drillOpen, drillParentIndex, drillRows]);
+
+
+const openDrillDown = (parentIndex) => {
+  setDrillParentIndex(parentIndex);
+  setDrillSelected("Staff");   // default
+  setDrillOpen(true);
+};
+
+const closeDrillDown = () => {
+  setDrillOpen(false);
+  setDrillParentIndex(null);
+  setDrillRows([]);
+};
+
+
+
 
 // stable key per narrative row for debouncing
 const narrDebounceKey = (row, i) =>
@@ -501,8 +627,12 @@ const onSelectClient = async (contIndex, clientcode, clientname) => {
     [narrRows_New]
   );
 
-  const totalsMatch =
-    Math.round(analysisTotal) === Math.round(narrativeTotal);
+const toCents = (n) => Math.round((Number(n) || 0) * 100);
+const totalsMatch = useMemo(
+  () => toCents(analysisTotal) === toCents(narrativeTotal),
+  [analysisTotal, narrativeTotal]
+);
+
 
   // --- generic handlers for non-money fields ------------------------------------------------
   const updateAnalysis = (idx, value) => {
@@ -643,6 +773,7 @@ const deleteAnalysisRow = (idx) => {
     try {
       setSaving(true);
       await onSave(payload);
+      resetAllState();
       onClose(true); // true = saved
     } catch (err) {
       console.error(err);
@@ -655,6 +786,7 @@ const deleteAnalysisRow = (idx) => {
   
 
   const handleCancel = async () => {
+    
 
 // syncronously delete all current analysis + narr rows and re-add original rows
 
@@ -777,8 +909,18 @@ await Promise.all(
 await Promise.all(processes);
 
 
-      setSaving(true);
-      onClose(true); // true = saved
+const sameNarr = JSON.stringify(narrRows_Orig) === JSON.stringify(narrRows_New);
+const sameAnalysis = JSON.stringify(analysisRows_Orig) === JSON.stringify(analysisRows_New);
+
+if (sameNarr && sameAnalysis) {
+  setSaving(false);
+  onClose(false);
+  return;         //stop the save flow if no changes
+}
+
+setSaving(true);
+onClose(true);
+      resetAllState();
     } catch (err) {
       console.error(err);
       setError("Sorry, something went wrong reverting your changes.");
@@ -831,106 +973,340 @@ await Promise.all(processes);
   ) : (
     <>
       {/* -------- left: analysis table -------- */}
-      <div className="edtray__col edtray__col--analysis">
-        <div className="edtray__subhead-row">
-          <div className="edtray__subhead">Draft WIP Analysis</div>
-          <button
-            type="button"
-            className="edtray__add-btn"
-            onClick={() => setClientModalOpen(true)}
-          >
-            + Add WIP
-          </button>
-        </div>
+<div className="edtray__col edtray__col--analysis">
+  <div className="edtray__subhead-row">
+    <div className="edtray__subhead">Draft WIP Analysis</div>
+    <button
+      type="button"
+      className="edtray__add-btn"
+      onClick={() => setClientModalOpen(true)}
+    >
+      + Add WIP
+    </button>
+  </div>
 
-        <div className="edtray__table-wrap">
-          <table className="mini-table mini-table--tight">
-            <thead>
+  <div className="edtray__table-wrap">
+    <table className="mini-table mini-table--tight">
+      <thead>
+        <tr>
+          <th></th>
+          <th>Client</th>
+          <th>Service</th>
+          <th>Job</th>
+          <th>Type</th>
+          <th className="num">WIP</th>
+          <th className="num">OOS</th>
+          <th className="num">Draft Amt</th>
+          <th></th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {analysisRows_New.map((r, i) => {
+          const isExpanded = drillOpen && drillParentIndex === i;
+
+          // (1) compute parent draft amt from drill rows when expanded
+          const drillBillSum = isExpanded
+            ? (drillRows || []).reduce(
+                (sum, row) => sum + Number(row?.BillInClientCur ?? 0),
+                0
+              )
+            : null;
+
+          const parentDisplay = isExpanded
+            ? formatMoneyInput(drillBillSum)
+            : (r._draftAmtDisplay ?? "");
+
+          return (
+            <React.Fragment key={i}>
+              {/* parent row */}
               <tr>
-                <th>Client</th>
-                <th>Service</th>
-                <th>Job</th>
-                <th>Type</th>
-                <th className="num">WIP</th>
-                <th className="num">OOS</th>
-                <th className="num">Draft Amt</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {analysisRows_New.map((r, i) => (
-                <tr key={i}>
-                  <td>{r.ClientName ?? ""}</td>
-                  <td>{r.WipService ?? ""}</td>
-                  <td>{r.JobTitle ?? ""}</td>
-                  <td>{r.WipType ?? ""}</td>
-                  <td className="num">{currency(Number(r.WIPInClientCur ?? 0))}</td>
-                  <td className="num">{currency(Number(r.OOSAmount ?? 0))}</td>
-
-                  <td className="num">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      className="ed-input ed-input--num"
-                      value={r._draftAmtDisplay ?? ""}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        const num = parseMoneyInput(val);
-
-                        // 1) Immediate UI update
-                        setanalysisRows_New((rows) =>
-                          rows.map((row, idx) =>
-                            idx === i
-                              ? { ...row, _draftAmtDisplay: val, BillInClientCur: num }
-                              : row
-                          )
-                        );
-
-                        // 2) Debounced backend update
-                        const key = String(i);
-                        if (updateTimersRef.current[key]) clearTimeout(updateTimersRef.current[key]);
-                        updateTimersRef.current[key] = setTimeout(() => {
-                          updateAnalysis(i, num);
-                        }, 1000);
-                      }}
-                      onBlur={() => {
-                        setanalysisRows_New((rows) =>
-                          rows.map((row, idx) => {
-                            if (idx !== i) return row;
-                            const num = parseMoneyInput(row._draftAmtDisplay);
+                <td className="edtray__delete-center">
+                  <button
+                    type="button"
+                    className="edtray__drill-btn"
+                    title={isExpanded ? "Collapse" : "Drill down"}
+                    aria-expanded={isExpanded}
+                    onClick={async () => {
+                      // toggle if clicking the same row, otherwise open the new row
+                      if (isExpanded) {
+                        // (3) close drilldown + refresh analysis rows from server
+                        closeDrillDown();
+                        try {
+                          const fresh = await getDraftFeeAnalysis(draftIdx);
+                          const rows = (fresh ?? []).map((rr) => {
+                            const base =
+                              rr.BillInClientCur ?? rr.BillAmount ?? rr.BalInClientCur ?? 0;
                             return {
-                              ...row,
-                              BillInClientCur: num,
-                              _draftAmtDisplay: formatMoneyInput(num),
+                              ...rr,
+                              BillInClientCur: Number(base) || 0,
+                              _draftAmtDisplay: formatMoneyInput(base),
                             };
-                          })
-                        );
-                      }}
-                      onFocus={(e) => e.target.select()}
-                    />
-                  </td>
-                  <td className="edtray__delete-center"> 
-                    <button type="button" 
-                    className="edtray__delete-btn" 
-                    onClick={() => deleteAnalysisRow(i)} title="Delete line" > 
-                    × 
-                    </button> 
-                    </td>
-                </tr>
-              ))}
+                          });
+                          setanalysisRows_New(rows);
+                        } catch (e) {
+                          console.error("Failed to refresh analysis after closing drilldown", e);
+                        }
+                      } else {
+                        openDrillDown(i);
+                      }
+                    }}
+                  >
+                    {isExpanded ? "▾" : "▸"}
+                  </button>
+                </td>
 
-              {analysisRows_New.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="muted">
-                    No analysis rows returned from Practice Engine.
+                <td>{r.ClientName ?? ""}</td>
+                <td>{r.WipService ?? ""}</td>
+                <td>{r.JobTitle ?? ""}</td>
+                <td>{r.WipType ?? ""}</td>
+                <td className="num">{currency(Number(r.WIPInClientCur ?? 0))}</td>
+                <td className="num">{currency(Number(r.OOSAmount ?? 0))}</td>
+
+                <td className="num">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    className="ed-input ed-input--num"
+                    disabled={isExpanded} // (1) disable when expanded
+                    value={parentDisplay}
+                    onChange={(e) => {
+                      if (isExpanded) return; // safety
+
+                      const val = e.target.value;
+                      const num = parseMoneyInput(val);
+
+                      // 1) Immediate UI update
+                      setanalysisRows_New((rows) =>
+                        rows.map((row, idx) =>
+                          idx === i
+                            ? { ...row, _draftAmtDisplay: val, BillInClientCur: num }
+                            : row
+                        )
+                      );
+
+                      // 2) Debounced backend update
+                      const key = String(i);
+                      if (updateTimersRef.current[key]) clearTimeout(updateTimersRef.current[key]);
+                      updateTimersRef.current[key] = setTimeout(() => {
+                        updateAnalysis(i, num);
+                      }, 1000);
+                    }}
+                    onBlur={() => {
+                      if (isExpanded) return; // safety
+
+                      setanalysisRows_New((rows) =>
+                        rows.map((row, idx) => {
+                          if (idx !== i) return row;
+                          const num = parseMoneyInput(row._draftAmtDisplay);
+                          return {
+                            ...row,
+                            BillInClientCur: num,
+                            _draftAmtDisplay: formatMoneyInput(num),
+                          };
+                        })
+                      );
+                    }}
+                    onFocus={(e) => {
+                      if (!isExpanded) e.target.select();
+                    }}
+                  />
+                </td>
+
+                <td className="edtray__delete-center">
+                  <button
+                    type="button"
+                    className="edtray__delete-btn"
+                    onClick={() => deleteAnalysisRow(i)}
+                    title="Delete line"
+                  >
+                    ×
+                  </button>
+                </td>
+              </tr>
+
+              {/* drill row directly under parent row */}
+              {isExpanded && (
+                <tr className="edtray__drill-row">
+                  <td colSpan={9}>
+                    <div className="edtray__drill-wrap">
+                      <div className="edtray__drill-head">
+                        <div className="edtray__drill-title">
+                          WIP Detail — {r.JobTitle ?? ""}
+                        </div>
+                      </div>
+
+                      <div className="edtray__drill-body">
+                        {/* left selector */}
+                        <div className="edtray__drill-left">
+                          {DRILL_OPTIONS.map((opt) => (
+                            <button
+                              key={opt}
+                              type="button"
+                              className={
+                                "edtray__drill-tab " + (drillSelected === opt ? "is-active" : "")
+                              }
+                              onClick={() => setDrillSelected(opt)}
+                            >
+                              {opt}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* right table */}
+                        <div className="edtray__drill-right">
+                          <div className="edtray__table-wrap">
+                            <table className="mini-table2">
+                              <thead>
+                                <tr>
+                                  <th>Name</th>
+                                  <th className="num">Hours</th>
+                                  <th className="num">WIP</th>
+                                  <th className="num">OOS</th>
+                                  <th className="num">Bill</th>
+                                  <th className="num">W/Off</th>
+                                  <th className="num">C/F</th>
+                                  <th></th>
+                                </tr>
+                              </thead>
+
+                              <tbody>
+                                {drillRows.map((d, idx) => (
+                                  <tr key={idx}>
+                                    <td>
+                                      {d.StaffName ??
+                                        d.ChargeName ??
+                                        d.Task_Subject ??
+                                        d.RoleName ??
+                                        ""}
+                                    </td>
+                                    <td className="num">{d.WIPHours ?? ""}</td>
+                                    <td className="num">
+                                      {currency(Number(d.WIPInClientCur ?? 0))}
+                                    </td>
+                                    <td className="num">
+                                      {currency(Number(d.OOSAmount ?? 0))}
+                                    </td>
+
+                                    {/* editable Bill */}
+                                    <td className="num">
+                                      <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        className="ed-input ed-input--num"
+                                        value={d._billDisplay ?? formatMoneyInput(Number(d.BillInClientCur ?? 0))}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          const num = parseMoneyInput(val);
+
+                                          setDrillRows((rows) =>
+                                            rows.map((row, rIdx) =>
+                                              rIdx === idx
+                                                ? { ...row, _billDisplay: val, BillInClientCur: num }
+                                                : row
+                                            )
+                                          );
+                                        }}
+                                        onBlur={() => {
+                                          setDrillRows((rows) => {
+                                            // finalize the edited row first
+                                            const next = rows.map((row, rIdx) => {
+                                              if (rIdx !== idx) return row;
+                                              const billNum = parseMoneyInput(row._billDisplay ?? "");
+                                              return {
+                                                ...row,
+                                                BillInClientCur: billNum,
+                                                _billDisplay: formatMoneyInput(billNum),
+                                              };
+                                            });
+
+                                            // build payload from UPDATED row values
+                                            const updated = next[idx];
+
+                                            const parentAllocIdx =
+                                              analysisRows_New?.[drillParentIndex]?.AllocIdx ??
+                                              analysisRows_New?.[drillParentIndex]?.AllocIndex ??
+                                              null;
+
+                                            const wipos = Number(updated?.WIPInClientCur ?? 0); // <-- "WIPOS" source
+                                            const billAmount = Number(updated?.BillInClientCur ?? 0);
+                                            const woffAmount = wipos - billAmount;
+
+                                            const payload = {
+                                              DebtTranIndex: draftIdx,
+                                              AllocIdx: parentAllocIdx,
+                                              WIPOS: wipos,
+                                              BillAmount: billAmount,
+                                              WoffAmount: woffAmount,
+                                              StaffIndex: updated?.StaffIndex ?? updated?.StaffIdx ?? updated?.StaffId ?? null,
+                                            };
+
+                                            try {
+                                              recalculateWIPAllocFromSummary(payload);
+                                            } catch (e) {
+                                              console.error("recalculateWIPAllocFromSummary failed", e, payload);
+                                            }
+
+                                            return next;
+                                          });
+                                        }}
+                                        onFocus={(e) => e.target.select()}
+                                      />
+
+                                    </td>
+
+                                    <td className="num">
+                                      {currency(Number(d.WoffInClientCur ?? 0))}
+                                    </td>
+                                    <td className="num">
+                                      {currency(Number(d.BalInClientCur ?? 0))}
+                                    </td>
+
+                                    <td className="edtray__delete-center">
+                                      <button
+                                        type="button"
+                                        className="edtray__delete-btn"
+                                        onClick={() => deleteDrillRow(idx, d.WIPIds)}
+                                        title="Delete line"
+                                      >
+                                        ×
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+
+                                {drillRows.length === 0 && (
+                                  <tr>
+                                    <td colSpan={8} className="muted">
+                                      No drill-down rows.
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </td>
                 </tr>
               )}
-            </tbody>
-          </table>
-        </div>
+            </React.Fragment>
+          );
+        })}
 
-      </div>
+        {analysisRows_New.length === 0 && (
+          <tr>
+            <td colSpan={9} className="muted">
+              No analysis rows returned from Practice Engine.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+</div>
+
 
       {/* -------- right: narrative table -------- */}
       <div className="edtray__col edtray__col--narr">

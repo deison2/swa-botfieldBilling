@@ -281,6 +281,55 @@ export async function checkDraftInUse(DebtTranIndex) {
 
 // === Draft editing (PE APIs) SURGICAL EDITS ===
 
+// recalculateWIPAllocFromSummary
+export async function populateWIPAnalysisDrillDown(draftIdx, drillType, allocIndex) {
+  const token = await getToken();
+  setAuthToken(token);
+
+  const res = await fetch(`/api/DraftEditing/PUT/WIP/${draftIdx}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      token,
+      payload: { "DraftFeeIndex": draftIdx
+               , "DrillType": drillType
+               , "AllocIdx": allocIndex
+              }
+    })
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`Draft Get WIP List failed: ${res.status} ${msg}`);
+  }
+
+  // May be empty / non-JSON, so use safeJson
+  return safeJson(res);
+}
+
+export async function recalculateWIPAllocFromSummary(payload) {
+  const token = await getToken();
+  setAuthToken(token);
+
+  const res = await fetch(`/api/DraftEditing/DELETE/WIP/${payload.DebtTranIndex}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      token,
+      payload: { ...payload
+              }
+    })
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`Draft Get WIP List failed: ${res.status} ${msg}`);
+  }
+
+  // May be empty / non-JSON, so use safeJson
+  return safeJson(res);
+}
+
 // WIP ALLOCATION POPULATION
 export async function draftFeeClientOrGroupWIPList(draftIdx, contindex) {
   const token = await getToken();

@@ -239,6 +239,127 @@ module.exports = async function (context, req) {
             context.res = { status: 200, body: result };
             return;
                 }
+
+            case "WIP": {
+            const DrillType = payload.DrillType; // for drilldowns on WIP Anaylsis subtable of edit tray
+                switch (DrillType) {
+                    case "Staff": {
+                        const payloadWithDrill = { "DebtTranIndex": DebtTranIndex, "AllocIdx": payload.AllocIdx };
+                const apiRes = await fetch(
+                'https://bmss.pehosted.com/pe/api/Billing/DraftFeeWIPEditAnalysisStaffList',
+                {
+                     method:  'POST',
+                     headers: {
+                    'Content-Type':  'application/json',
+                    'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(payloadWithDrill)
+                }
+                );
+                const result = await apiRes.json();
+                console.log(result);
+
+                if (!apiRes.ok) {
+                    context.res = {
+                    status: apiRes.status,
+                    body:   `Error getting draft drill down data: ${apiRes.status} ${result}`
+                    };
+                    return;
+                }
+
+                context.res = { status: 200, body: result };
+                return;
+                    }
+                    case "Analysis": {
+                        const payloadWithDrill = { "DebtTranIndex": DebtTranIndex, "AllocIdx": payload.AllocIdx };
+                const apiRes = await fetch(
+                'https://bmss.pehosted.com/pe/api/Billing/DraftFeeWIPEditAnalysisAnalysisList',
+                {
+                     method:  'POST',
+                     headers: {
+                    'Content-Type':  'application/json',
+                    'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(payloadWithDrill)
+                }
+                );
+
+                const result = await apiRes.json();
+                console.log(result);
+
+                if (!apiRes.ok) {
+                    context.res = {
+                    status: apiRes.status,
+                    body:   `Error getting draft drill down data: ${apiRes.status} ${result}`
+                    };
+                    return;
+                }
+
+                context.res = { status: 200, body: result };
+                return;
+                    }
+                    case "Task": {
+                        const payloadWithDrill = { "DebtTranIndex": DebtTranIndex, "AllocIdx": payload.AllocIdx };
+                const apiRes = await fetch(
+                'https://bmss.pehosted.com/pe/api/Billing/DraftFeeWIPEditAnalysisTaskList',
+                {
+                     method:  'POST',
+                     headers: {
+                    'Content-Type':  'application/json',
+                    'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(payloadWithDrill)
+                }
+                );
+
+                const result = await apiRes.json();
+                console.log(result);
+
+                if (!apiRes.ok) {
+                    context.res = {
+                    status: apiRes.status,
+                    body:   `Error getting draft drill down data: ${apiRes.status} ${result}`
+                    };
+                    return;
+                }
+
+                context.res = { status: 200, body: result };
+                return;
+                    }
+                    case "Roles": {
+                        const payloadWithDrill = { "DebtTranIndex": DebtTranIndex, "AllocIdx": payload.AllocIdx };
+                const apiRes = await fetch(
+                'https://bmss.pehosted.com/pe/api/Billing/DraftFeeWIPEditAnalysisRoleList',
+                {
+                     method:  'POST',
+                     headers: {
+                    'Content-Type':  'application/json',
+                    'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(payloadWithDrill)
+                }
+                );
+
+                const result = await apiRes.json();
+                console.log(result);
+
+                if (!apiRes.ok) {
+                    context.res = {
+                    status: apiRes.status,
+                    body:   `Error getting draft drill down data: ${apiRes.status} ${result}`
+                    };
+                    return;
+                }
+
+                context.res = { status: 200, body: result };
+                return;
+                    }
+
+                default: {
+                    console.log('Drill down triggered but no match found for DrillType:', DrillType);
+                }
+                }
+            }
             }
         }
 
@@ -300,6 +421,34 @@ module.exports = async function (context, req) {
                 context.res = {
                     status: apiRes.status,
                     body:   `Error saving narratives to draft: ${apiRes.status} ${result}`
+                };
+            return;
+            }
+
+            context.res = { status: 200, body: result };
+            return;
+                }
+
+            case "WIP": {
+                  const apiRes = await fetch(
+                'https://bmss.pehosted.com/pe/api/Billing/RecalculateWIPAllocFromStaffSummary',
+                    {
+                        method:  'POST',
+                        headers: {
+                        'Content-Type':  'application/json',
+                        'Authorization': `Bearer ${token}`
+                        }, 
+                        body: JSON.stringify(payload)
+                    }
+                    );
+
+            const result = await apiRes.text();
+            console.log(result);
+
+            if (!apiRes.ok) {
+                context.res = {
+                    status: apiRes.status,
+                    body:   `Error recalculating WIP allocation: ${apiRes.status} ${result}`
                 };
             return;
             }

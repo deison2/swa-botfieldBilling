@@ -1694,6 +1694,7 @@ const closeCreated = () => {
                     <th>Staff Name</th>
                     <th>Entry Date</th>
                     <th>Task</th>
+                    <th className="num">OOS</th>
                     <th className="num">Hours</th>
                     <th className="num">WIP</th>
                     <th className="num">Billed</th>
@@ -1709,6 +1710,7 @@ const closeCreated = () => {
                       <td>{g(r,'StaffName')}</td>
                       <td>{fmtDate(g(r,'WIPDate'))}</td>
                       <td>{g(r,'Task_Subject')}</td>
+                      <td>{g(r,'OOS')}</td>
                       <td className="num">{Number(g(r,'WIPHours') ?? 0).toFixed(2)}</td>
                       <td className="num">{currency(Number(g(r,'WIPAmount') ?? 0))}</td>
                       <td className="num">{currency(Number(g(r,'BillAmount') ?? 0))}</td>
