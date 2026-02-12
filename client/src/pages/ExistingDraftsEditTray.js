@@ -17,7 +17,8 @@ import {
   draftFeeAddClients,
   draftFeeClientOrGroupWIPList, //show wip population
   populateWIPAnalysisDrillDown,
-  recalculateWIPAllocFromSummary
+  recalculateWIPAllocFromSummary,
+  DraftFeeAddInterimFeeAutoAllocate
 } from '../services/ExistingDraftsService';
 
 import {
@@ -176,6 +177,9 @@ export default function ExistingDraftsEditTray({
   const [wipIndexes_Orig, setWipIndexes_Orig] = useState([]);
   const updateTimersRef = React.useRef({});
   const narrUpdateTimersRef = React.useRef({}); // { [rowKey]: timeoutId }
+  const [autoAllocModalOpen, setAutoAllocModalOpen] = useState(false);
+  const [autoAllocSaving, setAutoAllocSaving] = useState(false);
+  const [autoAllocError, setAutoAllocError] = useState("");
 
 
   const [reason, setReason] = useState("");
@@ -195,6 +199,8 @@ export default function ExistingDraftsEditTray({
   const [clientModalOpen, setClientModalOpen] = useState(false);
   const [wipModalOpen, setWipModalOpen] = useState(false);
 
+  
+
 
 
   const [wipRows, setWipRows] = useState([]);
@@ -210,6 +216,19 @@ const [drillOpen, setDrillOpen] = useState(false);
 const [drillParentIndex, setDrillParentIndex] = useState(null); // which analysis row is drilled
 const [drillSelected, setDrillSelected] = useState("Staff");
 const [drillRows, setDrillRows] = useState([]); // whatever populate returns
+const [autoAllocForm, setAutoAllocForm] = useState({
+  timeWip: 0,
+  timeBill: 0,
+  timeBillText: "",
+
+  disbWip: 0,
+  disbBill: 0,
+  disbBillText: "",
+
+  timeCF: 0,
+  disbCF: 0,
+});
+
 
 const clearAllTimers = () => {
   Object.values(updateTimersRef.current).forEach(clearTimeout);
@@ -359,6 +378,52 @@ useEffect(() => {
   setAddError("");
 }, [wipModalOpen]);
 
+const sumByWIP = (rows, type) =>
+  (rows || [])
+    .filter(r => String(r?.WipType ?? "").toUpperCase() === type)
+    .reduce((s, r) => s + Number(r?.WIPInClientCur ?? 0), 0);
+
+const sumByType = (rows, type) =>
+  (rows || [])
+    .filter(r => String(r?.WipType ?? "").toUpperCase() === type)
+    .reduce((s, r) => s + Number(r?.BillInClientCur ?? 0), 0);
+
+const sumByWOff = (rows, type) =>
+  (rows || [])
+    .filter(r => String(r?.WipType ?? "").toUpperCase() === type)
+    .reduce((s, r) => s + Number(r?.WoffInClientCur ?? 0), 0);
+
+const sumCFByType = (rows, type) =>
+  (rows || [])
+    .filter(r => String(r?.WipType ?? "").toUpperCase() === type)
+    .reduce((s, r) => s + Number(r?.BalInClientCur ?? 0), 0);
+
+const openAutoAllocModal = () => {
+  const timeWIP = sumByWIP(analysisRows_New, "TIME");
+  const disbWIP = sumByWIP(analysisRows_New, "DISB");
+  const timebill = sumByType(analysisRows_New, "TIME");
+  const disbbill = sumByType(analysisRows_New, "DISB");
+  const timeCF = sumCFByType(analysisRows_New, "TIME");
+  const disbCF = sumCFByType(analysisRows_New, "DISB");
+  const timewoff = sumByWOff(analysisRows_New, "TIME");
+  const disbwoff = sumByWOff(analysisRows_New, "DISB");
+
+  setAutoAllocError("");
+  setAutoAllocForm({
+    timeWip: timeWIP,
+    timeBill: timebill,
+    timeCF: timeCF,
+    timeWoff: timewoff,
+    timeBillText: String(timebill || ""),
+
+    disbWip: disbWIP,
+    disbBill: disbbill,
+    disbBillText: String(disbbill || ""),
+    disbCF: disbCF,
+    disbwoff: disbwoff
+  });
+  setAutoAllocModalOpen(true);
+};
 
 
   // Debounced search -> getClients(searchText)
@@ -793,7 +858,11 @@ const deleteAnalysisRow = (idx) => {
     try { 
 const processes = [];
 
-if (analysisRows_Orig !== analysisRows_New) {
+const sameNarr = JSON.stringify(narrRows_Orig) === JSON.stringify(narrRows_New);
+const sameAnalysis = JSON.stringify(analysisRows_Orig) === JSON.stringify(analysisRows_New);
+
+
+if (!sameAnalysis) {
   processes.push((async () => {
   console.log('Reverting to original analysis lines...');
     const allocIndexes = analysisRows_New.map((r) => r.AllocIdx);
@@ -857,7 +926,7 @@ if (analysisRows_Orig !== analysisRows_New) {
   })());
 }
 
-if (narrRows_Orig !== narrRows_New) {
+if (!sameNarr) {
   console.log('Reverting to original narratives...');
   processes.push((async () => {
       await Promise.all(
@@ -907,10 +976,6 @@ await Promise.all(
 }
 
 await Promise.all(processes);
-
-
-const sameNarr = JSON.stringify(narrRows_Orig) === JSON.stringify(narrRows_New);
-const sameAnalysis = JSON.stringify(analysisRows_Orig) === JSON.stringify(analysisRows_New);
 
 if (sameNarr && sameAnalysis) {
   setSaving(false);
@@ -975,15 +1040,18 @@ onClose(true);
       {/* -------- left: analysis table -------- */}
 <div className="edtray__col edtray__col--analysis">
   <div className="edtray__subhead-row">
-    <div className="edtray__subhead">Draft WIP Analysis</div>
-    <button
-      type="button"
-      className="edtray__add-btn"
-      onClick={() => setClientModalOpen(true)}
-    >
+  <div className="edtray__subhead">Draft WIP Analysis</div>
+
+  <div className="edtray__subhead-actions">
+    <button type="button" className="edtray__add-btn" onClick={openAutoAllocModal}>
+      Auto Allocate WIP
+    </button>
+    <button type="button" className="edtray__add-btn" onClick={() => setClientModalOpen(true)}>
       + Add WIP
     </button>
   </div>
+</div>
+
 
   <div className="edtray__table-wrap">
     <table className="mini-table mini-table--tight">
@@ -1034,7 +1102,7 @@ onClose(true);
                         closeDrillDown();
                         try {
                           const fresh = await getDraftFeeAnalysis(draftIdx);
-                          const rows = (fresh ?? []).map((rr) => {
+                          const rows = (fresh?.Items ?? []).map((rr) => {
                             const base =
                               rr.BillInClientCur ?? rr.BillAmount ?? rr.BalInClientCur ?? 0;
                             return {
@@ -1507,7 +1575,7 @@ onClose(true);
                   disabled={saving}
                   onClick={() => handleCancel(false)}
                 >
-                  Cancel
+                  {JSON.stringify(analysisRows_Orig) === JSON.stringify(analysisRows_New) && JSON.stringify(narrRows_Orig) === JSON.stringify(narrRows_New) ? "Cancel" : "Revert to Original"}
                 </button>
                 <button
                   type="button"
@@ -1673,6 +1741,258 @@ onClose(true);
         <button onClick={() => setWipModalOpen(false)} style={styles.secondaryBtn}>
           Close
         </button>
+      </div>
+    </div>
+  </div>
+)}
+{autoAllocModalOpen && (
+  <div style={styles.backdrop} onMouseDown={() => setAutoAllocModalOpen(false)}>
+    <div style={styles.modal} onMouseDown={(e) => e.stopPropagation()}>
+      <div style={styles.header}>
+        <div style={{ fontWeight: 700 }}>Auto Allocate WIP</div>
+        <button onClick={() => setAutoAllocModalOpen(false)} style={styles.closeBtn}>✕</button>
+      </div>
+
+      <div style={styles.section}>
+        {autoAllocError && <div style={styles.error}>{autoAllocError}</div>}
+
+        <div style={{ ...styles.tableWrap }}>
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th></th>
+                <th style={{ textAlign: "right" }}>WIP</th>
+                <th style={{ textAlign: "right" }}>Bill</th>
+                <th style={{ textAlign: "right" }}>WOff</th>
+                <th style={{ textAlign: "right" }}>C/F</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* TIME ROW */}
+              <tr>
+                <td style={{ fontWeight: 700 }}>Time</td>
+
+                <td style={{ textAlign: "right" }}>
+                  <input
+                    className="ed-input ed-input--num"
+                    disabled
+                    value={formatMoneyInput(autoAllocForm.timeWip)}
+                  />
+                </td>
+
+                <td style={{ textAlign: "right" }}>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+                  <input
+                    className="ed-input ed-input--num"
+                    inputMode="decimal"
+                    value={autoAllocForm.timeBillText}
+                    onChange={(e) => {
+                      const nextText = e.target.value;
+
+                      // allow digits + one dot; allow empty while typing
+                      if (!/^\d*\.?\d*$/.test(nextText)) return;
+
+                      setAutoAllocForm((p) => ({
+                        ...p,
+                        timeBillText: nextText,
+                        timeBill: nextText === "" ? 0 : Number(nextText),
+                      }));
+                    }}
+                    onFocus={() => {
+                      // show raw number on focus
+                      setAutoAllocForm((p) => ({
+                        ...p,
+                        timeBillText: p.timeBillText !== "" ? p.timeBillText : String(p.timeBill ?? ""),
+                      }));
+                    }}
+                    onBlur={() => {
+                      // normalize on blur: snap text to clean number (no formatting)
+                      setAutoAllocForm((p) => {
+                        const n = Number(p.timeBillText);
+                        const safe = Number.isFinite(n) ? n : 0;
+                        return {
+                          ...p,
+                          timeBill: safe,
+                          timeBillText: String(safe), // keep raw text; display currency separately if you want
+                        };
+                      });
+                    }}
+                  />
+
+                  <div style={{ fontSize: 12, color: "#666" }}>
+                    {currency(autoAllocForm.timeBill)}
+                  </div>
+                </div>
+                </td>
+
+                <td style={{ textAlign: "right" }}>
+                  <input
+                    className="ed-input ed-input--num"
+                    disabled
+                    value={formatMoneyInput(autoAllocForm.timeWip - autoAllocForm.timeBill)}
+                  />
+                </td>
+
+                <td style={{ textAlign: "right" }}>
+                  <input
+                    className="ed-input ed-input--num"
+                    disabled
+                    value={formatMoneyInput(autoAllocForm.timeCF)}
+                  />
+                </td>
+              </tr>
+
+              {/* DISB ROW */}
+              <tr>
+                <td style={{ fontWeight: 700 }}>Disb</td>
+
+                <td style={{ textAlign: "right" }}>
+                  <input
+                    className="ed-input ed-input--num"
+                    disabled
+                    value={formatMoneyInput(autoAllocForm.disbWip)}
+                  />
+                </td>
+
+                <td style={{ textAlign: "right" }}>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+                  <input
+                    className="ed-input ed-input--num"
+                    inputMode="decimal"
+                    value={autoAllocForm.disbBillText}
+                    onChange={(e) => {
+                      const nextText = e.target.value;
+
+                      // allow empty, digits, and ONE decimal point
+                      if (!/^\d*\.?\d*$/.test(nextText)) return;
+
+                      setAutoAllocForm((p) => ({
+                        ...p,
+                        disbBillText: nextText,
+                        disbBill: nextText === "" ? 0 : Number(nextText),
+                      }));
+                    }}
+                    onFocus={() => {
+                      // show raw number on focus (no $ formatting)
+                      setAutoAllocForm((p) => ({
+                        ...p,
+                        disbBillText: p.disbBillText !== "" ? p.disbBillText : String(p.disbBill ?? ""),
+                      }));
+                    }}
+                    onBlur={() => {
+                      // normalize on blur (still keep it raw, not currency-formatted)
+                      setAutoAllocForm((p) => {
+                        const n = Number(p.disbBillText);
+                        const safe = Number.isFinite(n) ? n : 0;
+
+                        return {
+                          ...p,
+                          disbBill: safe,
+                          disbBillText: String(safe),
+                        };
+                      });
+                    }}
+                  />
+
+                  <div style={{ fontSize: 12, color: "#666" }}>
+                    {currency(autoAllocForm.disbBill)}
+                  </div>
+                </div>
+                </td>
+
+                <td style={{ textAlign: "right" }}>
+                  <input
+                    className="ed-input ed-input--num"
+                    disabled
+                    value={formatMoneyInput(autoAllocForm.disbWip - autoAllocForm.disbBill)}
+                  />
+                </td>
+
+                <td style={{ textAlign: "right" }}>
+                  <input
+                    className="ed-input ed-input--num"
+                    disabled
+                    value={formatMoneyInput(autoAllocForm.disbCF)}
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div style={styles.footer}>
+          <button
+            onClick={() => setAutoAllocModalOpen(false)}
+            disabled={autoAllocSaving}
+            className="ed-btn ed-btn--ghost"
+          >
+            Cancel
+          </button>
+
+          <button
+            className="ed-btn ed-btn--primary"
+            onClick={async () => {
+              try {
+                setAutoAllocSaving(true);
+                setAutoAllocError("");
+
+                const timePL = Number(autoAllocForm.timeWip - autoAllocForm.timeBill) || 0;
+                const disbPL = Number(autoAllocForm.disbWip - autoAllocForm.disbBill) || 0;
+
+                const payload = {
+                  DraftIdx: Number(draftIdx) || 0,
+                  Client: contindex,
+                  Job: analysisRows_New?.[0]?.ServPeriod || 0,
+                  DisbBill: Number(autoAllocForm.disbBill) || 0,
+                  DisbNarr: null,
+                  DisbPL: disbPL,
+                  TimeAnal: "BUDGET",
+                  TimeBill: Number(autoAllocForm.timeBill) || 0,
+                  TimeNarr: null,
+                  TimePL: timePL,
+                  FinalDisbBill: 0,
+                  FinalDisbNarr: null,
+                  FinalDisbPL: 0,
+                  FinalTimeBill: 0,
+                  FinalTimeNarr: null,
+                  FinalTimePL: 0,
+                  DisbOABill: 0,
+                  DisbOANarr: null,
+                  DisbOAPL: 0,
+                  TimeOABill: 0,
+                  TimeOANarr: null,
+                  TimeOAPL: 0,
+                };
+
+                await DraftFeeAddInterimFeeAutoAllocate(payload);
+
+                // optional: refresh analysis after submit
+                const fresh = await getDraftFeeAnalysis(draftIdx);
+                const rows = (fresh?.Items ?? []).map((rr) => {
+                  const base =
+                    rr.BillInClientCur ?? rr.BillAmount ?? rr.BalInClientCur ?? 0;
+                  return {
+                    ...rr,
+                    BillInClientCur: Number(base) || 0,
+                    _draftAmtDisplay: formatMoneyInput(base),
+                  };
+                });
+                console.log(rows);
+                setanalysisRows_New(rows);
+
+                setAutoAllocModalOpen(false);
+              } catch (e) {
+                console.error(e);
+                setAutoAllocError("Submit failed. Please try again.");
+              } finally {
+                setAutoAllocSaving(false);
+              }
+            }}
+            disabled={autoAllocSaving}
+          >
+            {autoAllocSaving ? "Submitting…" : "Submit"}
+          </button>
+        </div>
       </div>
     </div>
   </div>

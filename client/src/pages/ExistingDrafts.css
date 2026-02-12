@@ -2192,6 +2192,13 @@ button.bare {
   margin-bottom: 6px;
 }
 
+.edtray__subhead-actions {
+  margin-left: auto;          /* pushes this block to the right */
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .edtray__table-wrap {
   flex: 1;
   overflow: auto;          /* x + y scroll for each panel */
@@ -2438,6 +2445,7 @@ button.bare {
     cursor: pointer;
     font-size: .8rem;
     padding: 4px 10px;
+    width: 10em;
 }
 
 .kb-runner-inline {

@@ -561,3 +561,27 @@ export async function logDraftEdits(auditPayload) {
     // Intentionally do not throw – audit failure shouldn’t block billing
   }
 }
+
+
+// recalculateWIPAllocFromSummary
+export async function DraftFeeAddInterimFeeAutoAllocate(payload) {
+  const token = await getToken();
+  setAuthToken(token);
+
+  const res = await fetch('/api/AutoAllocateWIP', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      token,
+      payload
+    })
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`Add and auto allocate failed: ${res.status} ${msg}`);
+  }
+
+  // May be empty / non-JSON, so use safeJson
+  return safeJson(res);
+}
