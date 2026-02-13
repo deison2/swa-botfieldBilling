@@ -870,7 +870,7 @@ useEffect(() => {
     const m = new Map();
     for (const r of granularWip) {
       // normalize keys: payload might send numbers as strings
-      const key = `${Number(r.DraftFeeIdx)}|${Number(r.Job_Idx)}`;
+      const key = `${Number(r.DraftFeeIdx)}|${Number(r.Job_Idx)}|${r.WIPType}`;
       if (!m.has(key)) m.set(key, []);
       m.get(key).push(r);
     }
@@ -1301,7 +1301,7 @@ useEffect(() => {
 //  Number(v).toLocaleString("en-US", { style: "currency", currency: "USD" });
 //const num = v => v == null ? "–" : Number(v).toLocaleString("en-US");
 
-function DraftRow({ d, client, granData, onHover, onLeave, onPin, expanded, onToggleExpand }) {
+function DraftRow({ d, client, granData, onHover, onLeave, onPin, expanded, onToggleExpand, WIPType }) {
   const payload = {
     clientCode : client.code,
     clientName : client.name,
@@ -1310,7 +1310,7 @@ function DraftRow({ d, client, granData, onHover, onLeave, onPin, expanded, onTo
     job        : Array.isArray(granData) ? granData[0] : undefined
   };
 
-  const rowKey = `${d.DRAFTFEEIDX}-${d.SERVPERIOD}-${d.CONTINDEX}`;
+  const rowKey = `${d.DRAFTFEEIDX}-${d.SERVPERIOD}-${d.CONTINDEX}-${d.WIPTYPE}`;
 
   return (
     <tr key={rowKey} style={d.finalCheck === 'X' ? { color: 'red' } : undefined}>
@@ -1851,12 +1851,12 @@ const closeCreated = () => {
                 const client = data.codeMap[d.CONTINDEX] || {};
                 const g = granularData.filter(x => Number(x.Job_Idx) === Number(d.SERVPERIOD));
 
-                const rowKey = `${d.DRAFTFEEIDX}-${d.SERVPERIOD}-${d.CONTINDEX}`;
+                const rowKey = `${d.DRAFTFEEIDX}-${d.SERVPERIOD}-${d.CONTINDEX}-${d.WIPTYPE}`;
                 const expanded = !!openRows[rowKey];
                 const mode = modeByRow[rowKey] || 'staff';
 
                  // LIVE granular rows for this Draft + Job
-                const wipKey   = `${Number(d.DRAFTFEEIDX)}|${Number(d.SERVPERIOD)}`;
+                const wipKey   = `${Number(d.DRAFTFEEIDX)}|${Number(d.SERVPERIOD)}|${d.WIPTYPE}`;
                 const wipRows  = wipByDraftJob.get(wipKey) || [];
                 const grouped  = aggregate(wipRows, mode);
 
@@ -1871,6 +1871,7 @@ const closeCreated = () => {
                       onPin={(p) => setPinRequest(p)}
                       expanded={expanded}
                       onToggleExpand={toggleOpen}
+                      WIPType = {d.WIPTYPE}
                     />
 
                     {expanded && (

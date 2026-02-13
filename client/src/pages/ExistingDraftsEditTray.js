@@ -555,7 +555,7 @@ const scheduleNarrativeUpdate = (row, i) => {
   }
 
   narrUpdateTimersRef.current[key] = setTimeout(() => {
-    const lang = row?.FeeNarrative ?? "";
+    const lang = row?.FeeNarrative.trim() ?? "";
     const servindex = row?.ServIndex ?? "";
     const amount = Number(row?.Amount ?? 0) || 0;
 
