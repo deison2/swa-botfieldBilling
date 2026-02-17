@@ -142,6 +142,7 @@ export default function AutomatedBillingRecap() {
   const [nameFilter, setNameFilter] = useState(""); // appears after both picks
 
   // Not Billed filters
+  const [nbOriginator, setNbOriginator] = useState("");
   const [nbPartner, setNbPartner] = useState("");
   const [nbManager, setNbManager] = useState("");
 
@@ -251,6 +252,7 @@ export default function AutomatedBillingRecap() {
   // Reset dependent filters when upstream changes
   useEffect(() => {
     setNameFilter("");
+    setNbOriginator("");
     setNbPartner("");
     setNbManager("");
   }, [billingPeriod, groupKey, activeTab]);
@@ -422,6 +424,17 @@ export default function AutomatedBillingRecap() {
     };
   }, [excludeDrafts, billingPeriod]);
 
+  const nbOriginatorOptions = useMemo(() => {
+    const set = new Set(
+      nbRows
+        .map((r) => r.BILLINGCLIENTORIGINATOR || r.CLIENTORIGINATOR)
+        .filter((v) => v !== null && v !== undefined && v !== "")
+    );
+    return [...set].sort((a, b) =>
+      String(a).localeCompare(String(b))
+    );
+  }, [nbRows]);
+
   const nbPartnerOptions = useMemo(() => {
     const set = new Set(
       nbRows
@@ -450,16 +463,19 @@ const nbManagerOptions = useMemo(() => {
     const search = nbSearch.trim().toLowerCase();
 
     return nbRows.filter((r) => {
+      const originatorName =
+        r.BILLINGCLIENTORIGINATOR || r.CLIENTORIGINATOR || "";
       const partnerName =
         r.BILLINGCLIENTPARTNER || r.CLIENTPARTNERNAME || "";
       const managerName =
         r.BILLINGCLIENTMANAGER || r.CLIENTMANAGERNAME || "";
 
+      const oOk = nbOriginator ? originatorName === nbOriginator : true;
       const pOk = nbPartner ? partnerName === nbPartner : true;
       const mOk = nbManager ? managerName === nbManager : true;
       const dOk = !excludeDrafts || !draftSet.has(String(r.CLIENTCODE));
 
-      if (!(pOk && mOk && dOk)) return false;
+      if (!(oOk && pOk && mOk && dOk)) return false;
 
       // --- search across all columns EXCEPT WIP + PE Link ---
       if (!search) return true;
@@ -467,6 +483,7 @@ const nbManagerOptions = useMemo(() => {
       const haystack = [
         r.CLIENTCODE,
         r.CLIENTNAME,
+        originatorName,
         partnerName,
         managerName,
         buildExclusionReasons(r),
@@ -476,7 +493,7 @@ const nbManagerOptions = useMemo(() => {
 
       return haystack.includes(search);
     });
-  }, [nbRows, nbPartner, nbManager, excludeDrafts, draftClientCodes, nbSearch]);
+  }, [nbRows, nbOriginator, nbPartner, nbManager, excludeDrafts, draftClientCodes, nbSearch]);
 
 
 
@@ -521,6 +538,7 @@ const nbManagerOptions = useMemo(() => {
     const headers = [
       "Client Code",
       "Client Name",
+      "Originator",
       "Partner",
       "Manager",
       "Service",
@@ -531,6 +549,7 @@ const nbManagerOptions = useMemo(() => {
     const rowsForCsv = nbFiltered.map((r) => [
       r.CLIENTCODE ?? "",
       r.CLIENTNAME ?? "",
+      r.BILLINGCLIENTORIGINATOR || r.CLIENTORIGINATOR || "",
       r.BILLINGCLIENTPARTNER || r.CLIENTPARTNERNAME || "",
       r.BILLINGCLIENTMANAGER || r.CLIENTMANAGERNAME || "",
       r.SERVINDEX || "",
@@ -583,6 +602,13 @@ const nbManagerOptions = useMemo(() => {
             <span className="pill-text">{r.CLIENTNAME}</span>
           </span>
         ),
+      },
+      {
+        name: "Originator",
+        selector: (r) => r.BILLINGCLIENTORIGINATOR || r.CLIENTORIGINATOR || "Unassigned",
+        sortable: true,
+        width: "170px",
+        wrap: false,
       },
       {
         name: "Partner",
@@ -726,6 +752,7 @@ const nbManagerOptions = useMemo(() => {
               setBillingPeriod("");
               setGroupKey("");
               setNameFilter("");
+              setNbOriginator("");
               setNbPartner("");
               setNbManager("");
             }}
@@ -922,6 +949,21 @@ const nbManagerOptions = useMemo(() => {
 
               <select
                 className="pill-select recap-namefilter"
+                value={nbOriginator}
+                onChange={(e) => setNbOriginator(e.target.value)}
+                title="Filter by Originator"
+                disabled={!billingPeriod || !nbOriginatorOptions.length}
+              >
+                <option value="">All Originators</option>
+                {nbOriginatorOptions.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="pill-select recap-namefilter"
                 value={nbPartner}
                 onChange={(e) => setNbPartner(e.target.value)}
                 title="Filter by Partner"
@@ -1011,7 +1053,7 @@ const nbManagerOptions = useMemo(() => {
                       <input
                         type="text"
                         className="nb-search-input"
-                        placeholder="Search clients, partners, managers, reasons…"
+                        placeholder="Search clients, originators, partners, managers, reasons…"
                         value={nbSearch}
                         onChange={(e) => setNbSearch(e.target.value)}
                       />
@@ -1022,6 +1064,11 @@ const nbManagerOptions = useMemo(() => {
                         <span className="chip-label">Bill Through:</span>{" "}
                         {formatYmd(billingPeriod)}
                       </div>
+                      {nbOriginator && (
+                        <div className="chip">
+                          <span className="chip-label">Originator:</span> {nbOriginator}
+                        </div>
+                      )}
                       {nbPartner && (
                         <div className="chip">
                           <span className="chip-label">Partner:</span> {nbPartner}
@@ -1033,11 +1080,12 @@ const nbManagerOptions = useMemo(() => {
                         </div>
                       )}
                       <div className="spacer" />
-                      {(nbPartner || nbManager) && (
+                      {(nbOriginator || nbPartner || nbManager) && (
                         <button
                           type="button"
                           className="pill-btn clear-filter-btn"
                           onClick={() => {
+                            setNbOriginator("");
                             setNbPartner("");
                             setNbManager("");
                           }}
