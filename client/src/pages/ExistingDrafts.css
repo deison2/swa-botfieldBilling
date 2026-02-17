@@ -2071,6 +2071,67 @@ button.bare {
     0 0 0 1px rgba(255, 255, 255, 0.7) inset;
 }
 
+
+.abandon-draft-btn {
+  --ed-purple-bg: #ffe0e0;
+  --ed-purple-bg-hover: #ffe0e0;
+  --ed-purple-border: #f0a6a6;
+  --ed-purple-text: #b22020;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--ed-purple-border);
+  background: var(--ed-purple-bg);
+  color: var(--ed-purple-text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.7) inset,
+    0 1px 2px rgba(0, 0, 0, 0.04);
+  transition:
+    background 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease,
+    transform 70ms ease;
+}
+
+.abandon-draft-btn__icon {
+  display: block;
+}
+
+/* Hover / focus: slightly deeper but still soft */
+.abandon-draft-btn:hover,
+.abandon-draft-btn:focus-visible {
+  background: var(--ed-purple-bg-hover);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.9) inset,
+    0 2px 4px rgba(0, 0, 0, 0.06);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+/* Active click */
+.abandon-draft-btn:active {
+  transform: translateY(0);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.9) inset,
+    0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* Disabled state if you ever wire it up */
+.abandon-draft-btn:disabled {
+  opacity: 0.2;
+  cursor: default;
+  transform: none;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.7) inset;
+}
+
 /* ---------- Edit tray shell (new unified version) ---------- */
 
 /* Backdrop is just a positioning layer now – no dimming, no blocking */

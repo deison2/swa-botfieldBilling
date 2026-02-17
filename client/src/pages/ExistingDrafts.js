@@ -30,6 +30,7 @@ import {
   saveDraftFeeAnalysisRow,
   updateDraftFeeNarrative,
   logDraftEdits,
+  AbandonDraft as abandonDraft
 } from '../services/ExistingDraftsService';
 
 import ExistingDraftsEditTray from './ExistingDraftsEditTray';
@@ -736,6 +737,55 @@ function JobDetailsPanel({ details, pinRequest, setGlobalLoading }) {
 /* ─── page ────────────────────────────────────────────────────────── */
 export default function ExistingDrafts() {
 
+const [showAbandonModal, setShowAbandonModal] = useState(false);
+const [abandonTarget, setAbandonTarget] = useState(null); // { draftFeeIdx, billedClient }
+const [isAbandoning, setIsAbandoning] = useState(false);
+
+
+const handleAbandonDraftClick = (draftFeeIdx, billedClient) => {
+  setAbandonTarget({ draftFeeIdx, billedClient });
+  console.log(abandonTarget);
+  setShowAbandonModal(true);
+};
+
+const handleConfirmAbandon = async () => {
+  const draftFeeIdx = abandonTarget?.draftFeeIdx;
+  if (!draftFeeIdx) return;
+
+  setIsAbandoning(true);
+
+  try {
+    await abandonDraft(draftFeeIdx);
+
+    // Remove that draft from the table
+    setRawRows(prev => prev.filter(r => Number(r.DRAFTFEEIDX) !== Number(draftFeeIdx)));
+
+    //Also remove it from selectedIds (checkbox selection)
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.delete(Number(draftFeeIdx));
+      return next;
+    });
+    
+  } catch (err) {
+    console.error("abandonDraft failed:", err);
+    alert("Could not abandon draft. Please try again.");
+  } finally {
+    setIsAbandoning(false);
+    setShowAbandonModal(false);
+    setAbandonTarget(null);
+  }
+};
+
+
+
+
+// cancel/close modal
+const handleCancelAbandon = () => {
+  setShowAbandonModal(false);
+};
+
+
 function saveFiltersToStorage(filters) {
   localStorage.setItem('tableFilters', JSON.stringify(filters));
 }
@@ -992,7 +1042,7 @@ useEffect(() => {
 
   /* Bill Through (value comes from blob on load; super users can change it) */
   const [billThrough, setBillThrough] = useState(endOfPrevMonth());
-  const [removeBTFilter, setRemoveBTFilter] = useState(false);
+  const [removeBTFilter, setRemoveBTFilter] = useState(true);
   const [btOpen, setBtOpen] = useState(false);
   const [btMonth, setBtMonth] = useState(() =>
     new Date(billThrough.getFullYear(), billThrough.getMonth(), 1)
@@ -1301,7 +1351,7 @@ useEffect(() => {
 //  Number(v).toLocaleString("en-US", { style: "currency", currency: "USD" });
 //const num = v => v == null ? "–" : Number(v).toLocaleString("en-US");
 
-function DraftRow({ d, client, granData, onHover, onLeave, onPin, expanded, onToggleExpand, WIPType }) {
+function DraftRow({ d, client, granData, onHover, onLeave, onPin, expanded, onToggleExpand }) {
   const payload = {
     clientCode : client.code,
     clientName : client.name,
@@ -1413,11 +1463,8 @@ const Expandable = ({ data, isSuperUser, editingDraftIdx }) => {
   const [detailRows, setDetailRows]   = React.useState([]);
   const [detailTitle, setDetailTitle] = React.useState('');
 
-
   const editDraftEnabled = !!isSuperUser;
   const [showStandardizationTip, setShowStandardizationTip] = useState(false);
-
-
   // --- Edit Draft: lock check + lock/unlock stub ---
   const handleEditDraftClick = async () => {
     if (!isSuperUser) {
@@ -1977,6 +2024,42 @@ const closeCreated = () => {
                 <div className="panel__title">Draft Narratives</div>
 
                 <div className="panel-actions">
+                  <button
+                    type="button"
+                    className={`abandon-draft-btn ${!editDraftEnabled ? 'is-disabled' : ''}`}
+                    disabled={!editDraftEnabled}
+                    onClick={() => handleAbandonDraftClick(data.DRAFTFEEIDX, data.BILLEDCLIENT)}
+                    aria-disabled={!editDraftEnabled}
+                    title={
+                      editDraftEnabled
+                        ? 'Abandon Draft'
+                        : 'Only super users can abandon drafts'
+                    }
+                  >
+                    <svg
+                      className="abandon-draft-btn__icon"
+                      viewBox="0 0 24 24"
+                      width="16"
+                      height="16"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M6 6l12 12"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d="M18 6L6 18"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    <span className="abandon-draft-btn__label">Abandon Draft</span>
+                  </button>
                   <button
                     type="button"
                     className={`edit-draft-btn ${!editDraftEnabled ? 'is-disabled' : ''}`}
@@ -2832,9 +2915,9 @@ console.log('PDF header:', header);
                 <button
                   type="button"
                   className="bt-link"
-                  onClick={() => setRemoveBTFilter(true)}
+                  onClick={() => setRemoveBTFilter(!removeBTFilter)}
                 >
-                  Remove Date Filter
+                  {removeBTFilter === true ? 'Apply Date Filter': 'Remove Date Filter'}
                 </button>
                 <button
                   type="button"
@@ -3175,7 +3258,44 @@ console.log('PDF header:', header);
         }}
         onWipAdded={() => refreshEditTrayData(editTrayState.draftIdx)}
       />
- 
+      {showAbandonModal && (
+        <div
+          className="scope-modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="abandon-modal-title"
+          onClick={handleCancelAbandon} // click outside closes
+        >
+          <div className="scope-modal" onClick={(e) => e.stopPropagation()}>
+            <h3 id="abandon-modal-title">Abandon Draft</h3>
+
+            <p className="scope-hint">
+              Are you sure you want to abandon {abandonTarget?.billedClient}
+              {"'"}s draft?
+            </p>
+
+            <div className="scope-btn-row">
+              <button
+                type="button"
+                className="scope-btn all"
+                onClick={handleConfirmAbandon}
+                disabled={isAbandoning}
+              >
+                {isAbandoning ? "Abandoning…" : "Abandon"}
+              </button>
+
+              <button
+                type="button"
+                className="scope-btn cancel"
+                onClick={handleCancelAbandon}
+                disabled={isAbandoning}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </main>
     </div>
   );

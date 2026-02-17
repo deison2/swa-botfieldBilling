@@ -332,10 +332,13 @@ useEffect(() => {
   (async () => {
     try {
       const raw = await getDraftFeeWIPSpecialList(draftIdx);
-      const wipIndexes = (Array.isArray(raw) ? raw : [])
-        .map((x) => x?.WipIndex ?? x?.WIPIndex ?? x?.wipIndex)
-        .filter((v) => v != null);
-
+      const wipIndexes = raw.flatMap(r => {
+          if (Array.isArray(r.WipIndex)) return r.WipIndex.map(Number).filter(Boolean);
+          return String(r.WipIndex || "")
+            .split(",")
+            .map(s => Number(s.trim()))
+            .filter(Boolean);
+        });
       if (!cancelled) setWipIndexes_Orig(wipIndexes);
     } catch (e) {
       console.error("Failed to load special WIP list", e);
@@ -531,7 +534,7 @@ const updateNarrative = async (idx, lang, servindex, amount) => {
     return;
   }
 
-  await updateDraftFeeNarrative({
+  const payload = {
     DebtNarrIndex: row.DebtNarrIndex,
     DraftFeeIdx: draftIdx,
     LineOrder: row.LineOrder,
@@ -543,7 +546,9 @@ const updateNarrative = async (idx, lang, servindex, amount) => {
     VATRate: row.VATRate ?? "0",
     VATPercent: row.VATPercent ?? 0,
     VATAmount: row.VATAmount ?? 0,
-  });
+  };
+
+  await updateDraftFeeNarrative(payload);
 };
 
 // Debounce wrapper
@@ -629,15 +634,28 @@ const onSelectClient = async (contIndex, clientcode, clientname) => {
 
       const selected = wipRows.filter((r, i) => checkedMap[rowKey(r, i)]);
       console.log(selected);
-      const selectedWipIndexes = selected.map(r => Number(r.WIPIds)).filter(Boolean);
+      const selectedWipIndexes = selected
+      .flatMap(r =>
+        String(r.WIPIds || "")
+          .split(",")
+          .map(s => Number(s.trim()))
+          .filter(Boolean)
+      );
       console.log(selectedWipIndexes);
       await draftFeeAddClients(draftIdx, [selectedContIndex], selectedWipIndexes);
 
-      if (typeof onWipAdded === "function") {
-          await onWipAdded();
-        } else {
-          console.warn("onWipAdded prop is not a function:", onWipAdded);
-        }
+
+      const fresh = await getDraftFeeAnalysis(draftIdx);
+      const rows = (fresh?.Items ?? []).map((rr) => {
+        const base =
+          rr.BillInClientCur ?? rr.BillAmount ?? rr.BalInClientCur ?? 0;
+        return {
+          ...rr,
+          BillInClientCur: Number(base) || 0,
+          _draftAmtDisplay: formatMoneyInput(base),
+        };
+      });
+      setanalysisRows_New(rows);
 
       setWipModalOpen(false);
     } catch (e) {
@@ -866,9 +884,11 @@ if (!sameAnalysis) {
   processes.push((async () => {
   console.log('Reverting to original analysis lines...');
     const allocIndexes = analysisRows_New.map((r) => r.AllocIdx);
-    await draftFeeDeleteWipAllocation(draftIdx, allocIndexes);
+    if (allocIndexes.length > 0) {
+        await draftFeeDeleteWipAllocation(draftIdx, allocIndexes);
+    }
 
-    // Get uniquer contindexes from original analysis rows to re-add clients
+    // Get unique contindexes from original analysis rows to re-add clients
     const uniqueContIndexes = Array.from(
       new Set((analysisRows_Orig || [])
       .map(item => item?.ContIndex)
@@ -880,26 +900,8 @@ if (!sameAnalysis) {
 
     await draftFeeAddClients(draftIdx, uniqueContIndexes, wipIndexes_Orig);
     
-    console.log(analysisRows_Orig);
     // add analysis row back
     await Promise.all(
-/*
-      const payload = {
-          "AllocIndex": allocIndex,
-          "BillAmount": billAmount,
-          "WIPOS": matchingRow?.['WIPInClientCur'],
-          "BillType": matchingRow?.['BillType'],
-          "BillWoff": Woff,
-          "DebtTranIndex": draftIdx,
-          "Job_Allocation_Type": matchingRow?.['Job_Allocation_Type'],
-          "Narrative": "",
-          "VATCode": "0",
-          "WipAnalysis": matchingRow?.['WipAnalysis'],
-          "VATAmt": 0,
-          "DebtTranDate": debttrandate,
-          "CFwd": false
-        };
-        */
       (analysisRows_Orig || []).map((item) => {
         const payload = {
           AllocIndex: item.AllocIdx,
@@ -969,6 +971,8 @@ await Promise.all(
       WIPType: src.WIPType ?? "TIME",
     };
 
+    console.log(payload);
+
     return updateDraftFeeNarrative(payload);
   })
 );
@@ -976,16 +980,10 @@ await Promise.all(
 }
 
 await Promise.all(processes);
-
-if (sameNarr && sameAnalysis) {
   setSaving(false);
   onClose(false);
+  resetAllState();
   return;         //stop the save flow if no changes
-}
-
-setSaving(true);
-onClose(true);
-      resetAllState();
     } catch (err) {
       console.error(err);
       setError("Sorry, something went wrong reverting your changes.");

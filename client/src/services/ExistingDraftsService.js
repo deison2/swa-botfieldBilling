@@ -12,6 +12,23 @@ export async function getToken() {
   return token;
 }
 
+export async function AbandonDraft(DebtTranIndex) {
+  console.log('Draft Index - ', DebtTranIndex);
+  const token = await getToken();
+  setAuthToken(token);
+  const res = await fetch('/api/AbandonDraft', {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      DebtTranIndex: DebtTranIndex,
+      token
+    })
+  });
+  if (!res.ok) throw new Error("Create failed");
+  const bulkListId = await res.text(); // <-- need await
+  return bulkListId;
+}
+
 export async function CreateBulkPrintList(draftIndexes) {
   console.log('Draft Indexes - ', draftIndexes);
   const token = await getToken();
