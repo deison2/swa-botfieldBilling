@@ -523,6 +523,7 @@ const nbManagerOptions = useMemo(() => {
       "Client Name",
       "Partner",
       "Manager",
+      "Service",
       "WIP Outstanding",
       "Exclusion Reason(s)",
     ];
@@ -532,6 +533,7 @@ const nbManagerOptions = useMemo(() => {
       r.CLIENTNAME ?? "",
       r.BILLINGCLIENTPARTNER || r.CLIENTPARTNERNAME || "",
       r.BILLINGCLIENTMANAGER || r.CLIENTMANAGERNAME || "",
+      r.SERVINDEX || "",
       Number(r?.WIPOUTSTANDING ?? 0).toFixed(2),
       buildExclusionReasons(r) || "",
     ]);
@@ -594,6 +596,13 @@ const nbManagerOptions = useMemo(() => {
         selector: (r) => r.BILLINGCLIENTMANAGER || r.CLIENTMANAGERNAME || "Unassigned",
         sortable: true,
         width: "170px",
+        wrap: false,
+      },
+      {
+        name: "Service",
+        selector: (r) => r.SERVINDEX || "Unassigned",
+        sortable: true,
+        width: "130px",
         wrap: false,
       },
       {
