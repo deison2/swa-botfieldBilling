@@ -1260,6 +1260,11 @@
 
 /* lock money columns via <colgroup> */
 .existing-drafts .mini-table col.col-money { width: var(--money-col-w); }
+.existing-drafts .mini-table td.col-knuula { width: var(--money-col-w); color:#a943d3; }
+
+.col-contract { width: 36px; text-align: center; }
+.contract-icon { width: 24px; height: 24px; vertical-align: middle; }
+.contract-link { display: flex; align-items: center; justify-content: center; }
 
 /* icon column + pills */
 .existing-drafts .mini-table .icon-cell{ width:64px; padding:0 6px; }
@@ -1328,8 +1333,12 @@
 .existing-drafts .num{ text-align:left; font-variant-numeric: tabular-nums; }
 
 /* bumper + no hover tint */
-.existing-drafts .drill-bumper td{ height:6px; padding:0; background:#f3f4f6; border:0; }
+.existing-drafts .drill-bumper td{ height:16px; padding:0; background:#f3f4f6; border:0; }
 .existing-drafts .panel .mini-table tbody tr:hover td{ background:inherit; }
+.mini-table tr.is-oos td {
+  background: #fff7cc;
+}
+
 /* Let the title host a right-side control */
 .panel--draft { position: relative; }
 .panel--draft .panel__title-row{
@@ -1871,8 +1880,26 @@ button.bare {
 /* The small bubble indicator */
 .job-bubble {
   position: absolute;
-  top: -12px;
-  right: -6px;
+  top: -16px;
+  right: -20px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background-color: #063941; /* blue accent */
+  color: white;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  box-shadow: 0 0 2px rgba(0,0,0,0.3);
+}
+.job-bubble-granular {
+  position: absolute;
+  top: -16px;
+  right: 18px;
   min-width: 18px;
   height: 18px;
   padding: 0 5px;

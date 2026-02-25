@@ -202,3 +202,26 @@
     transform: scale(1.25);
   }
 }
+.cheat-sheet-btn{
+  border: 1px solid rgba(255,255,255,0.25);
+  padding: 8px 12px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+               Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+               sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #063941;
+  background-color: #e4f0ef;
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  cursor: default;
+}
+
+.cheat-sheet-btn:hover{
+  background: rgba(255,255,255,0.08);
+  cursor: pointer;
+}

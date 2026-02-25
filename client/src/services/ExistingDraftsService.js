@@ -12,6 +12,30 @@ export async function getToken() {
   return token;
 }
 
+export async function getKnuulaFees() {
+  console.log('calling getKnuulaFees');
+  const res = await fetch('/api/getKnuulaData/feeData', {
+    method: "GET"
+  });
+  if (!res.ok) { // capture error payload
+    throw new Error(`Load failed: ${res.status}`);
+  }
+  const responseBody = await res.json();
+  return responseBody;
+}
+
+export async function getKnuulaContracts() {
+  console.log('calling getKnuulaContracts');
+  const res = await fetch('/api/getKnuulaData/contractData', {
+    method: "GET"
+  });
+  if (!res.ok) { // capture error payload
+    throw new Error(`Load failed: ${res.status}`);
+  }
+  const responseBody = await res.json();
+  return responseBody;
+}
+
 export async function AbandonDraft(DebtTranIndex) {
   console.log('Draft Index - ', DebtTranIndex);
   const token = await getToken();

@@ -30,7 +30,9 @@ import {
   saveDraftFeeAnalysisRow,
   updateDraftFeeNarrative,
   logDraftEdits,
-  AbandonDraft as abandonDraft
+  AbandonDraft as abandonDraft,
+  getKnuulaFees,
+  getKnuulaContracts
 } from '../services/ExistingDraftsService';
 
 import ExistingDraftsEditTray from './ExistingDraftsEditTray';
@@ -741,8 +743,42 @@ const [showAbandonModal, setShowAbandonModal] = useState(false);
 const [abandonTarget, setAbandonTarget] = useState(null); // { draftFeeIdx, billedClient }
 const [isAbandoning, setIsAbandoning] = useState(false);
 
+const [knuulaFees, setKnuulaFees] = useState([]);
+const [knuulaContracts, setKnuulaContracts] = useState([]);
 
-const handleAbandonDraftClick = (draftFeeIdx, billedClient) => {
+useEffect(() => {
+  let cancelled = false;
+
+  (async () => {
+    try {
+      const [feesRes, contractsRes] = await Promise.all([
+        getKnuulaFees(),
+        getKnuulaContracts(),
+      ]);
+
+      const feesArr = Array.isArray(feesRes) ? feesRes : (feesRes?.value ?? feesRes?.data ?? []);
+      const contractsArr = Array.isArray(contractsRes) ? contractsRes : (contractsRes?.value ?? contractsRes?.data ?? []);
+
+      console.log("fees:", feesArr.length, feesArr[0]);
+      console.log("contracts:", contractsArr.length, contractsArr[0]);
+
+      if (!cancelled) {
+        setKnuulaFees(feesArr);
+        setKnuulaContracts(contractsArr);
+      }
+    } catch (e) {
+      console.error("Failed to load Knuula data", e);
+      if (!cancelled) {
+        setKnuulaFees([]);
+        setKnuulaContracts([]);
+      }
+    }
+  })();
+
+  return () => { cancelled = true; };
+}, []);
+
+const handleAbandonDraftClick = (draftFeeIdx, billedClient) => { 
   setAbandonTarget({ draftFeeIdx, billedClient });
   console.log(abandonTarget);
   setShowAbandonModal(true);
@@ -1362,6 +1398,17 @@ function DraftRow({ d, client, granData, onHover, onLeave, onPin, expanded, onTo
 
   const rowKey = `${d.DRAFTFEEIDX}-${d.SERVPERIOD}-${d.CONTINDEX}-${d.WIPTYPE}`;
 
+  const knuulaFee =
+  knuulaFees.find(q => Number(q.JOB_IDX) === Number(d.SERVPERIOD))?.FEE ?? 0;
+
+  const contract = (Array.isArray(knuulaContracts) ? knuulaContracts : [])
+    .find(q => Number(q.JOB_IDX) === Number(d.SERVPERIOD));
+
+  const contractId = contract?.CONTRACT_ID ?? "";
+  const contractUrl = contract?.CONTRACT_URL ?? (contractId ? `https://knuula.com/contract/${encodeURIComponent(contractId)}` : "");
+
+  const iconUrl = "https://storageacctbmssprod001.blob.core.windows.net/container-bmssprod001-public/images/icon-review-letter.svg";
+
   return (
     <tr key={rowKey} style={d.finalCheck === 'X' ? { color: 'red' } : undefined}>
       <td className="icon-cell">
@@ -1400,9 +1447,24 @@ function DraftRow({ d, client, granData, onHover, onLeave, onPin, expanded, onTo
       <td>{d.SERVINDEX}</td>
       <td>{d.WIPTYPE}</td>
       <td>{d.JOBTITLE}</td>
-      <td>{currency(d.DRAFTWIP)}</td>
+      <td>{currency(d.DRAFTWIP)}      </td>
       <td>{currency(d.DRAFTAMOUNT)}</td>
       <td>{currency(d.WRITE_OFF_UP)}</td>
+      <td className="num col-knuula">{currency(knuulaFee)}</td>
+      <td className="col-contract">
+        {contractUrl ? (
+          <a
+            href={contractUrl}
+            target="_blank"
+            rel="noreferrer"
+            title="Open Knuula contract"
+            className="contract-link"
+            onClick={(e) => e.stopPropagation()} // so it doesn't toggle expand if row is clickable
+          >
+            <img src={iconUrl} alt="Contract" className="contract-icon" />
+          </a>
+        ) : null}
+      </td>
     </tr>
   );
 }
@@ -1646,6 +1708,13 @@ const closeCreated = () => {
 
   // sort rows: Code → Job → ServicePeriod
   const rows = (data.DRAFTDETAIL ?? []).toSorted((a, b) => {
+  const aw = (a.WIPTYPE ?? "").toString().trim();
+  const bw = (b.WIPTYPE ?? "").toString().trim();
+  if (aw !== bw) {
+    if (!aw) return 1;      // blanks last
+    if (!bw) return -1;
+    return bw.localeCompare(aw, undefined, { numeric: true, sensitivity: "base" }); // DESC
+  }
     const ac = (data.codeMap[a.CONTINDEX]?.code ?? "").toString().trim();
     const bc = (data.codeMap[b.CONTINDEX]?.code ?? "").toString().trim();
     if (ac !== bc) {
@@ -1751,20 +1820,24 @@ const closeCreated = () => {
                 </thead>
                 <tbody>
                   {rows.length === 0 ? (
-                    <tr><td colSpan={8} className="muted">No rows matched.</td></tr>
-                  ) : rows.map((r, i) => (
-                    <tr key={i}>
-                      <td>{g(r,'StaffName')}</td>
-                      <td>{fmtDate(g(r,'WIPDate'))}</td>
-                      <td>{g(r,'Task_Subject')}</td>
-                      <td>{g(r,'OOS')}</td>
-                      <td className="num">{Number(g(r,'WIPHours') ?? 0).toFixed(2)}</td>
-                      <td className="num">{currency(Number(g(r,'WIPAmount') ?? 0))}</td>
-                      <td className="num">{currency(Number(g(r,'BillAmount') ?? 0))}</td>
-                      <td>{String(g(r,'Narrative') ?? '').trim() || '—'}</td>
-                      <td>{String(g(r,'InternalNotes') ?? '').trim() || '—'}</td>
-                    </tr>
-                  ))}
+                    <tr><td colSpan={9} className="muted">No rows matched.</td></tr>
+                  ) : rows.map((r, i) => {
+                    const isOOS = String(g(r, 'OOS') ?? '').trim().toUpperCase() === 'X';
+
+                    return (
+                      <tr key={i} className={isOOS ? 'is-oos' : ''}>
+                        <td>{g(r,'StaffName')}</td>
+                        <td>{fmtDate(g(r,'WIPDate'))}</td>
+                        <td>{g(r,'Task_Subject')}</td>
+                        <td className="num">{g(r,'OOS')}</td>
+                        <td className="num">{Number(g(r,'WIPHours') ?? 0).toFixed(2)}</td>
+                        <td className="num">{currency(Number(g(r,'WIPAmount') ?? 0))}</td>
+                        <td className="num">{currency(Number(g(r,'BillAmount') ?? 0))}</td>
+                        <td>{String(g(r,'Narrative') ?? '').trim() || '—'}</td>
+                        <td>{String(g(r,'InternalNotes') ?? '').trim() || '—'}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -1784,7 +1857,7 @@ const closeCreated = () => {
       {/* Panel 1: Draft WIP Analysis */}
       <div className="panel panel--draft">
         <div className="panel__title-row">
-          <div className="panel__title">Draft WIP Analysis</div>
+          <div className="panel__title">Draft WIP Analysis (Rows in red are jobs in a finalization workstatus)</div>
 
           {/* right aligned controls */}
           <div className="panel-actions">
@@ -1877,6 +1950,8 @@ const closeCreated = () => {
               <col className="col-money" />            {/* Draft WIP */}
               <col className="col-money" />            {/* Draft Amt */}
               <col className="col-money" />            {/* Write-Off */}
+              <col className="col-knuula" />            {/* Knuula Quote */}
+              <col className="col-contract" />            {/* Knuula Contract */}
             </colgroup>
 
             <thead>
@@ -1890,6 +1965,8 @@ const closeCreated = () => {
                 <th>Draft WIP</th>
                 <th>Draft Amt</th>
                 <th>Write-Off</th>
+                <th className="col-knuula">Knuula Quote</th>
+                <th className="col-contract">Knuula Contract</th>
               </tr>
             </thead>
 
@@ -1925,7 +2002,7 @@ const closeCreated = () => {
                       <>
                         {/* TOGGLE ROW ONLY (white pills) */}
                         <tr className="drill-subhead">
-                          <td colSpan={9}>
+                          <td colSpan={10}>
                             <div className="seg-toggle" role="tablist" aria-label="Breakdown mode">
                               <button
                                 type="button"
@@ -1960,6 +2037,7 @@ const closeCreated = () => {
                           <td className="th-like num">Draft WIP</td>
                           <td className="th-like num">Draft Amt</td>
                           <td className="th-like num">Write-Off</td>
+                          
                         </tr>
 
                         {/* DATA ROWS */}
@@ -2007,7 +2085,7 @@ const closeCreated = () => {
                         )}
 
                         {/* bumper */}
-                        <tr className="drill-bumper"><td colSpan={9} /></tr>
+                        <tr className="drill-bumper"><td colSpan={10} /></tr>
                       </>
                     )}
                   </React.Fragment>
