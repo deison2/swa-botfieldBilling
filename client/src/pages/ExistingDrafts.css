@@ -2402,11 +2402,11 @@ button.bare {
 
 /* left side: analysis table - DRILLDOWN */
 .edtray__col--analysis .mini-table2 th:nth-child(1) { width: 4%; }  /* Service */
-.edtray__col--analysis .mini-table2 th:nth-child(2) { width: 20%; }  /* Service */
+.edtray__col--analysis .mini-table2 th:nth-child(2) { width: 18%; }  /* Service */
 .edtray__col--analysis .mini-table2 th:nth-child(3) { width: 8%; }  /* Job */
 .edtray__col--analysis .mini-table2 th:nth-child(4) { width: 10%; }  /* Type */
 .edtray__col--analysis .mini-table2 th:nth-child(5) { width: 10%; }  /* Draft Amt */
-.edtray__col--analysis .mini-table2 th:nth-child(6) { width: 12%; }  /* delete icon */
+.edtray__col--analysis .mini-table2 th:nth-child(6) { width: 14%; }  /* delete icon */
 .edtray__col--analysis .mini-table2 th:nth-child(7) { width: 10%; }  /* delete icon */
 .edtray__col--analysis .mini-table2 th:nth-child(8) { width: 10%; }  /* delete icon */
 .edtray__col--analysis .mini-table2 th:nth-child(9) { width: 4%; }  /* delete icon */
