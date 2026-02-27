@@ -53,6 +53,7 @@ module.exports = async function (context, req) {
 
     // Payload the Logic App expects
     const payload = { clientCode, dateRange };
+    const fallBack = [];
 
     const resp = await fetch(invoiceLineItemsUrl, {
       method: "POST",
@@ -62,10 +63,10 @@ module.exports = async function (context, req) {
 
     // Pass through Logic App response or surface a helpful error
     if (!resp.ok) {
-      const text = await resp.text();
+      console.log('No invoices found in the given date range');
       context.res = {
-        status: resp.status,
-        body: { error: "Upstream error", status: resp.status, message: text },
+        status: 200,
+        body: fallBack,
       };
       return;
     }
@@ -76,10 +77,11 @@ module.exports = async function (context, req) {
       body: data,
     };
   } catch (err) {
-    context.log.error("invoiceLineItems handler failed:", err);
-    context.res = {
-      status: 500,
-      body: { error: "Internal server error", message: err?.message ?? String(err) },
-    };
+    const fallBack = [];
+      console.log('No invoices found in the given date range');
+      context.res = {
+        status: 200,
+        body: fallBack,
+      };
   }
 };

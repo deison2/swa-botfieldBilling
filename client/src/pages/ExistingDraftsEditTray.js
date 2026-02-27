@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { Trash2, ChevronRight } from "lucide-react";
 import { PopoverPortal } from "./ExistingDrafts";
 import "./ExistingDrafts.css";
+import "./ExistingDraftsEditTray.css";
 import KbRunnerLoader from "../components/KbRunnerLoader"; // adjust path as needed
 import LoaderMini from "../components/LoaderMini"; // adjust path if needed
 
@@ -18,7 +20,8 @@ import {
   draftFeeClientOrGroupWIPList, //show wip population
   populateWIPAnalysisDrillDown,
   recalculateWIPAllocFromSummary,
-  DraftFeeAddInterimFeeAutoAllocate
+  DraftFeeAddInterimFeeAutoAllocate,
+  underLyingEntries
 } from '../services/ExistingDraftsService';
 
 import {
@@ -80,76 +83,6 @@ function rowKey(row, i) {
   return String(row?.WIPIndex ?? row?.WipIndex ?? row?.Id ?? `row-${i}`);
 }
 
-const styles = {
-  backdrop: {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(0,0,0,0.4)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 9999,
-    padding: 16,
-  },
-  modal: {
-    width: "min(1100px, 95vw)",
-    maxHeight: "90vh",
-    background: "#fff",
-    borderRadius: 12,
-    overflow: "hidden",
-    display: "flex",
-    flexDirection: "column",
-  },
-  header: {
-    padding: "12px 16px",
-    borderBottom: "1px solid #eee",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  closeBtn: {
-    border: "none",
-    background: "transparent",
-    cursor: "pointer",
-    fontSize: 18,
-    lineHeight: 1,
-  },
-  section: { padding: 16, display: "flex", flexDirection: "column", gap: 10 },
-  row: { display: "flex", alignItems: "center", gap: 12 },
-  rowBetween: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 },
-  input: {
-    width: "min(420px, 100%)",
-    padding: "8px 10px",
-    borderRadius: 8,
-    border: "1px solid #ddd",
-  },
-  tableWrap: { overflow: "auto", border: "1px solid #eee", borderRadius: 10 },
-  table: { width: "100%", borderCollapse: "collapse", fontSize: 14 },
-  primaryBtn: {
-    border: "1px solid #1f6feb",
-    background: "#1f6feb",
-    color: "#fff",
-    borderRadius: 8,
-    padding: "7px 10px",
-  },
-  secondaryBtn: {
-    border: "1px solid #ddd",
-    background: "#fff",
-    borderRadius: 8,
-    padding: "7px 10px",
-    cursor: "pointer",
-  },
-  muted: { color: "#666", fontSize: 13 },
-  error: { color: "#b42318", fontSize: 13 },
-  empty: { textAlign: "center", padding: 14, color: "#666" },
-  footer: {
-    padding: 12,
-    borderTop: "1px solid #eee",
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: 10,
-  },
-};
 
 export default function ExistingDraftsEditTray({
       open,
@@ -216,6 +149,35 @@ const [drillOpen, setDrillOpen] = useState(false);
 const [drillParentIndex, setDrillParentIndex] = useState(null); // which analysis row is drilled
 const [drillSelected, setDrillSelected] = useState("Staff");
 const [drillRows, setDrillRows] = useState([]); // whatever populate returns
+const [entryDetailOpen, setEntryDetailOpen]   = useState(false);
+const [entryDetailRows, setEntryDetailRows]   = useState([]);
+const [entryDetailTitle, setEntryDetailTitle] = useState('');
+
+const ENTRY_LEVEL_MAP = {
+  Staff:    'DraftFeeWIPEditAnalysisStaffList',
+  Analysis: 'DraftFeeWIPEditAnalysisAnalysisList',
+  Task:     'DraftFeeWIPEditAnalysisTaskList',
+  Roles:    'DraftFeeWIPEditAnalysisRoleList',
+};
+
+const handleViewEntries = async (drillRow) => {
+  const entryLevel = ENTRY_LEVEL_MAP[drillSelected];
+  if (!entryLevel) return;
+  const name = drillRow.StaffName ?? drillRow.ChargeName ?? drillRow.Task_Subject ?? drillRow.RoleName ?? '';
+  setEntryDetailTitle(`Underlying Entries — ${drillSelected}: ${name}`);
+  setEntryDetailRows([]);
+  setEntryDetailOpen(true);
+  try {
+    const wipIds = String(drillRow.WIPIds || "")
+      .split(",")
+      .map(s => Number(s.trim()))
+      .filter(Boolean);
+    const result = await underLyingEntries(entryLevel, draftIdx, wipIds);
+    setEntryDetailRows(Array.isArray(result) ? result : (result?.Items ?? []));
+  } catch (e) {
+    console.error('underLyingEntries failed:', e);
+  }
+};
 const [autoAllocForm, setAutoAllocForm] = useState({
   timeWip: 0,
   timeBill: 0,
@@ -687,6 +649,8 @@ const onSelectClient = async (contIndex, clientcode, clientname) => {
     [analysisRows_New, narrRows_New]
   );
 
+  const wipTypeOptions = ["TIME", "DISB"];
+
   // ---------- derived totals ----------
   const analysisTotal = useMemo(
     () =>
@@ -994,6 +958,72 @@ await Promise.all(processes);
 
   // NOTE: no early `if (!open) return null;`
 
+  function EtrayDetailModal() {
+    if (!entryDetailOpen) return null;
+    const fmtDate = (s) => {
+      if (!s) return '–';
+      const txt = String(s).trim();
+      const [ymd] = txt.split(/[ T]/);
+      const [y, m, d] = (ymd || '').split('-').map(Number);
+      const dt = new Date(y, m - 1, d);
+      if (isNaN(dt)) return '–';
+      return dt.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' });
+    };
+    const g = (r, k) => r?.[k] ?? r?.[k.toUpperCase()] ?? r?.[k.toLowerCase()];
+    return (
+      <PopoverPortal open={entryDetailOpen}>
+        <div className="dtm-backdrop" onClick={() => setEntryDetailOpen(false)}>
+          <div className="dtm-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <div className="dtm-head">
+              <div className="dtm-title">{entryDetailTitle}</div>
+              <button className="dtm-x" onClick={() => setEntryDetailOpen(false)} aria-label="Close">×</button>
+            </div>
+            <div className="dtm-body">
+              <table className="mini-table">
+                <thead>
+                  <tr>
+                    <th>Staff Name</th>
+                    <th>Entry Date</th>
+                    <th>Task</th>
+                    <th className="num">OOS</th>
+                    <th className="num">Hours</th>
+                    <th className="num">WIP</th>
+                    <th className="num">Billed</th>
+                    <th>Narrative</th>
+                    <th>Internal Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {entryDetailRows.length === 0 ? (
+                    <tr><td colSpan={9} className="muted">Loading…</td></tr>
+                  ) : entryDetailRows.map((r, i) => {
+                    const isOOS = String(g(r, 'OOS') ?? '').trim().toUpperCase() === 'X';
+                    return (
+                      <tr key={i} className={isOOS ? 'is-oos' : ''}>
+                        <td>{g(r, 'StaffName')}</td>
+                        <td>{fmtDate(g(r, 'WIPDate'))}</td>
+                        <td>{g(r, 'Task_Subject')}</td>
+                        <td className="num">{g(r, 'OOS')}</td>
+                        <td className="num">{Number(g(r, 'WIPHours') ?? 0).toFixed(2)}</td>
+                        <td className="num">{currency(Number(g(r, 'WIPAmount') ?? 0))}</td>
+                        <td className="num">{currency(Number(g(r, 'BillAmount') ?? 0))}</td>
+                        <td>{String(g(r, 'Narrative') ?? '').trim() || '—'}</td>
+                        <td>{String(g(r, 'InternalNotes') ?? '').trim() || '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="dtm-foot">
+              <button className="dtm-btn" onClick={() => setEntryDetailOpen(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      </PopoverPortal>
+    );
+  }
+
   return (
     <PopoverPortal open={open}>
         <div className="edtray-backdrop">
@@ -1118,7 +1148,7 @@ await Promise.all(processes);
                       }
                     }}
                   >
-                    {isExpanded ? "▾" : "▸"}
+                    <ChevronRight size={15} className={isExpanded ? "drill-chevron drill-chevron--open" : "drill-chevron"} />
                   </button>
                 </td>
 
@@ -1186,7 +1216,7 @@ await Promise.all(processes);
                     onClick={() => deleteAnalysisRow(i)}
                     title="Delete line"
                   >
-                    ×
+                    <Trash2 size={15} />
                   </button>
                 </td>
               </tr>
@@ -1225,6 +1255,7 @@ await Promise.all(processes);
                             <table className="mini-table2">
                               <thead>
                                 <tr>
+                                  <th></th>
                                   <th>Name</th>
                                   <th className="num">Hours</th>
                                   <th className="num">WIP</th>
@@ -1239,6 +1270,25 @@ await Promise.all(processes);
                               <tbody>
                                 {drillRows.map((d, idx) => (
                                   <tr key={idx}>
+
+                                    <td className="edtray__delete-center">
+                                      <button
+                                        type="button"
+                                        className="table-pop-btn"
+                                        title="View underlying entries"
+                                        aria-label="View underlying entries"
+                                        onClick={() => handleViewEntries(d)}
+                                      >
+                                        <i className="fa" aria-hidden="true" style={{fontSize: 16, lineHeight: 1}}>&#xf0ce;</i>
+                                        <svg className="fa-fallback" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                                          <rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" strokeWidth="1.6"/>
+                                          <line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" strokeWidth="1.2"/>
+                                          <line x1="3" y1="13" x2="21" y2="13" stroke="currentColor" strokeWidth="1.2"/>
+                                          <line x1="9" y1="5" x2="9" y2="19" stroke="currentColor" strokeWidth="1.2"/>
+                                          <line x1="15" y1="5" x2="15" y2="19" stroke="currentColor" strokeWidth="1.2"/>
+                                        </svg>
+                                      </button>
+                                    </td>
                                     <td>
                                       {d.StaffName ??
                                         d.ChargeName ??
@@ -1335,7 +1385,7 @@ await Promise.all(processes);
                                         onClick={() => deleteDrillRow(idx, d.WIPIds)}
                                         title="Delete line"
                                       >
-                                        ×
+                                        <Trash2 size={15} />
                                       </button>
                                     </td>
                                   </tr>
@@ -1343,7 +1393,7 @@ await Promise.all(processes);
 
                                 {drillRows.length === 0 && (
                                   <tr>
-                                    <td colSpan={8} className="muted">
+                                    <td colSpan={9} className="muted">
                                       No drill-down rows.
                                     </td>
                                   </tr>
@@ -1392,6 +1442,7 @@ await Promise.all(processes);
             <thead>
               <tr>
                 <th>Narrative Text</th>
+                <th>WIP Type</th>
                 <th>Service</th>
                 <th className="num">Amount</th>
                 <th></th>
@@ -1423,6 +1474,31 @@ await Promise.all(processes);
                     <td>
                       <select
                         className="ed-input ed-input--svc"
+                        value={r.WIPType || ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+
+                          setnarrRows_New((rows) => {
+                            const next = rows.map((row, idx) =>
+                              idx === i ? { ...row, WIPType: val } : row
+                            );
+                            scheduleNarrativeUpdate(next[i], i);
+                            return next;
+                          });
+                        }}
+                      >
+                        <option value="">Select WIP Type...</option>
+                        {wipTypeOptions.map((svc) => (
+                          <option key={svc} value={svc}>
+                            {svc}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+
+                    <td>
+                      <select
+                        className="ed-input ed-input--svc"
                         value={r.ServIndex || ""}
                         onChange={(e) => {
                           const val = e.target.value;
@@ -1436,7 +1512,7 @@ await Promise.all(processes);
                           });
                         }}
                       >
-                        <option value="">Select service...</option>
+                        <option value="">Select Service...</option>
                         {serviceOptions.map((svc) => (
                           <option key={svc} value={svc}>
                             {svc}
@@ -1489,7 +1565,7 @@ await Promise.all(processes);
                         onClick={() => deleteNarrRow(i)}
                         title="Delete line"
                       >
-                        ×
+                        <Trash2 size={15} />
                       </button>
                     </td>
                   </tr>
@@ -1523,14 +1599,23 @@ await Promise.all(processes);
                 onChange={(e) => setReason(e.target.value)}
               >
                 <option value="">Select reason…</option>
-                <option value="Client preferences">
-                  Client preferences
+                <option value="Client Preferences">
+                  Client Preferences
+                </option>
+                <option value="First Year Audit">
+                  First Year Audit
+                </option>
+                <option value="More/Less Complex than PY job">
+                  More/Less Complex than PY job
                 </option>
                 <option value="Incorrect Calculation">
                   Incorrect Calculation
                 </option>
                 <option value="Partner/Manager Preference">
                   Partner/Manager Preference
+                </option>
+                <option value="Write Off">
+                  Write Off
                 </option>
                 <option value="Other">Other</option>
               </select>
@@ -1588,28 +1673,28 @@ await Promise.all(processes);
           </footer>
                       
                       {clientModalOpen && (
-  <div style={styles.backdrop} onMouseDown={() => setClientModalOpen(false)}>
-    <div style={styles.modal} onMouseDown={(e) => e.stopPropagation()}>
-      <div style={styles.header}>
-        <div style={{ fontWeight: 700 }}>Search Clients</div>
-        <button onClick={() => setClientModalOpen(false)} style={styles.closeBtn}>✕</button>
+  <div className="etray-modal-backdrop" onMouseDown={() => setClientModalOpen(false)}>
+    <div className="etray-modal" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="etray-modal-header">
+        <div className="etray-modal-title">Search Clients</div>
+        <button onClick={() => setClientModalOpen(false)} className="etray-modal-close">✕</button>
       </div>
 
-      <div style={styles.section}>
-        <div style={styles.row}>
+      <div className="etray-modal-body">
+        <div className="etray-modal-row">
           <input
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             placeholder="Search clients (min 3 chars)..."
-            style={styles.input}
+            className="etray-modal-input"
           />
-          {clientsLoading && <span style={styles.muted}>Loading…</span>}
+          {clientsLoading && <span className="etray-modal-muted">Loading…</span>}
         </div>
 
-        {clientsError && <div style={styles.error}>{clientsError}</div>}
+        {clientsError && <div className="etray-modal-error">{clientsError}</div>}
 
-        <div style={styles.tableWrap}>
-          <table style={styles.table}>
+        <div className="etray-modal-table-wrap">
+          <table className="etray-modal-table">
             <thead>
               <tr>
                 <th>ClientCode</th>
@@ -1631,7 +1716,7 @@ await Promise.all(processes);
                   <td style={{ textAlign: "center" }}>
                     <button
                       onClick={() => onSelectClient(Number(c.ContIndex), c.ClientCode, c.ClientName)}
-                      style={styles.primaryBtn}
+                      className="etray-modal-btn-primary"
                     >
                       Select
                     </button>
@@ -1641,7 +1726,7 @@ await Promise.all(processes);
 
               {!clientsLoading && searchText.trim().length >= 3 && clients.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={styles.empty}>No results</td>
+                  <td colSpan={6} className="etray-modal-empty">No results</td>
                 </tr>
               )}
             </tbody>
@@ -1649,8 +1734,8 @@ await Promise.all(processes);
         </div>
       </div>
 
-      <div style={styles.footer}>
-        <button onClick={() => setClientModalOpen(false)} style={styles.secondaryBtn}>
+      <div className="etray-modal-footer">
+        <button onClick={() => setClientModalOpen(false)} className="etray-modal-btn-secondary">
           Close
         </button>
       </div>
@@ -1659,38 +1744,34 @@ await Promise.all(processes);
 )}
 
 {wipModalOpen && (
-  <div style={styles.backdrop} onMouseDown={() => setWipModalOpen(false)}>
-    <div style={styles.modal} onMouseDown={(e) => e.stopPropagation()}>
-      <div style={styles.header}>
-        <div style={{ fontWeight: 700 }}>
+  <div className="etray-modal-backdrop" onMouseDown={() => setWipModalOpen(false)}>
+    <div className="etray-modal" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="etray-modal-header">
+        <div className="etray-modal-title">
           Select WIP - ({selectedClientCode}) {selectedClientName}
         </div>
-        <button onClick={() => setWipModalOpen(false)} style={styles.closeBtn}>✕</button>
+        <button onClick={() => setWipModalOpen(false)} className="etray-modal-close">✕</button>
       </div>
 
-      <div style={styles.section}>
-        <div style={styles.rowBetween}>
+      <div className="etray-modal-body">
+        <div className="etray-modal-row-between">
           <div style={{ fontWeight: 700 }}>WIP Results</div>
 
           <button
             onClick={onAddWip}
             disabled={!canAdd}
-            style={{
-              ...styles.primaryBtn,
-              opacity: canAdd ? 1 : 0.5,
-              cursor: canAdd ? "pointer" : "not-allowed",
-            }}
+            className="etray-modal-btn-primary"
           >
             {addLoading ? "Adding…" : "Add WIP"}
           </button>
         </div>
 
-        {wipLoading && <div style={styles.muted}>Loading WIP…</div>}
-        {wipError && <div style={styles.error}>{wipError}</div>}
-        {addError && <div style={styles.error}>{addError}</div>}
+        {wipLoading && <div className="etray-modal-muted">Loading WIP…</div>}
+        {wipError && <div className="etray-modal-error">{wipError}</div>}
+        {addError && <div className="etray-modal-error">{addError}</div>}
 
-        <div style={styles.tableWrap}>
-          <table style={styles.table}>
+        <div className="etray-modal-table-wrap">
+          <table className="etray-modal-table">
             <thead>
               <tr>
                 <th style={{ width: 42 }}></th>
@@ -1725,7 +1806,7 @@ await Promise.all(processes);
 
               {!wipLoading && wipRows.length === 0 && (
                 <tr>
-                  <td colSpan={4} style={styles.empty}>
+                  <td colSpan={4} className="etray-modal-empty">
                     No WIP rows returned for this client
                   </td>
                 </tr>
@@ -1735,8 +1816,8 @@ await Promise.all(processes);
         </div>
       </div>
 
-      <div style={styles.footer}>
-        <button onClick={() => setWipModalOpen(false)} style={styles.secondaryBtn}>
+      <div className="etray-modal-footer">
+        <button onClick={() => setWipModalOpen(false)} className="etray-modal-btn-secondary">
           Close
         </button>
       </div>
@@ -1744,18 +1825,18 @@ await Promise.all(processes);
   </div>
 )}
 {autoAllocModalOpen && (
-  <div style={styles.backdrop} onMouseDown={() => setAutoAllocModalOpen(false)}>
-    <div style={styles.modal} onMouseDown={(e) => e.stopPropagation()}>
-      <div style={styles.header}>
-        <div style={{ fontWeight: 700 }}>Auto Allocate WIP</div>
-        <button onClick={() => setAutoAllocModalOpen(false)} style={styles.closeBtn}>✕</button>
+  <div className="etray-modal-backdrop" onMouseDown={() => setAutoAllocModalOpen(false)}>
+    <div className="etray-modal" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="etray-modal-header">
+        <div className="etray-modal-title">Auto Allocate WIP</div>
+        <button onClick={() => setAutoAllocModalOpen(false)} className="etray-modal-close">✕</button>
       </div>
 
-      <div style={styles.section}>
-        {autoAllocError && <div style={styles.error}>{autoAllocError}</div>}
+      <div className="etray-modal-body">
+        {autoAllocError && <div className="etray-modal-error">{autoAllocError}</div>}
 
-        <div style={{ ...styles.tableWrap }}>
-          <table style={styles.table}>
+        <div className="etray-modal-table-wrap">
+          <table className="etray-modal-table">
             <thead>
               <tr>
                 <th></th>
@@ -1918,7 +1999,7 @@ await Promise.all(processes);
           </table>
         </div>
 
-        <div style={styles.footer}>
+        <div className="etray-modal-footer">
           <button
             onClick={() => setAutoAllocModalOpen(false)}
             disabled={autoAllocSaving}
@@ -1998,6 +2079,7 @@ await Promise.all(processes);
 
         </section>
       </div>
+      <EtrayDetailModal />
     </PopoverPortal>
   );
 }

@@ -12,6 +12,8 @@ import { GetGranularWIPData } from '../services/ExistingDraftsService';
 
 import { useAuth }      from '../auth/AuthContext';
 import './ExistingDrafts.css';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 //import { getJobDetails } from '../services/PE - Get Job Details'; // Used for PE API config testing purposes
 import {
   CreateBulkPrintList,
@@ -32,7 +34,8 @@ import {
   logDraftEdits,
   AbandonDraft as abandonDraft,
   getKnuulaFees,
-  getKnuulaContracts
+  getKnuulaContracts,
+  CombineDrafts
 } from '../services/ExistingDraftsService';
 
 import ExistingDraftsEditTray from './ExistingDraftsEditTray';
@@ -48,6 +51,8 @@ export function PopoverPortal({ open, children }) {
   if (!open) return null;
   return createPortal(children, document.body);
 }
+
+
 
 const norm = v => String(v ?? '').toLowerCase();
 const stripHtml = v => String(v ?? '').replace(/<[^>]*>/g, ' ');
@@ -227,6 +232,219 @@ function DatePicker({ label, date, setDate, onCloseNext }) {
   );
 }
 
+function TotalsByInvoiceLinePane({ clientCode, cacheRef, rangeRef, setGlobalLoading }) {
+    // defaults: Jan 1 this year → today
+    const today = new Date();
+    const jan1  = new Date(today.getFullYear(), 0, 1);
+
+    // restore per-client range if we have one
+    const saved = rangeRef.current.get(clientCode);
+    const [startDate, setStartDate] = React.useState(saved?.startDate ?? jan1);
+    const [endDate, setEndDate]     = React.useState(saved?.endDate ?? today);
+    const [forceOpenEnd, setForceOpenEnd] = React.useState(false);
+    const [loading, setLoading] = React.useState(false);
+
+    console.log(forceOpenEnd);
+
+    // NEW: distinct DebtTranIndex values for later API use
+    const [debtTranIndexes, setDebtTranIndexes] = React.useState([]); // integers
+
+    const handlePrintInvoices = async () => {
+        if (!debtTranIndexes.length) return;
+        try {
+          setGlobalLoading?.(true); // show the same overlay used elsewhere
+          console.log('DebtTranIndexes to print:', debtTranIndexes);
+
+          const listIdText = await CreateInvoiceBulkPrintList(debtTranIndexes);
+          const listId = listIdText.replaceAll('"', '');
+
+          const blob = await DownloadBulkList(listId);
+          const url  = window.URL.createObjectURL(blob);
+          window.open(url);
+        } catch (err) {
+          console.error('Invoice print failed:', err);
+        } finally {
+          setGlobalLoading?.(false);
+        }
+      };
+
+    // read a field regardless of casing (CLIENTCODE vs ClientCode, etc.)
+    const f = (row, name) =>
+      row?.[name] ?? row?.[name.toUpperCase()] ?? row?.[name.toLowerCase()] ?? undefined;
+
+
+    // derived, with simple validation (end >= start)
+    const validRange = endDate >= startDate;
+
+    const [rows, setRows] = React.useState([]);
+
+    React.useEffect(() => {
+      const key = `${clientCode}|${toIsoYmd(startDate)}|${toIsoYmd(endDate)}`;
+      const cached = cacheRef.current.get(key);
+      if (cached) {
+        // back-compat if cache previously stored array only
+        setRows(Array.isArray(cached) ? cached : (cached.rows || []));
+        setDebtTranIndexes(Array.isArray(cached?.debtTranIndexes) ? cached.debtTranIndexes : []);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      let cancelled = false;
+
+      (async () => {
+        try {
+          const dateRange = `'${toIsoYmd(startDate)}' and '${toIsoYmd(endDate)}'`;
+          const apiRows   = await GetInvoiceLineItems({ clientCode, dateRange });
+
+          // distinct DebtTranIndex values (integers)
+          const uniqueIdx = [
+            ...new Set(
+              (apiRows || [])
+                .map(r => Number(f(r, 'DebtTranIndex')))
+                .filter(n => Number.isFinite(n))
+            ),
+          ];
+
+          // group by narrative (HTML stripped), sum Net
+          const byNarr = new Map();
+          for (const r of apiRows || []) {
+            const narr = stripHtml(f(r, 'Narrative') || '').trim() || '—';
+            const amt  = Number(f(r, 'Net')) || 0;
+            byNarr.set(narr, (byNarr.get(narr) || 0) + amt);
+          }
+          const out = [...byNarr.entries()].map(([narrative, total]) => ({ narrative, total }))
+            .sort((a, b) => b.total - a.total);
+
+          if (!cancelled) {
+            cacheRef.current.set(key, { rows: out, debtTranIndexes: uniqueIdx });
+            setRows(out);
+            setDebtTranIndexes(uniqueIdx);
+          }
+        } catch (err) {
+          console.error('GetInvoiceLineItems failed, falling back to sample:', err);
+
+          // fallback to local sample so the UI still shows *something*
+          const start = parseYmdLocal(toIsoYmd(startDate));
+          const end   = parseYmdLocal(toIsoYmd(endDate));
+          const filtered = (sampleInvoiceLineItems || [])
+            .filter(r => String(f(r, 'ClientCode')) === String(clientCode))
+            .filter(r => {
+              const d = parseSqlishDate(f(r, 'DebtTranDate'));
+              return d >= start && d <= end;
+            });
+
+          const uniqueIdx = [
+            ...new Set(
+              filtered
+                .map(r => Number(f(r, 'DebtTranIndex')))
+                .filter(n => Number.isFinite(n))
+            ),
+          ];
+
+          const byNarr = new Map();
+          for (const r of filtered) {
+            const narr = stripHtml(f(r, 'Narrative') || '').trim() || '—';
+            const amt  = Number(f(r, 'Net')) || 0;
+            byNarr.set(narr, (byNarr.get(narr) || 0) + amt);
+          }
+          const out = [...byNarr.entries()].map(([narrative, total]) => ({ narrative, total }))
+            .sort((a, b) => b.total - a.total);
+
+          if (!cancelled) {
+            cacheRef.current.set(key, { rows: out, debtTranIndexes: uniqueIdx });
+            setRows(out);
+            setDebtTranIndexes(uniqueIdx);
+          }
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+      })();
+
+      return () => { cancelled = true; };
+    }, [clientCode, startDate, endDate]);
+
+    return (
+      <div className="totals-pane">
+        <div className="pane-subhead">
+          Displays totals by invoice line item for this client for the selected time period.
+          Click the dates to update the period.
+        </div>
+
+        <div className="date-range">
+          <DatePicker
+            label="Start"
+            date={startDate}
+            setDate={(d) => {
+              setStartDate(d);
+              if (endDate < d) setEndDate(d);
+              rangeRef.current.set(clientCode, { startDate: d, endDate: endDate < d ? d : endDate });
+            }}
+            onCloseNext={() => setForceOpenEnd(true)}
+          />
+
+          <DatePicker
+            label="End"
+            date={endDate}
+            setDate={(d) => {
+              setEndDate(d);
+              rangeRef.current.set(clientCode, { startDate, endDate: d });
+            }}
+          />
+
+          {/* NEW: “uploaded pages” / download invoices button */}
+          <button
+            type="button"
+            className={`invoices-btn ${rows.length ? '' : 'disabled'}`}
+            title="Click to download related invoices"
+            aria-label="Download related invoices"
+            disabled={!rows.length}
+            onClick={handlePrintInvoices}
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path d="M6 2h7l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" strokeWidth="1.6"/>
+              <path d="M13 2v5h5" fill="none" stroke="currentColor" strokeWidth="1.6"/>
+              <path d="M8 12h8M8 16h8M8 8h3" fill="none" stroke="currentColor" strokeWidth="1.6" />
+            </svg>
+          </button>
+        </div>
+
+        {!validRange && (
+          <div className="range-error" role="alert">
+            End date must be on or after the start date.
+          </div>
+        )}
+
+        <div className="totals-table-wrap">
+          {loading ? (
+            <div className="mini-loader" style={{ minHeight: 120, display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <InlineSpinner />
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="empty-msg">No invoices for this client within the date range selected.</div>
+          ) : (
+            <table className="mini-table mini-table--tight">
+              <thead>
+                <tr>
+                  <th style={{ width: '70%' }}>Narrative</th>
+                  <th className="num">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i}>
+                    <td className="narr-cell" title={r.narrative}>{r.narrative}</td>
+                    <td className="num">{currency(r.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    );
+  }
+
 function JobDetailsPanel({ details, pinRequest, setGlobalLoading }) {
   // ===== Helpers =====
   const getJobKey = (d = {}) =>
@@ -361,218 +579,7 @@ function JobDetailsPanel({ details, pinRequest, setGlobalLoading }) {
     const setTab = (t) => setTabFor(key, t);
 
   const disableOtherTabs = true; // lock non-totals tabs (UI only)
-  function TotalsByInvoiceLinePane({ clientCode, cacheRef, rangeRef }) {
-    // defaults: Jan 1 this year → today
-    const today = new Date();
-    const jan1  = new Date(today.getFullYear(), 0, 1);
-
-    // restore per-client range if we have one
-    const saved = rangeRef.current.get(clientCode);
-    const [startDate, setStartDate] = React.useState(saved?.startDate ?? jan1);
-    const [endDate, setEndDate]     = React.useState(saved?.endDate ?? today);
-    const [forceOpenEnd, setForceOpenEnd] = React.useState(false);
-    const [loading, setLoading] = React.useState(false);
-
-    console.log(forceOpenEnd);
-
-    // NEW: distinct DebtTranIndex values for later API use
-    const [debtTranIndexes, setDebtTranIndexes] = React.useState([]); // integers
-
-    const handlePrintInvoices = async () => {
-        if (!debtTranIndexes.length) return;
-        try {
-          setGlobalLoading?.(true); // show the same overlay used elsewhere
-          console.log('DebtTranIndexes to print:', debtTranIndexes);
-
-          const listIdText = await CreateInvoiceBulkPrintList(debtTranIndexes);
-          const listId = listIdText.replaceAll('"', '');
-
-          const blob = await DownloadBulkList(listId);
-          const url  = window.URL.createObjectURL(blob);
-          window.open(url);
-        } catch (err) {
-          console.error('Invoice print failed:', err);
-        } finally {
-          setGlobalLoading?.(false);
-        }
-      };
-
-    // read a field regardless of casing (CLIENTCODE vs ClientCode, etc.)
-    const f = (row, name) =>
-      row?.[name] ?? row?.[name.toUpperCase()] ?? row?.[name.toLowerCase()] ?? undefined;
-
-
-    // derived, with simple validation (end >= start)
-    const validRange = endDate >= startDate;
-
-    const [rows, setRows] = React.useState([]);
-
-    React.useEffect(() => {
-      const key = `${clientCode}|${toIsoYmd(startDate)}|${toIsoYmd(endDate)}`;
-      const cached = cacheRef.current.get(key);
-      if (cached) {
-        // back-compat if cache previously stored array only
-        setRows(Array.isArray(cached) ? cached : (cached.rows || []));
-        setDebtTranIndexes(Array.isArray(cached?.debtTranIndexes) ? cached.debtTranIndexes : []);
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      let cancelled = false;
-
-      (async () => {
-        try {
-          const dateRange = `'${toIsoYmd(startDate)}' and '${toIsoYmd(endDate)}'`;
-          const apiRows   = await GetInvoiceLineItems({ clientCode, dateRange });
-
-          // distinct DebtTranIndex values (integers)
-          const uniqueIdx = [
-            ...new Set(
-              (apiRows || [])
-                .map(r => Number(f(r, 'DebtTranIndex')))
-                .filter(n => Number.isFinite(n))
-            ),
-          ];
-
-          // group by narrative (HTML stripped), sum Net
-          const byNarr = new Map();
-          for (const r of apiRows || []) {
-            const narr = stripHtml(f(r, 'Narrative') || '').trim() || '—';
-            const amt  = Number(f(r, 'Net')) || 0;
-            byNarr.set(narr, (byNarr.get(narr) || 0) + amt);
-          }
-          const out = [...byNarr.entries()].map(([narrative, total]) => ({ narrative, total }))
-            .sort((a, b) => b.total - a.total);
-
-          if (!cancelled) {
-            cacheRef.current.set(key, { rows: out, debtTranIndexes: uniqueIdx });
-            setRows(out);
-            setDebtTranIndexes(uniqueIdx);
-          }
-        } catch (err) {
-          console.error('GetInvoiceLineItems failed, falling back to sample:', err);
-
-          // fallback to local sample so the UI still shows *something*
-          const start = parseYmdLocal(toIsoYmd(startDate));
-          const end   = parseYmdLocal(toIsoYmd(endDate));
-          const filtered = (sampleInvoiceLineItems || [])
-            .filter(r => String(f(r, 'ClientCode')) === String(clientCode))
-            .filter(r => {
-              const d = parseSqlishDate(f(r, 'DebtTranDate'));
-              return d >= start && d <= end;
-            });
-
-          const uniqueIdx = [
-            ...new Set(
-              filtered
-                .map(r => Number(f(r, 'DebtTranIndex')))
-                .filter(n => Number.isFinite(n))
-            ),
-          ];
-
-          const byNarr = new Map();
-          for (const r of filtered) {
-            const narr = stripHtml(f(r, 'Narrative') || '').trim() || '—';
-            const amt  = Number(f(r, 'Net')) || 0;
-            byNarr.set(narr, (byNarr.get(narr) || 0) + amt);
-          }
-          const out = [...byNarr.entries()].map(([narrative, total]) => ({ narrative, total }))
-            .sort((a, b) => b.total - a.total);
-
-          if (!cancelled) {
-            cacheRef.current.set(key, { rows: out, debtTranIndexes: uniqueIdx });
-            setRows(out);
-            setDebtTranIndexes(uniqueIdx);
-          }
-        } finally {
-          if (!cancelled) setLoading(false);
-        }
-      })();
-
-      return () => { cancelled = true; };
-    }, [clientCode, startDate, endDate, cacheRef]);
-
-    return (
-      <div className="totals-pane">
-        <div className="pane-subhead">
-          Displays totals by invoice line item for this client for the selected time period.
-          Click the dates to update the period.
-        </div>
-
-        <div className="date-range">
-          <DatePicker
-            label="Start"
-            date={startDate}
-            setDate={(d) => {
-              setStartDate(d);
-              if (endDate < d) setEndDate(d);
-              rangeRef.current.set(clientCode, { startDate: d, endDate: endDate < d ? d : endDate });
-            }}
-            onCloseNext={() => setForceOpenEnd(true)}
-          />
-
-          <DatePicker
-            label="End"
-            date={endDate}
-            setDate={(d) => {
-              setEndDate(d);
-              rangeRef.current.set(clientCode, { startDate, endDate: d });
-            }}
-          />
-
-          {/* NEW: “uploaded pages” / download invoices button */}
-          <button
-            type="button"
-            className={`invoices-btn ${rows.length ? '' : 'disabled'}`}
-            title="Click to download related invoices"
-            aria-label="Download related invoices"
-            disabled={!rows.length}
-            onClick={handlePrintInvoices}
-          >
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <path d="M6 2h7l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" strokeWidth="1.6"/>
-              <path d="M13 2v5h5" fill="none" stroke="currentColor" strokeWidth="1.6"/>
-              <path d="M8 12h8M8 16h8M8 8h3" fill="none" stroke="currentColor" strokeWidth="1.6" />
-            </svg>
-          </button>
-        </div>
-
-        {!validRange && (
-          <div className="range-error" role="alert">
-            End date must be on or after the start date.
-          </div>
-        )}
-
-        <div className="totals-table-wrap">
-          {loading ? (
-            <div className="mini-loader" style={{ minHeight: 120, display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <InlineSpinner />
-            </div>
-          ) : rows.length === 0 ? (
-            <div className="empty-msg">No invoices for this client within the date range selected.</div>
-          ) : (
-            <table className="mini-table mini-table--tight">
-              <thead>
-                <tr>
-                  <th style={{ width: '70%' }}>Narrative</th>
-                  <th className="num">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r, i) => (
-                  <tr key={i}>
-                    <td className="narr-cell" title={r.narrative}>{r.narrative}</td>
-                    <td className="num">{currency(r.total)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-    );
-  }
+  
 
 
     return (
@@ -684,7 +691,7 @@ function JobDetailsPanel({ details, pinRequest, setGlobalLoading }) {
                   {tab === 'totals' && (
                     <div className="vis-card">
                       <div className="vis-title">Totals by Invoice Line</div>
-                      <TotalsByInvoiceLinePane clientCode={data.clientCode} cacheRef={cacheRef} rangeRef={rangeRef} />
+                      <TotalsByInvoiceLinePane clientCode={data.clientCode} cacheRef={cacheRef} rangeRef={rangeRef} setGlobalLoading={setGlobalLoading} />
                     </div>
                   )}
 
@@ -719,6 +726,7 @@ function JobDetailsPanel({ details, pinRequest, setGlobalLoading }) {
           pinned
           cacheRef={invoiceTotalsCacheRef}
           rangeRef={invoiceDateRangeByClientRef}
+          setGlobalLoading={setGlobalLoading}
         />
       ))}
       {ephemeral && (
@@ -728,6 +736,7 @@ function JobDetailsPanel({ details, pinRequest, setGlobalLoading }) {
           pinned={false}
           cacheRef={invoiceTotalsCacheRef}
           rangeRef={invoiceDateRangeByClientRef}
+          setGlobalLoading={setGlobalLoading}
         />
       )}
     </div>
@@ -997,6 +1006,7 @@ useEffect(() => {
 
   /* >>> modal-state (NEW) >>> */
   const [showScopeModal, setShowScopeModal] = useState(false);
+  const [showCombineModal, setShowCombineModal] = useState(false);
   /* <<< modal-state END <<< */
 
   /* >>> select-all logic (REPLACED) >>> */
@@ -2531,6 +2541,19 @@ const closeCreated = () => {
     clearCreators();
   };
 
+  async function handleCombineDrafts(primaryId, otherIds) {
+    try {
+      setLoading(true);
+      await CombineDrafts(primaryId, otherIds);
+      setShowCombineModal(false);
+      setSelectedIds(new Set());
+    } catch (err) {
+      console.error('CombineDrafts failed:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
 async function handleGeneratePDF(selectedIds) {
 
   //console.log('typeof draftindexes:', typeof selectedIds);
@@ -2605,6 +2628,82 @@ console.log('PDF header:', header);
     );
   }
   /* <<< SelectScopeModal component END <<< */
+
+  /* >>> CombineDraftsModal component >>> */
+  function CombineDraftsModal({ ids, onSubmit, onClose }) {
+    const [primaryId, setPrimaryId] = useState(null);
+
+    if (!showCombineModal) return null;
+
+    const modalRows = rows.filter(r => ids.includes(r.DRAFTFEEIDX));
+
+    const handleSubmit = () => {
+      const otherIds = ids.filter(id => id !== primaryId);
+      onSubmit(primaryId, otherIds);
+    };
+
+    return (
+      <div className="scope-modal-backdrop" onClick={onClose}>
+        <div className="scope-modal combine-modal" onClick={e => e.stopPropagation()}>
+          <h3>Combine Drafts</h3>
+          <p className="scope-hint">Select the primary draft. All other selected drafts will be merged into it.</p>
+          <div className="combine-modal-table-wrap">
+            <table className="combine-modal-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Client</th>
+                  <th>Partner</th>
+                  <th>Originator</th>
+                  <th>Billed</th>
+                  <th>WIP</th>
+                </tr>
+              </thead>
+              <tbody>
+                {modalRows.map(r => (
+                  <tr
+                    key={r.DRAFTFEEIDX}
+                    className={primaryId === r.DRAFTFEEIDX ? 'selected' : ''}
+                    onClick={() => setPrimaryId(r.DRAFTFEEIDX)}
+                  >
+                    <td>
+                      <input
+                        type="radio"
+                        name="combine-primary"
+                        checked={primaryId === r.DRAFTFEEIDX}
+                        onChange={() => setPrimaryId(r.DRAFTFEEIDX)}
+                      />
+                    </td>
+                    <td>{r.CLIENTS?.map(c => c.name).join(', ') || r.CLIENTNAME}</td>
+                    <td>{r.CLIENTPARTNER}</td>
+                    <td>{r.ORIGINATOR}</td>
+                    <td>{currency(r.BILLED)}</td>
+                    <td>{currency(r.WIP)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="scope-btn-row combine-modal-btns">
+            <button
+              className="scope-btn all"
+              onClick={() => {
+                if (primaryId === null) {
+                  toast.warn('A parent draft must be selected before submitting.');
+                } else {
+                  handleSubmit();
+                }
+              }}
+            >
+              Submit
+            </button>
+            <button className="scope-btn cancel" onClick={onClose}>Cancel</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  /* <<< CombineDraftsModal component END <<< */
 
   /* ── RENDER ─────────────────────────────────────────── */
   if (!ready) return <div className="loading">Authenticating…</div>;
@@ -2853,7 +2952,28 @@ console.log('PDF header:', header);
             Generate PDF{selectedIds.size === 1 ? '' : 's'} ({selectedIds.size || 0})
           </button>
 
-          {selectedIds.size > 0 && (
+          {selectedIds.size > 0 && isSuperUser && (
+            <button
+              className="clear-sel-btn"
+              aria-label="Clear selections"
+              onClick={clearAll}
+            >
+              ×
+            </button>
+          )}
+        </span>
+
+        {/* COMBINE with tiny “X” when active */}
+        <span className="generate-wrap">
+          <button
+            className={`generate-btn ${selectedIds.size >= 2 ? 'active' : ''}`}
+            disabled={selectedIds.size < 2}
+            onClick={() => setShowCombineModal(true)}
+          >
+            Combine Drafts ({selectedIds.size || 0})
+          </button>
+
+          {selectedIds.size >= 2 && (
             <button
               className="clear-sel-btn"
               aria-label="Clear selections"
@@ -3103,7 +3223,13 @@ console.log('PDF header:', header);
             }
           }}
         />
- 
+
+        <CombineDraftsModal
+          ids={Array.from(selectedIds)}
+          onSubmit={handleCombineDrafts}
+          onClose={() => setShowCombineModal(false)}
+        />
+
       <ExistingDraftsEditTray
         open={editTrayState.open}
         draftIdx={editTrayState.draftIdx}
@@ -3323,7 +3449,7 @@ console.log('PDF header:', header);
             reason,
             billingNotes,
             totals,
-            narratives: narrativeChanges,   // 👈 NEW summary array
+            narratives: narrativeChanges,
             before: {
               analysisRows: beforeAnalysis,
               narrativeRows: beforeNarrative,
@@ -3374,6 +3500,7 @@ console.log('PDF header:', header);
           </div>
         </div>
       )}
+      <ToastContainer position="top-right" autoClose={4000} />
       </main>
     </div>
   );

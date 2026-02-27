@@ -23,7 +23,8 @@ const SUPER_USERS = [
   'kfluker@bmss.com',
   'ahunt@bmss.com',
   'tzablan@bmss.com',
-  'dbrown@bmss.com'
+  'dbrown@bmss.com',
+  'jbechert@bmss.com'
 ];
 
 /* ---------- context + helper hook ---------- */

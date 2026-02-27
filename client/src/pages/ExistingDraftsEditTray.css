@@ -1,0 +1,140 @@
+/* ── ExistingDraftsEditTray modals ───────────────────────────────────
+   Matches the scope-modal aesthetic used throughout ExistingDrafts.
+   ─────────────────────────────────────────────────────────────────── */
+
+.etray-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.etray-modal {
+  width: min(1100px, 95vw);
+  max-height: 90vh;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: modalPop 0.35s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+.etray-modal-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid #e8ecf0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.etray-modal-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #063941;
+}
+
+.etray-modal-close {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  color: #5f6b78;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.etray-modal-close:hover { color: #063941; background: #f0f4f6; }
+
+.etray-modal-body {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: auto;
+  flex: 1;
+}
+
+.etray-modal-row { display: flex; align-items: center; gap: 12px; }
+.etray-modal-row-between { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+
+.etray-modal-input {
+  width: min(420px, 100%);
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #d0d6dc;
+  font-size: 0.9rem;
+}
+.etray-modal-input:focus { outline: none; border-color: #063941; box-shadow: 0 0 0 2px rgba(6,57,65,.12); }
+
+.etray-modal-table-wrap {
+  overflow: auto;
+  border: 1px solid #e0e4e8;
+  border-radius: 10px;
+}
+
+.etray-modal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.etray-modal-table th {
+  background: #f4f6f8;
+  color: #063941;
+  font-weight: 600;
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 2px solid #d0d6dc;
+  white-space: nowrap;
+}
+.etray-modal-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #eef0f2;
+  vertical-align: middle;
+}
+.etray-modal-table tbody tr:hover { background: #f0f8ff; }
+
+.etray-modal-btn-primary {
+  background: #063941;
+  color: #fff;
+  border: 1px solid #063941;
+  border-radius: 8px;
+  padding: 7px 14px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: opacity 0.15s;
+}
+.etray-modal-btn-primary:hover { opacity: 0.85; }
+.etray-modal-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.etray-modal-btn-secondary {
+  background: #fff;
+  color: #4e5b66;
+  border: 1px solid #d0d6dc;
+  border-radius: 8px;
+  padding: 7px 14px;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+.etray-modal-btn-secondary:hover { background: #f4f6f8; }
+
+.etray-modal-muted { color: #666; font-size: 13px; }
+.etray-modal-error { color: #b42318; font-size: 13px; }
+.etray-modal-empty { text-align: center; padding: 14px; color: #666; }
+
+.etray-modal-footer {
+  padding: 12px 20px;
+  border-top: 1px solid #e8ecf0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
+}

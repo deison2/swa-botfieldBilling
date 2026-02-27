@@ -36,6 +36,24 @@ export async function getKnuulaContracts() {
   return responseBody;
 }
 
+export async function CombineDrafts(parent, children) {
+  console.log('Draft Index - ', parent, children);
+  const token = await getToken();
+  setAuthToken(token);
+  const res = await fetch('/api/combineDrafts', {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      parentDraftIndex: parent,
+      childDraftIndexes: children,
+      token
+    })
+  });
+  if (!res.ok) throw new Error("Create failed");
+  const bulkListId = await res.text(); // <-- need await
+  return bulkListId;
+}
+
 export async function AbandonDraft(DebtTranIndex) {
   console.log('Draft Index - ', DebtTranIndex);
   const token = await getToken();
@@ -578,6 +596,28 @@ export async function deleteDraftFeeNarrative(draftFeeIdx, debtNarrIndex) {
   if (!res.ok) {
     const msg = await res.text().catch(() => '');
     throw new Error(`Delete Draft Narratives - ${draftFeeIdx} - ${debtNarrIndex} failed: ${res.status} ${msg}`);
+  }
+  return safeJson(res); // array of narrative rows (or null/text)
+}
+
+export async function underLyingEntries(entryLevel, draftFeeIdx, WIPIds) {
+  const token = await getToken();
+  setAuthToken(token);
+
+  const res = await fetch(`/api/DraftEditing/POST/DraftFeeWIPEditAnalysis/${draftFeeIdx}/`, {
+    method: "POST",
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, 
+              payload: { 
+                "entryLevel": entryLevel,
+                "WIPIds": WIPIds 
+              }
+              })
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`DraftFeeWIPEditAnalysis failed: ${res.status} ${msg}`);
   }
   return safeJson(res); // array of narrative rows (or null/text)
 }

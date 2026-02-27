@@ -7,7 +7,7 @@ module.exports = async function (context, req) {
   const DebtNarrIndex = context.bindingData.debtNarrIndex;
   const token = req.body.token;
   const payload = req.body.payload;
-  console.log(payload);
+  console.log(EditType, method, DebtTranIndex, DebtNarrIndex, payload);
 
   // First, check method, then check edit type
     switch (method) {
@@ -145,6 +145,45 @@ module.exports = async function (context, req) {
                     context.res = {
                     status: apiRes.status,
                     body:   `Error getting WIP Indexes from draft data: ${apiRes.status} ${result}`
+                    };
+                    return;
+                }
+
+                context.res = { status: 200, body: result };
+                return;
+            }
+
+            
+            case "DraftFeeWIPEditAnalysis": {
+                const apiPath = payload.entryLevel;
+                const WIPIds = payload.WIPIds;
+                const rawBody = {
+                        "DebtTranIndex": DebtTranIndex,
+                        "IDs": WIPIds
+                    };
+                console.log(rawBody);
+                const apiRes = await fetch(
+                'https://bmss.pehosted.com/pe/api/Billing/DraftFeeEditAnalysisDetailsList',
+                {
+                     method:  'POST',
+                     headers: {
+                    'Content-Type':  'application/json',
+                    'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        "DebtTranIndex": DebtTranIndex,
+                        "IDs": WIPIds
+                    })
+                }
+                );
+
+                const result = await apiRes.json();
+                console.log(result);
+
+                if (!apiRes.ok) {
+                    context.res = {
+                    status: apiRes.status,
+                    body:   `Error getting underlying WIP entries from draft data: ${apiRes.status} ${result}`
                     };
                     return;
                 }
@@ -516,6 +555,39 @@ module.exports = async function (context, req) {
             context.res = { status: 200, body: result };
             return;
                 }
+
+            case "Entries": {
+                const { entryLevel, WIPIds } = payload;
+                const validEndpoints = [
+                    'DraftFeeWIPEditAnalysisStaffList',
+                    'DraftFeeWIPEditAnalysisAnalysisList',
+                    'DraftFeeWIPEditAnalysisTaskList',
+                    'DraftFeeWIPEditAnalysisRoleList',
+                ];
+                if (!validEndpoints.includes(entryLevel)) {
+                    context.res = { status: 400, body: `Invalid entryLevel: ${entryLevel}` };
+                    return;
+                }
+                const entryPayload = { DebtTranIndex, WIPIds };
+                const entriesRes = await fetch(
+                    `https://bmss.pehosted.com/pe/api/Billing/${entryLevel}`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(entryPayload)
+                    }
+                );
+                const entriesResult = await entriesRes.json();
+                if (!entriesRes.ok) {
+                    context.res = { status: entriesRes.status, body: `Error getting underlying entries: ${entriesRes.status}` };
+                    return;
+                }
+                context.res = { status: 200, body: entriesResult };
+                return;
+            }
             }
         }
     }
