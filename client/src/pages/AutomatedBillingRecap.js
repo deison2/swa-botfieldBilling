@@ -58,7 +58,7 @@ const buildExclusionReasons = (r) => {
   const reasons = [];
   if(r?.THRESHOLD) reasons.push("Outstanding WIP below threshold");
   if (r?.ED_CLIENT) reasons.push("Client excluded because existing draft already exists");
-  if (r?.ETF_GCC_JOB ?? r?.GCC_JOB) reasons.push("Client has ETF or GovCon services and was therefore excluded");
+  if (r?.ETF_GCC_JOB ?? r?.GCC_JOB) reasons.push("Client has active GovCon services and was therefore excluded");
   if (r?.EXCLUDED_CLIENT) reasons.push("Client has been granted exclusion from automated billing");
   if (r?.RB_CLIENT) reasons.push("Client excluded because a bill has been sent in the last 30 days");
   return reasons.join("; ");

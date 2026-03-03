@@ -24,6 +24,11 @@ const SUPER_USERS = [
   'ahunt@bmss.com',
   'tzablan@bmss.com',
   'dbrown@bmss.com',
+  'cbrien@bmss.com',
+  'eriles@bmss.com',
+  'micahmurphy@bmss.com',
+  'kphillips@bmss.com',
+  'svonhagel@bmss.com',
   'jbechert@bmss.com'
 ];
 

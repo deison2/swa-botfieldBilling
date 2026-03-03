@@ -1663,7 +1663,7 @@ await Promise.all(processes);
                 <button
                   type="button"
                   className="ed-btn ed-btn--primary"
-                  disabled={saving}
+                  disabled={saving || (JSON.stringify(analysisRows_Orig) === JSON.stringify(analysisRows_New) && JSON.stringify(narrRows_Orig) === JSON.stringify(narrRows_New)) || totalsMatch}
                   onClick={handleSave}
                 >
                   {saving ? "Saving…" : "Save & Close"}
