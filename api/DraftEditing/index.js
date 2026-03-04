@@ -40,6 +40,33 @@ module.exports = async function (context, req) {
                 context.res = { status: 200, body: result };
                 return;
             }
+            case "createDraft": {
+                const apiRes = await fetch(
+                'https://bmss.pehosted.com/pe/api/Billing/NewDraftFeeJobs',
+                {
+                     method:  'POST',
+                     headers: {
+                    'Content-Type':  'application/json',
+                    'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(payload)
+                }
+                );
+
+                const result = await apiRes.json();
+                console.log(result);
+
+                if (!apiRes.ok) {
+                    context.res = {
+                    status: apiRes.status,
+                    body:   `New Draft Fee Jobs: ${apiRes.status} ${result}`
+                    };
+                    return;
+                }
+
+                context.res = { status: 200, body: result };
+                return;
+            }
             case "WIP": {
                 const apiRes = await fetch(
                 'https://bmss.pehosted.com/pe/api/Billing/DraftFeeClientOrGroupWIPList',
@@ -94,6 +121,27 @@ module.exports = async function (context, req) {
                 context.res = { status: 200, body: result };
                 return;
             }
+
+            case "createJob": {
+                const apiRes = await fetch(
+                'https://bmss.pehosted.com/pe/api/Billing/DraftFeeNewDraftJobs',
+                {
+                     method:  'POST',
+                     headers: {
+                    'Content-Type':  'application/json',
+                    'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(payload)
+                }
+                );
+                const result = await apiRes.json();
+                if (!apiRes.ok) {
+                    context.res = { status: apiRes.status, body: `Error getting new draft jobs: ${apiRes.status}` };
+                    return;
+                }
+                context.res = { status: 200, body: result };
+                return;
+            }
         }
       }
 
@@ -125,6 +173,33 @@ module.exports = async function (context, req) {
 
             context.res = { status: 200, body: result };
             return;
+            }
+            case "createDraft": {
+                const apiRes = await fetch(
+                'https://bmss.pehosted.com/pe/api/Billing/DraftFeeCreateManual',
+                {
+                     method:  'POST',
+                     headers: {
+                    'Content-Type':  'application/json',
+                    'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(payload)
+                }
+                );
+
+                const result = await apiRes.json();
+                console.log(result);
+
+                if (!apiRes.ok) {
+                    context.res = {
+                    status: apiRes.status,
+                    body:   `New Draft Fee Jobs: ${apiRes.status} ${result}`
+                    };
+                    return;
+                }
+
+                context.res = { status: 200, body: result };
+                return;
             }
             case "WIP": {
                 const apiRes = await fetch(
@@ -218,6 +293,27 @@ module.exports = async function (context, req) {
             context.res = { status: 200, body: result };
             return;
                 }
+
+            case "createDraft": {
+                const createDraftRes = await fetch(
+                'https://bmss.pehosted.com/pe/api/Billing/DraftFeeCreate',
+                    {
+                        method:  'POST',
+                        headers: {
+                        'Content-Type':  'application/json',
+                        'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(payload)
+                    }
+                    );
+                const createDraftResult = await createDraftRes.json();
+                if (!createDraftRes.ok) {
+                    context.res = { status: createDraftRes.status, body: `Error creating draft: ${createDraftRes.status}` };
+                    return;
+                }
+                context.res = { status: 200, body: createDraftResult };
+                return;
+            }
             }
         }
 

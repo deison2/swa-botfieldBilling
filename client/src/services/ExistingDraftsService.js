@@ -666,3 +666,37 @@ export async function DraftFeeAddInterimFeeAutoAllocate(payload) {
   // May be empty / non-JSON, so use safeJson
   return safeJson(res);
 }
+
+// CREATE DRAFT SECTION
+export async function newDraftFeeJobs(payload) {
+  const token = await getToken();
+  setAuthToken(token);
+
+  const res = await fetch('/api/DraftEditing/GET/createDraft/GetCreateDraftPop', {
+    method: "POST",
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, payload })
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`Get New Draft Fee Jobs: ${res.status} ${msg}`);
+  }
+  return safeJson(res);
+}
+export async function createDraft(payload) {
+  const token = await getToken();
+  setAuthToken(token);
+
+  const res = await fetch('/api/DraftEditing/POST/createDraft/CreateDraft', {
+    method: "POST",
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, payload })
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`Create Draft failed: ${res.status} ${msg}`);
+  }
+  return safeJson(res);
+}

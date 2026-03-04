@@ -13,7 +13,7 @@ import sampleRecapBilled from "../devSampleData/sampleRecapBilled.json";
 import { listBilledPeriods, getBilledData } from "../services/AutomatedBillingBilledService";
 
 import sampleRecapNotBilled from "../devSampleData/sampleRecapNotBilled.json";
-import { listExcludedPeriods, getExcludedData } from "../services/AutomatedBillingExcludedService";
+import { listExcludedPeriods, getExcludedData, getUserName } from "../services/AutomatedBillingExcludedService";
 
 // NEW: drafts service + fallback sample (same as ExistingDrafts page)
 import { GetDrafts } from "../services/ExistingDraftsService";
@@ -147,14 +147,23 @@ export default function AutomatedBillingRecap() {
   const [nbManager, setNbManager] = useState("");
 
   const [nbSearch, setNbSearch] = useState("");
+  const [myClientsOnly, setMyClientsOnly] = useState(true);
 
   // NEW: exclude clients with existing drafts
   const [excludeDrafts, setExcludeDrafts] = useState(false);
   const [draftClientCodes, setDraftClientCodes] = useState(new Set());
   const [loadingDrafts, setLoadingDrafts] = useState(false);
 
-  const { isSuperUser } = useAuth();
+  const { isSuperUser, principal } = useAuth();
+  const currentUserName = principal?.userDetails || '';
+  const [userRealName, setUserRealName] = useState('');
 
+  useEffect(() => {
+    if (!currentUserName) return;
+    getUserName(currentUserName)
+      .then(name => { if (name) setUserRealName(name); })
+      .catch(e => console.warn('getUserName failed', e));
+  }, [currentUserName]);
 
   /** ---------- load data (DEV uses local json) ---------- */
   useEffect(() => {
@@ -322,12 +331,6 @@ export default function AutomatedBillingRecap() {
   const aggregated = useMemo(() => {
     if (activeTab !== "billed" || !billingPeriod || !groupKey) return [];
 
-    const keyAccessors = {
-      Office: (r) => pick(r, ["CLIENTOFFICE", "BILLINGCLIENTOFFICE"]),
-      Originator: (r) => pick(r, ["CLIENTORIGINATORNAME", "ORIGINATORNAME", "JOBPARTNERNAME"]),
-      Partner: (r) => pick(r, ["BILLINGCLIENTPARTNER"]),
-      Manager: (r) => pick(r, ["BILLINGCLIENTMANAGER"]),
-    };
 
     const accessor = getGroupAccessor(groupKey) || (() => "Unassigned");
 
@@ -474,8 +477,9 @@ const nbManagerOptions = useMemo(() => {
       const pOk = nbPartner ? partnerName === nbPartner : true;
       const mOk = nbManager ? managerName === nbManager : true;
       const dOk = !excludeDrafts || !draftSet.has(String(r.CLIENTCODE));
+      const uOk = !myClientsOnly || !userRealName || [originatorName, partnerName, managerName].some(n => n === userRealName);
 
-      if (!(oOk && pOk && mOk && dOk)) return false;
+      if (!(oOk && pOk && mOk && dOk && uOk)) return false;
 
       // --- search across all columns EXCEPT WIP + PE Link ---
       if (!search) return true;
@@ -493,9 +497,39 @@ const nbManagerOptions = useMemo(() => {
 
       return haystack.includes(search);
     });
-  }, [nbRows, nbOriginator, nbPartner, nbManager, excludeDrafts, draftClientCodes, nbSearch]);
+  }, [nbRows, nbOriginator, nbPartner, nbManager, excludeDrafts, draftClientCodes, nbSearch, myClientsOnly, userRealName]);
 
 
+
+  const nbAggregated = useMemo(() => {
+    const map = new Map();
+    for (const r of nbFiltered) {
+      const key = String(r.CLIENTCODE ?? r.CONTINDEX ?? '');
+      if (!map.has(key)) {
+        map.set(key, {
+          ...r,
+          _services: r.SERVINDEX ? [String(r.SERVINDEX)] : [],
+          WIPOUTSTANDING: Number(r.WIPOUTSTANDING ?? 0),
+        });
+      } else {
+        const cur = map.get(key);
+        if (r.SERVINDEX && !cur._services.includes(String(r.SERVINDEX))) {
+          cur._services.push(String(r.SERVINDEX));
+        }
+        cur.WIPOUTSTANDING += Number(r.WIPOUTSTANDING ?? 0);
+        cur.THRESHOLD      = cur.THRESHOLD      || r.THRESHOLD;
+        cur.ED_CLIENT      = cur.ED_CLIENT      || r.ED_CLIENT;
+        cur.ETF_GCC_JOB    = cur.ETF_GCC_JOB    || r.ETF_GCC_JOB;
+        cur.GCC_JOB        = cur.GCC_JOB        || r.GCC_JOB;
+        cur.EXCLUDED_CLIENT= cur.EXCLUDED_CLIENT|| r.EXCLUDED_CLIENT;
+        cur.RB_CLIENT      = cur.RB_CLIENT      || r.RB_CLIENT;
+      }
+    }
+    return [...map.values()].map(r => ({
+      ...r,
+      SERVINDEX: r._services.sort((a, b) => a.localeCompare(b)).join(', '),
+    }));
+  }, [nbFiltered]);
 
   const nbKpis = useMemo(() => {
     const totalWip = nbFiltered.reduce((s, r) => s + Number(r?.WIPOUTSTANDING ?? 0), 0);
@@ -533,7 +567,7 @@ const nbManagerOptions = useMemo(() => {
 
   // Download Not Billed filtered rows as CSV (Excel-friendly)
   const handleDownloadNotBilled = () => {
-    if (!nbFiltered || !nbFiltered.length) return;
+    if (!nbAggregated || !nbAggregated.length) return;
 
     const headers = [
       "Client Code",
@@ -541,12 +575,12 @@ const nbManagerOptions = useMemo(() => {
       "Originator",
       "Partner",
       "Manager",
-      "Service",
+      "Service(s)",
       "WIP Outstanding",
       "Exclusion Reason(s)",
     ];
 
-    const rowsForCsv = nbFiltered.map((r) => [
+    const rowsForCsv = nbAggregated.map((r) => [
       r.CLIENTCODE ?? "",
       r.CLIENTNAME ?? "",
       r.BILLINGCLIENTORIGINATOR || r.CLIENTORIGINATOR || "",
@@ -920,6 +954,7 @@ const nbManagerOptions = useMemo(() => {
                     columns={columns}
                     data={aggregatedFiltered}
                     progressPending={loading}
+                    pagination
                     noDataComponent={<span className="no-rows">No rows to show!</span>}
                   />
                 </div>
@@ -1031,6 +1066,14 @@ const nbManagerOptions = useMemo(() => {
                       <label className="checkbox-pill">
                         <input
                           type="checkbox"
+                          checked={myClientsOnly}
+                          onChange={(e) => setMyClientsOnly(e.target.checked)}
+                        />
+                        <span>My Clients Only</span>
+                      </label>
+                      <label className="checkbox-pill">
+                        <input
+                          type="checkbox"
                           checked={excludeDrafts}
                           onChange={(e) => setExcludeDrafts(e.target.checked)}
                         />
@@ -1041,7 +1084,7 @@ const nbManagerOptions = useMemo(() => {
                         type="button"
                         className="pill-btn nb-export-btn"
                         onClick={handleDownloadNotBilled}
-                        disabled={!nbFiltered.length}
+                        disabled={!nbAggregated.length}
                         title="Download filtered data to Excel"
                       >
                         Download to Excel
@@ -1106,8 +1149,9 @@ const nbManagerOptions = useMemo(() => {
                 <div className="table-section">
                   <GeneralDataTable
                     columns={nbColumns}
-                    data={nbFiltered}
+                    data={nbAggregated}
                     progressPending={loading}
+                    pagination
                     noDataComponent={<span className="no-rows">No rows to show!</span>}
                   />
                 </div>

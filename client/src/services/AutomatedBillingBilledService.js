@@ -10,6 +10,12 @@ export async function getBilledData(ymd) {
   return r.json(); // the raw rows array for that period
 }
 
+export async function getUserName(email) {
+  const r = await fetch(`/api/getUserName/${encodeURIComponent(email)}`);
+  if (!r.ok) throw new Error(`getUserName failed: ${r.status}`);
+  return r.json(); // the user name for the given email
+}
+
 // services/AutomatedBillingBilledService.js
 
 // mode: "Date" | "Month" | "Year"

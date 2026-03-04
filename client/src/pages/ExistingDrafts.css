@@ -43,6 +43,23 @@
   opacity: 0.85;
 }
 
+.create-draft-trigger-btn {
+  background: linear-gradient(to right, #547872, #063941) !important;
+  color: #fff !important;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.01em;
+  transition: filter 0.15s;
+}
+.create-draft-trigger-btn:hover {
+  filter: brightness(1.15);
+  opacity: 1 !important;
+}
+
 
 
 /* ---------- table shell ---------- */
@@ -222,6 +239,26 @@
 }
 @keyframes modalPop{ 0%{transform:scale(.65);opacity:0} 100%{transform:scale(1);opacity:1} }
 .scope-modal h3{ margin:1rem 0 .5rem; font-size:1.25rem; color:#063941; }
+.scope-modal-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #7a8ea0;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.scope-modal-x:hover {
+  background: #eef0f2;
+  color: #063941;
+}
 .scope-hint{margin-bottom:1.5rem;color:#4e5b66;font-size:.9rem;}
 
 /* — mascot wrapper -------------------------------------------------- */
@@ -248,6 +285,7 @@
 .scope-btn.visible:hover{background:#d1e8e4;}
 .scope-btn.all{ background:linear-gradient(135deg,#2c93ff 0%,#006dff 100%); color:#fff; }
 .scope-btn.all:hover{box-shadow:0 4px 12px rgba(0,0,0,.25);}
+.scope-btn:disabled { background: #c8d0d8; color: #fff; cursor: not-allowed; box-shadow: none; }
 .scope-btn.cancel{ background:#eef0f2;color:#5f6b78; }
 .scope-btn.cancel:hover{background:#e0e3e7;}
 /* <<< select-scope modal END <<< */
@@ -290,6 +328,155 @@
 .combine-modal-table tbody tr.selected { background: #e0f2fe; }
 .combine-modal-btns { flex-direction: row; justify-content: flex-end; }
 /* <<< combine-drafts modal END <<< */
+
+/* >>> create-draft modal >>> */
+.create-draft-modal {
+  width: clamp(300px, 68vw, 920px);
+  max-height: 90vh;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.25);
+  animation: modalPop .35s cubic-bezier(.2,1.4,.4,1);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+.create-draft-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid #e8ecf0;
+  flex-shrink: 0;
+}
+.create-draft-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #063941;
+}
+.create-draft-body {
+  padding: 18px 0;
+  margin: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.create-draft-body > *:not(.create-draft-table-wrap) {
+  padding-left: 22px;
+  padding-right: 22px;
+}
+/* client search */
+.create-draft-search-input {
+  width: 100%;
+  max-width: 400px;
+  padding: 7px 10px;
+  border: 1px solid #d1dde5;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  background: #fff;
+}
+.create-draft-search-input:focus { outline: 2px solid #06394144; border-color: #4b796e; }
+.create-draft-muted { color: #7a8ea0; font-size: 0.85rem; margin: 0; }
+.create-draft-err   { color: #c0392b; font-size: 0.85rem; margin: 0; }
+/* client selected bar */
+.create-draft-client-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #f4f6f8;
+  border-radius: 8px;
+  border: 1px solid #e0e4e8;
+  font-size: 0.875rem;
+}
+.create-draft-change-btn {
+  margin-left: auto;
+  padding: 3px 12px;
+  font-size: 0.8rem;
+  border: 1px solid #d1dde5;
+  border-radius: 5px;
+  background: #fff;
+  cursor: pointer;
+  color: #063941;
+}
+.create-draft-change-btn:hover { background: #e9f0f5; }
+/* filter row */
+.create-draft-filters {
+  display: flex;
+  gap: 20px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.create-draft-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #30424f;
+}
+.create-draft-filter--check { flex-direction: row; align-items: center; gap: 8px; }
+.create-draft-filter-input {
+  padding: 5px 8px;
+  border: 1px solid #d1dde5;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  background: #fff;
+  min-width: 130px;
+}
+.create-draft-filter-input:focus { outline: 2px solid #06394144; border-color: #4b796e; }
+/* shared table wrapper */
+.create-draft-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #e0e4e8;
+  border-radius: 8px;
+}
+.create-draft-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.create-draft-table th {
+  background: #f1f1f1;
+  color: #063941;
+  font-weight: 700;
+  padding: 8px 10px;
+  border-bottom: 2px solid #ddd;
+  white-space: nowrap;
+  text-align: center;
+}
+.create-draft-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid #eef0f2;
+  color: #30424f;
+  vertical-align: middle;
+  text-align: center;
+}
+/* override .existing-drafts .num which has higher specificity */
+.create-draft-table th.num,
+.create-draft-table td.num { text-align: center; }
+.create-draft-table tbody tr:hover { background: #f7fafc; }
+/* service (top-level) rows */
+.create-draft-svc-row { background: #fafbfc; }
+.create-draft-svc-row td { font-weight: 600; }
+/* job (drill) rows */
+.create-draft-job-row td { background: #fff; }
+.create-draft-job-name { padding-left: 28px !important; }
+/* select button in client table */
+.create-draft-select-btn {
+  padding: 3px 12px;
+  font-size: 0.8rem;
+  border: 1px solid #063941;
+  border-radius: 5px;
+  background: #063941;
+  color: #fff;
+  cursor: pointer;
+}
+.create-draft-select-btn:hover { background: #084d58; border-color: #084d58; }
+/* <<< create-draft modal END <<< */
 
 /* >>> tiny clear-selection “X” >>> */
 .generate-wrap{ position:relative;display:inline-block; }

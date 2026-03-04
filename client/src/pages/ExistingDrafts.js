@@ -3,6 +3,7 @@
  *************************************************************************/
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { ChevronRight } from 'lucide-react';
 import Sidebar          from '../components/Sidebar';
 import TopBar           from '../components/TopBar';
 import GeneralDataTable from '../components/DataTable';
@@ -35,8 +36,14 @@ import {
   AbandonDraft as abandonDraft,
   getKnuulaFees,
   getKnuulaContracts,
-  CombineDrafts
+  CombineDrafts,
+  newDraftFeeJobs,
+  createDraft
 } from '../services/ExistingDraftsService';
+
+import {
+  dynamicClientLoad as getClients
+} from "../services/BillingGroups";
 
 import ExistingDraftsEditTray from './ExistingDraftsEditTray';
 
@@ -1007,6 +1014,7 @@ useEffect(() => {
   /* >>> modal-state (NEW) >>> */
   const [showScopeModal, setShowScopeModal] = useState(false);
   const [showCombineModal, setShowCombineModal] = useState(false);
+  const [showCreateDraftModal, setShowCreateDraftModal] = useState(false);
   /* <<< modal-state END <<< */
 
   /* >>> select-all logic (REPLACED) >>> */
@@ -2705,6 +2713,371 @@ console.log('PDF header:', header);
   }
   /* <<< CombineDraftsModal component END <<< */
 
+  /* >>> CreateDraftModal component >>> */
+  function CreateDraftModal({ onClose }) {
+    const today = new Date().toISOString().slice(0, 10);
+
+    // Phase 1: client search
+    const [query, setQuery]               = useState('');
+    const [clientResults, setClientResults] = useState([]);
+    const [clientLoading, setClientLoading] = useState(false);
+    const [clientError, setClientError]   = useState('');
+    const [selectedClient, setSelectedClient] = useState(null);
+
+    // Phase 2: filter fields
+    const [wipType, setWipType]   = useState('Progress');
+    const [groupBill, setGroupBill] = useState(false);
+    const [wipDate, setWipDate]   = useState(today);
+
+    // Phase 2: jobs data
+    const [jobsLoading, setJobsLoading] = useState(false);
+    const [jobsError, setJobsError]     = useState('');
+    const [jobsData, setJobsData]       = useState([]);
+    const [expandedKeys, setExpandedKeys] = useState(new Set());
+    const [billAmounts, setBillAmounts] = useState({});   // rowIdx -> number
+    const [selectedKeys, setSelectedKeys] = useState(new Set()); // rowIdx
+
+    // Phase 3: submit
+    const [submitting, setSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState('');
+
+    // Phase 2: display filter
+    const [showAllEntries, setShowAllEntries] = useState(false);
+
+    // --- client search ---
+    useEffect(() => {
+      if (query.length < 3) { setClientResults([]); return; }
+      let cancelled = false;
+      const handle = setTimeout(async () => {
+        setClientLoading(true);
+        setClientError('');
+        try {
+          const res = await getClients(query);
+          if (!cancelled) setClientResults(Array.isArray(res) ? res : []);
+        } catch {
+          if (!cancelled) setClientError('Failed to load clients.');
+        } finally {
+          if (!cancelled) setClientLoading(false);
+        }
+      }, 300);
+      return () => { cancelled = true; clearTimeout(handle); };
+    }, [query]);
+
+    // --- load jobs ---
+    useEffect(() => {
+      if (!selectedClient) return;
+      let cancelled = false;
+      setJobsLoading(true);
+      setJobsError('');
+      const payload = {
+        Client: selectedClient.ContIndex,
+        Group: groupBill,
+        TranType: 3,
+        WIPDate: wipDate,
+        ...(wipType ? { WIPType: wipType } : {}),
+      };
+      console.log(payload);
+      newDraftFeeJobs(payload)
+        .then(res => {
+          if (cancelled) return;
+          const rows = Array.isArray(res) ? res : (res?.Items ?? res?.items ?? []);
+          setJobsData(rows);
+          // default bill amounts to PostedWIP
+          const amounts = {};
+          rows.forEach((r, i) => { amounts[i] = Number(r.PostedWIP ?? r.PostedWip ?? 0); });
+          setBillAmounts(amounts);
+          setSelectedKeys(new Set());
+          setExpandedKeys(new Set());
+        })
+        .catch(() => { if (!cancelled) setJobsError('Failed to load jobs.'); })
+        .finally(() => { if (!cancelled) setJobsLoading(false); });
+      return () => { cancelled = true; };
+    }, [selectedClient, groupBill, wipDate, wipType]);
+
+    // --- group rows by ServIndex ---
+    const grouped = useMemo(() => {
+      const map = new Map();
+      jobsData.forEach((row, i) => {
+        const key = row.ServIndex ?? row.ServIdx ?? row.ServiceIndex ?? `_${i}`;
+        if (!map.has(key)) map.set(key, { servIndex: key, servRow: row, children: [] });
+        map.get(key).children.push({ ...row, _rowIdx: i });
+      });
+      return Array.from(map.values());
+    }, [jobsData]);
+
+    const handleSubmit = async () => {
+      const jobs = jobsData
+        .flatMap((r, i) => selectedKeys.has(i) ? [{
+          BillAmount: billAmounts[i] ?? Number(r.PostedWIP ?? r.PostedWip ?? 0),
+          Job_Idx: r.Job_Idx ?? r.JobIdx ?? r.JobIndex ?? r.JOBIDX,
+          WIPType: r.WIPType ?? r.WipType ?? '',
+          WoffAmount: 0,
+        }] : []);
+      const payload = {
+        Client: selectedClient.ContIndex,
+        PracID: 1,
+        Before: wipDate,
+        workStart: null,
+        workEnd: null,
+        TranType: 3,
+        IntFinal: wipType === 'Interim' ? 'INTRIM' : 'PROG',
+        WIP: true,
+        Jobs: jobs,
+      };
+      setSubmitting(true);
+      setSubmitError('');
+      try {
+        const result = await createDraft(payload);
+        const newIdx = result; //This is correct, do NOT change
+        if (newIdx) {
+          try { await unlockDraft(newIdx); } catch (e) { console.warn('Unlock new draft failed', e); }
+        }
+        await logDraftEdits({
+          version: 0,
+          draftIdx: newIdx ?? null,
+          clientCode: selectedClient.ClientCode ?? selectedClient.Code ?? selectedClient.ClientId ?? null,
+          clientName: selectedClient.ClientName ?? selectedClient.Name ?? selectedClient.DisplayName ?? null,
+          billThroughDate: wipDate,
+          user: email,
+          when: new Date().toISOString(),
+          reason: 'Draft Creation',
+          totals: { billAmountTotal: jobs.reduce((s, j) => s + Number(j.BillAmount || 0), 0) },
+          billingNotes: null,
+          narratives: null,
+          before: null,
+          after: null,
+        });
+        const clientDisplayName = selectedClient.ClientName ?? selectedClient.Name ?? selectedClient.DisplayName ?? '';
+        toast.success('Draft created successfully.');
+        onClose();
+        setSearchText(clientDisplayName);
+        await reloadDraftsForCurrentBillThrough();
+      } catch {
+        setSubmitError('Failed to create draft. Please try again.');
+      } finally {
+        setSubmitting(false);
+      }
+    };
+
+    const g = (r, ...keys) => { for (const k of keys) if (r[k] != null) return r[k]; return ''; };
+    const n = (r, ...keys) => Number(g(r, ...keys) || 0);
+
+    if (!showCreateDraftModal) return null;
+
+    return (
+      <div className="scope-modal-backdrop" onClick={onClose}>
+        <div className="create-draft-modal" onClick={e => e.stopPropagation()}>
+          <div className="create-draft-header">
+            <h3 className="create-draft-title">Create Draft</h3>
+            <button className="scope-modal-x" onClick={onClose} aria-label="Close">×</button>
+          </div>
+
+          {!selectedClient ? (
+            /* ── Phase 1: client search ── */
+            <div className="create-draft-body">
+              <p className="scope-hint">Enter a client code or name (min 3 characters).</p>
+              <input
+                className="create-draft-search-input"
+                type="text"
+                placeholder="Search clients…"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                autoFocus
+              />
+              {clientLoading && <p className="create-draft-muted">Searching…</p>}
+              {clientError  && <p className="create-draft-err">{clientError}</p>}
+              {query.length >= 3 && !clientLoading && clientResults.length === 0 && !clientError && (
+                <p className="create-draft-muted">No clients found.</p>
+              )}
+              {clientResults.length > 0 && (
+                <div className="create-draft-table-wrap">
+                  <table className="create-draft-table">
+                    <thead>
+                      <tr><th>Client Code</th><th>Client Name</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                      {clientResults.map((c, i) => (
+                        <tr key={i}>
+                          <td>{g(c,'ClientCode','Code','ClientId')}</td>
+                          <td>{g(c,'ClientName','Name','DisplayName')}</td>
+                          <td>
+                            <button
+                              className="create-draft-select-btn"
+                              onClick={() => { setSelectedClient(c); setQuery(''); setClientResults([]); }}
+                            >Select</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* ── Phase 2: jobs table ── */
+            <div className="create-draft-body">
+              <div className="create-draft-client-bar">
+                <span><strong>Client:</strong> {g(selectedClient,'ClientName','Name','DisplayName')}</span>
+              </div>
+
+              {/* Filter row */}
+              <div className="create-draft-filters">
+                <label className="create-draft-filter">
+                  <span>WIP Type</span>
+                  <select className="create-draft-filter-input" value={wipType} onChange={e => setWipType(e.target.value)}>
+                    <option value="Progress">Progress</option>
+                    <option value="Interim">Interim</option>
+                  </select>
+                </label>
+                <label className="create-draft-filter">
+                  <span>WIP Date</span>
+                  <input className="create-draft-filter-input" type="date" value={wipDate} onChange={e => setWipDate(e.target.value)} />
+                </label>
+                <label className="create-draft-filter create-draft-filter--check">
+                  <span>Group Bill</span>
+                  <input type="checkbox" checked={groupBill} onChange={e => setGroupBill(e.target.checked)} />
+                </label>
+                <label className="create-draft-filter create-draft-filter--check">
+                  <span>Show All Entries</span>
+                  <input type="checkbox" checked={showAllEntries} onChange={e => setShowAllEntries(e.target.checked)} />
+                </label>
+              </div>
+
+              {jobsLoading && <p className="create-draft-muted">Loading jobs…</p>}
+              {jobsError   && <p className="create-draft-err">{jobsError}</p>}
+
+              {!jobsLoading && (
+                <div className="create-draft-table-wrap">
+                  <table className="create-draft-table create-draft-jobs-table">
+                    <thead>
+                      <tr>
+                        <th></th>
+                        <th>Name</th>
+                        <th>WIP Type</th>
+                        <th className="num">Billing Value</th>
+                        <th className="num">Unposted WIP</th>
+                        <th className="num">Posted WIP</th>
+                        <th>Lock</th>
+                        <th className="num">Available</th>
+                        <th className="num">Bill Amount</th>
+                        <th>Select</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {grouped.length === 0 && (
+                        <tr><td colSpan={10} className="create-draft-muted" style={{textAlign:'center',padding:'16px 0'}}>No jobs found.</td></tr>
+                      )}
+                      {grouped.map(({ servIndex, servRow, children }) => {
+                        const visibleChildren = showAllEntries
+                          ? children
+                          : children.filter(r => n(r,'PostedWIP','PostedWip','WIPPosted') !== 0);
+                        if (visibleChildren.length === 0) return null;
+                        const isExpanded = expandedKeys.has(servIndex);
+                        const totBill  = visibleChildren.reduce((s,r) => s + n(r,'BillingValue','BillValue'), 0);
+                        const totUnp   = visibleChildren.reduce((s,r) => s + n(r,'UnpostedWIP','UnpostedWip','WIPUnposted'), 0);
+                        const totPost  = visibleChildren.reduce((s,r) => s + n(r,'PostedWIP','PostedWip','WIPPosted'), 0);
+                        const totAvail = visibleChildren.reduce((s,r) => s + n(r,'Available','AvailableWIP'), 0);
+                        const totAmt   = visibleChildren.reduce((s,r) => s + (billAmounts[r._rowIdx] ?? n(r,'PostedWIP','PostedWip')), 0);
+                        const allSel   = visibleChildren.every(r => selectedKeys.has(r._rowIdx));
+                        const someSel  = visibleChildren.some(r => selectedKeys.has(r._rowIdx));
+                        return (
+                          <React.Fragment key={servIndex}>
+                            {/* Service (top-level) row */}
+                            <tr className="create-draft-svc-row">
+                              <td>
+                                <button
+                                  type="button"
+                                  className="edtray__drill-btn"
+                                  onClick={() => setExpandedKeys(prev => { const s = new Set(prev); isExpanded ? s.delete(servIndex) : s.add(servIndex); return s; })}
+                                  aria-expanded={isExpanded}
+                                >
+                                  <ChevronRight size={14} className={isExpanded ? 'drill-chevron drill-chevron--open' : 'drill-chevron'} />
+                                </button>
+                              </td>
+                              <td><strong>{g(servRow,'ServTitle','ServiceName','ServName','Service')}</strong></td>
+                              <td>{g(servRow,'WIPType','WipType')}</td>
+                              <td className="num">{currency(totBill)}</td>
+                              <td className="num">{currency(totUnp)}</td>
+                              <td className="num">{currency(totPost)}</td>
+                              <td>{g(servRow,'Lock','IsLocked')}</td>
+                              <td className="num">{currency(totAvail)}</td>
+                              <td className="num">{currency(totAmt)}</td>
+                              <td>
+                                <input
+                                  type="checkbox"
+                                  checked={allSel}
+                                  ref={el => { if (el) el.indeterminate = someSel && !allSel; }}
+                                  onChange={e => setSelectedKeys(prev => {
+                                    const s = new Set(prev);
+                                    visibleChildren.forEach(r => e.target.checked ? s.add(r._rowIdx) : s.delete(r._rowIdx));
+                                    return s;
+                                  })}
+                                />
+                              </td>
+                            </tr>
+                            {/* Drill-down job rows */}
+                            {isExpanded && visibleChildren.map(r => (
+                              <tr key={r._rowIdx} className="create-draft-job-row">
+                                <td></td>
+                                <td className="create-draft-job-name">{g(r,'Job_Name','JobName','JobTitle','Job')}</td>
+                                <td>{g(r,'WIPType','WipType')}</td>
+                                <td className="num">{currency(n(r,'BillingValue','BillValue'))}</td>
+                                <td className="num">{currency(n(r,'UnpostedWIP','UnpostedWip','WIPUnposted'))}</td>
+                                <td className="num">{currency(n(r,'PostedWIP','PostedWip','WIPPosted'))}</td>
+                                <td>{g(r,'Lock','IsLocked')}</td>
+                                <td className="num">{currency(n(r,'Available','AvailableWIP'))}</td>
+                                <td className="num">
+                                  <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    className="ed-input ed-input--num"
+                                    style={{width:80}}
+                                    value={billAmounts[r._rowIdx] !== undefined ? billAmounts[r._rowIdx] : n(r,'PostedWIP','PostedWip')}
+                                    onChange={e => setBillAmounts(prev => ({...prev, [r._rowIdx]: e.target.value}))}
+                                    onBlur={e => {
+                                      const num = parseFloat(String(e.target.value).replace(/[^0-9.-]/g,'')) || 0;
+                                      setBillAmounts(prev => ({...prev, [r._rowIdx]: num}));
+                                    }}
+                                  />
+                                </td>
+                                <td>
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedKeys.has(r._rowIdx)}
+                                    onChange={e => setSelectedKeys(prev => {
+                                      const s = new Set(prev);
+                                      e.target.checked ? s.add(r._rowIdx) : s.delete(r._rowIdx);
+                                      return s;
+                                    })}
+                                  />
+                                </td>
+                              </tr>
+                            ))}
+                          </React.Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <div className="scope-btn-row" style={{marginTop:12}}>
+                {submitError && <span className="create-draft-err" style={{marginRight:'auto'}}>{submitError}</span>}
+                <button
+                  className="scope-btn all"
+                  disabled={submitting || selectedKeys.size === 0}
+                  onClick={handleSubmit}
+                >{submitting ? 'Creating…' : 'Create Draft'}</button>
+                <button className="scope-btn cancel" onClick={onClose}>Cancel</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+  /* <<< CreateDraftModal component END <<< */
+
   /* ── RENDER ─────────────────────────────────────────── */
   if (!ready) return <div className="loading">Authenticating…</div>;
 
@@ -2727,6 +3100,13 @@ console.log('PDF header:', header);
     {/* ROW 1: all filters / controls */}
     <div className="ed-filters-row">
       <div className="filter-bar ed-filters">
+        <button
+          className="create-draft-trigger-btn"
+          onClick={() => setShowCreateDraftModal(true)}
+        >
+          + Create Draft
+        </button>
+
         <select
           className="role-select originator"
           value={originatorFilter}
@@ -3229,6 +3609,8 @@ console.log('PDF header:', header);
           onSubmit={handleCombineDrafts}
           onClose={() => setShowCombineModal(false)}
         />
+
+        <CreateDraftModal onClose={() => setShowCreateDraftModal(false)} />
 
       <ExistingDraftsEditTray
         open={editTrayState.open}

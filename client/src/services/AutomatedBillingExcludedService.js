@@ -12,3 +12,9 @@ export async function getExcludedData(ymd) {
   const rows = await res.json();
   return Array.isArray(rows) ? rows : [];
 }
+
+export async function getUserName(email) {
+  const r = await fetch(`/api/getUserName/${encodeURIComponent(email)}`);
+  if (!r.ok) throw new Error(`getUserName failed: ${r.status}`);
+  return r.text(); // the user name for the given email
+}
