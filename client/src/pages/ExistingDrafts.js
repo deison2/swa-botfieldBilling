@@ -3100,12 +3100,14 @@ console.log('PDF header:', header);
     {/* ROW 1: all filters / controls */}
     <div className="ed-filters-row">
       <div className="filter-bar ed-filters">
-        <button
-          className="create-draft-trigger-btn"
-          onClick={() => setShowCreateDraftModal(true)}
-        >
-          + Create Draft
-        </button>
+        {isSuperUser && (
+          <button
+            className="create-draft-trigger-btn"
+            onClick={() => setShowCreateDraftModal(true)}
+          >
+            + Create Draft
+          </button>
+        )}
 
         <select
           className="role-select originator"
@@ -3610,7 +3612,7 @@ console.log('PDF header:', header);
           onClose={() => setShowCombineModal(false)}
         />
 
-        <CreateDraftModal onClose={() => setShowCreateDraftModal(false)} />
+        {isSuperUser && <CreateDraftModal onClose={() => setShowCreateDraftModal(false)} />}
 
       <ExistingDraftsEditTray
         open={editTrayState.open}
