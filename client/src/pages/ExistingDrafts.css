@@ -591,9 +591,9 @@
 /* ── Bill Through control ───────────────────────────────────────── */
 .filter-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
 .billthrough {
-  margin-left: auto; position: relative; display: flex; align-items: center; gap: 8px;
+  margin-left: auto; position: relative; display: inline-grid; align-items: center; gap: 8px;
 }
-.bt-label { font-size: 12px; color: #6b7a86; }
+.bt-label { font-size: 12px; color: #6b7a86; margin: auto; }
 .bt-display {
   display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px;
   border: 1px solid #d7dee5; background: #fff; border-radius: 10px;
