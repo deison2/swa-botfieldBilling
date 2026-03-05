@@ -2851,6 +2851,7 @@ console.log('PDF header:', header);
         toast.success('Draft created successfully.');
         onClose();
         setSearchText(clientDisplayName);
+        await new Promise(resolve => setTimeout(resolve, 2000));
         await reloadDraftsForCurrentBillThrough();
       } catch {
         setSubmitError('Failed to create draft. Please try again.');
