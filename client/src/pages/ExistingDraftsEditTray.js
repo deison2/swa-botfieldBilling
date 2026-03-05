@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { toast } from "react-toastify";
 import { Trash2, ChevronRight } from "lucide-react";
 import { PopoverPortal } from "./ExistingDrafts";
 import "./ExistingDrafts.css";
@@ -780,6 +781,16 @@ const deleteAnalysisRow = (idx) => {
 
   const handleSave = async () => {
     setError("");
+    const noChanges = JSON.stringify(analysisRows_Orig) === JSON.stringify(analysisRows_New)
+      && JSON.stringify(narrRows_Orig) === JSON.stringify(narrRows_New);
+    if (noChanges) {
+      handleCancel();
+      return;
+    }
+    if (!totalsMatch) {
+      toast.warn("Analysis and Narrative amounts must match before saving.");
+      return;
+    }
     if (!reason) {
       setError("Please choose a reason for the change.");
       return;
@@ -1663,7 +1674,7 @@ await Promise.all(processes);
                 <button
                   type="button"
                   className="ed-btn ed-btn--primary"
-                  disabled={saving || (JSON.stringify(analysisRows_Orig) === JSON.stringify(analysisRows_New) && JSON.stringify(narrRows_Orig) === JSON.stringify(narrRows_New)) || totalsMatch}
+                  disabled={saving}
                   onClick={handleSave}
                 >
                   {saving ? "Saving…" : "Save & Close"}
