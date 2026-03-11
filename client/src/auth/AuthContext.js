@@ -11,6 +11,11 @@ import { attachGlobalErrorLogging } from '../debugGlobal';
 import { probeManifest } from '../debugNetwork';
 import { logAuthMe } from './logAuth';
 
+const BILLING_SUPER_USERS = [
+  'deison@bmss.com',
+  'chenriksen@bmss.com',
+];
+
 const SUPER_USERS = [
   'hstaggs@bmss.com',
   'tcrawford@bmss.com',
@@ -36,10 +41,11 @@ const SUPER_USERS = [
 /* ---------- context + helper hook ---------- */
 
 const AuthCtx = createContext({
-  ready       : false,
-  principal   : null,
-  isSuperUser : false,
-  email       : undefined
+  ready            : false,
+  principal        : null,
+  isSuperUser      : false,
+  billingSuperUser : false,
+  email            : undefined
 });
 
 export const useAuth = () => useContext(AuthCtx);
@@ -48,10 +54,11 @@ export const useAuth = () => useContext(AuthCtx);
 
 export function AuthProvider({ children }) {
   const [state, setState] = useState({
-    ready       : false,
-    principal   : null,
-    isSuperUser : false,
-    email       : undefined
+    ready            : false,
+    principal        : null,
+    isSuperUser      : false,
+    billingSuperUser : false,
+    email            : undefined
   });
 
   useEffect(() => {
@@ -78,8 +85,9 @@ export function AuthProvider({ children }) {
         return json;
       })
       .then(({ clientPrincipal }) => {
-        const email   = clientPrincipal?.userDetails?.toLowerCase() || '';
-        const isSuper = SUPER_USERS.includes(email);
+        const email          = clientPrincipal?.userDetails?.toLowerCase() || '';
+        const isSuper        = SUPER_USERS.includes(email);
+        const isBillingSuper = BILLING_SUPER_USERS.includes(email);
 
         if (DEBUG) {
           console.debug('principal  ', {
@@ -95,15 +103,16 @@ export function AuthProvider({ children }) {
         }
 
         setState({
-          ready       : true,
-          principal   : clientPrincipal,
-          isSuperUser : isSuper,
+          ready            : true,
+          principal        : clientPrincipal,
+          isSuperUser      : isSuper,
+          billingSuperUser : isBillingSuper,
           email
         });
       })
       .catch(err => {
         console.error('AUTH error', err);
-        setState({ ready: true, principal: null, isSuperUser: false, email: '' });
+        setState({ ready: true, principal: null, isSuperUser: false, billingSuperUser: false, email: '' });
       })
       .finally(() => console.groupEnd());
   }, []);

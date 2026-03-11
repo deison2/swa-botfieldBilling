@@ -17,6 +17,7 @@ import OfficeStandards from "./pages/WIPBasedBilling/OfficeStandards";
 import PartnerStandards from "./pages/WIPBasedBilling/PartnerStandards";
 import ClientStandards from "./pages/WIPBasedBilling/ClientStandards";
 import RecurringClients from "./pages/RecurringRetainers";
+import TechFees from "./pages/TechFees";
 //import OfficeStandards      from './pages/WIPBasedBilling/OfficeStandards';
 //import PartnerStandards     from './pages/WIPBasedBilling/PartnerStandards';
 //import ClientStandards      from './pages/WIPBasedBilling/ClientStandards';
@@ -58,7 +59,7 @@ export default function App() {
           <Route path="Existing-Drafts" element={<ExistingDrafts />} />
           <Route path="Automated-Billing-Recap" element={<AutomatedBillingRecap />} />
           <Route path="Recurring-Retainers" element={<RecurringClients />} />
-          <Route path="Tech-Fees" element={<UnderConstructionPage />} />
+          <Route path="Tech-Fees" element={<TechFees />} />
           <Route path="Billing-Groups" element={<BillingGroups />} />
           <Route path="Misc-Reports" element={<MiscReports />} />
 
