@@ -39,25 +39,25 @@ export default function NarrativeStandards() {
   const { isSuperUser } = useAuth();
 
 const SERVICE_COLORS = {
-  ACCTG:   '#003C4B',
-  ATTEST:  '#00564B',
-  AUDIT:   '#11614C',
-  BUSTAX:  '#24764D',
-  INDTAX:  '#49A050',
-  ESTATE:  '#79B873',
-  EOS:     '#AEDCAA',
-  GCC:     '#b1c9afff',
-  NFP:     '#c8dbc6ff',
-  HR:      '#DDDDDD',
-  MAS:     '#999999',
-  SALT:    '#555555',
-  TAS:     '#333333',
-  TASTAX:  '#111111',
-  VAL:     '#111111',
-  ALL:     '#111111'
+  ACCTG:   '#063941',
+  ATTEST:  '#0d5260',
+  AUDIT:   '#1a6872',
+  BUSTAX:  '#2e7d8a',
+  INDTAX:  '#547872',
+  ESTATE:  '#3d8c87',
+  EOS:     '#5ca89e',
+  GCC:     '#4a7d76',
+  NFP:     '#2c6b65',
+  HR:      '#7a8ea0',
+  MAS:     '#4e5b66',
+  SALT:    '#374151',
+  TAS:     '#2d3748',
+  TASTAX:  '#1f2a34',
+  VAL:     '#1f2a34',
+  ALL:     '#063941',
 };
 
-// ➋ build conditionalRowStyles from that map
+// build conditionalRowStyles from that map
 const conditionalRowStyles = Object.entries(SERVICE_COLORS).map(
   ([service, color]) => ({
     when: row => row.Serv === service,

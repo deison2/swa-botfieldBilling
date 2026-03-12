@@ -1610,6 +1610,9 @@ await Promise.all(processes);
                 onChange={(e) => setReason(e.target.value)}
               >
                 <option value="">Select reason…</option>
+                <option value="Bill to Standard">
+                  Bill to Standard (Office Real., Effeciency Increases, etc.)
+                </option>
                 <option value="Client Preferences">
                   Client Preferences
                 </option>
@@ -1619,11 +1622,17 @@ await Promise.all(processes);
                 <option value="More/Less Complex than PY job">
                   More/Less Complex than PY job
                 </option>
+                <option value="New Draft">
+                  New Draft
+                </option>
                 <option value="Incorrect Calculation">
                   Incorrect Calculation
                 </option>
                 <option value="Partner/Manager Preference">
                   Partner/Manager Preference
+                </option>
+                <option value="Update TAS Project Name">
+                  Update TAS Project Name
                 </option>
                 <option value="Write Off">
                   Write Off

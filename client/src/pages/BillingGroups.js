@@ -142,8 +142,9 @@ function BillingClientHeader() {
   
 const DEFAULT_EDITED = Object.freeze({
   grouping: '-',
-  instructions: '',
+  instructions: undefined,
   billingClient: undefined,
+  appendClientName: false,
 });
 
   const useDebouncedValue = (value, delay = 500) => {
@@ -308,7 +309,37 @@ useEffect(() => {
 
       if (!active || reqId !== requestIdRef.current) return;
 
-      setRows(Array.isArray(clientData) ? clientData : []);
+      const directRows = Array.isArray(clientData) ? clientData : [];
+
+      // Also include clients whose billing client (parent) matches the query
+      const ql = q.toLowerCase();
+      const directCodes = new Set(directRows.map(r => r.ClientCode));
+      const extraCodes = [];
+      for (const [childCode, parentCode] of relChildToParent) {
+        if (parentCode.toLowerCase().includes(ql) && !directCodes.has(childCode)) {
+          extraCodes.push(childCode);
+        }
+      }
+
+      let extraRows = [];
+      if (extraCodes.length > 0) {
+        const results = await Promise.all(
+          extraCodes.slice(0, 20).map(code => dynamicClientLoad(code).catch(() => []))
+        );
+        if (!active || reqId !== requestIdRef.current) return;
+        extraRows = results
+          .flatMap(r => (Array.isArray(r) ? r : []))
+          .filter(r => extraCodes.includes(r.ClientCode));
+      }
+
+      const seen = new Set();
+      const mergedRows = [...directRows, ...extraRows].filter(r => {
+        if (seen.has(r.ClientCode)) return false;
+        seen.add(r.ClientCode);
+        return true;
+      });
+
+      setRows(mergedRows);
       setBillingData(Array.isArray(billData) ? billData : []);
 
     } catch (e) {
@@ -619,7 +650,8 @@ const handleGroupSelect = async (selected) => {
   // 2) Attempt to persist
   try {
     console.log('Updating client grouping for', target, 'to', newClientCode);
-    updateClientGrouping(target, newClientCode);            // <-- your backend call
+    const appendClientName = edited[target]?.appendClientName ?? false;
+    updateClientGrouping(target, newClientCode, appendClientName);
     // Optional: toast.success('Grouping updated');
   } catch (e) {
     console.error('Failed to save grouping:', e);
@@ -678,9 +710,10 @@ const tableData = useMemo(() => {
     const parentForThisClient = relChildToParent.get(r.ClientCode);
     return {
       ...r,
-      _instructions:  e.instructions ?? '',
-      _grouping:      r.ClientGrouping ?? '',
-      _billingClient: e.billingClient ?? parentForThisClient ?? r.ClientCode,
+      _instructions:     e.instructions ?? (r.BillingInstructions ?? ''),
+      _grouping:         r.ClientGrouping ?? '',
+      _billingClient:    e.billingClient ?? parentForThisClient ?? r.ClientCode,
+      _appendClientName: e.appendClientName ?? false,
     };
   });
 }, [rows, edited, relChildToParent]);
@@ -802,7 +835,7 @@ const childByParent = useMemo(() => {
       return (
         <BillingInstructionsCell
           code={code}
-          value={row.BillingInstructions ?? ''}
+          value={row._instructions}
           onChange={(val) => updateEdited(code, { instructions: val })}
           persistEdit={persistEdit}
         />
@@ -841,7 +874,35 @@ const childByParent = useMemo(() => {
      </button>
    );
         }
-      }
+      },
+      {
+        name: (
+          <span title="test text - will replace later">
+            Append Client Name on Draft
+          </span>
+        ),
+        width: '100px',
+        center: true,
+        sortable: false,
+        ignoreRowClick: true,
+        cell: (row) => {
+          const code = row.ClientCode;
+          const checked = row._appendClientName ?? false;
+          return (
+            <input
+              type="checkbox"
+              className="row-cb"
+              checked={checked}
+              onChange={() => {
+                const next = !checked;
+                updateEdited(code, { appendClientName: next });
+                const grouping = row._grouping || '';
+                updateClientGrouping(code, grouping, next);
+              }}
+            />
+          );
+        },
+      },
     ];
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [updateEdited, persistEdit, openGroupModal, openBillingClientModal, relChildSet, relParentCount]);

@@ -54,7 +54,7 @@ export async function CombineDrafts(parent, children) {
   return bulkListId;
 }
 
-export async function AbandonDraft(DebtTranIndex) {
+export async function AbandonDraft(DebtTranIndex, { userEmail, debtTranDate, draftFeeIdx, reason } = {}) {
   console.log('Draft Index - ', DebtTranIndex);
   const token = await getToken();
   setAuthToken(token);
@@ -63,7 +63,11 @@ export async function AbandonDraft(DebtTranIndex) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       DebtTranIndex: DebtTranIndex,
-      token
+      token,
+      userEmail,
+      debtTranDate,
+      draftFeeIdx,
+      reason,
     })
   });
   if (!res.ok) throw new Error("Create failed");

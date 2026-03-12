@@ -31,14 +31,15 @@ export async function dynamicClientGroupings(searchText) {
   return res.json();
 }
 
-export async function updateClientGrouping(client, newGrouping) {
+export async function updateClientGrouping(client, newGrouping, appendClientName = false) {
   const res = await fetch('/api/updateClientGrouping', {
     method: "POST",
     body: JSON.stringify({
         "client": encodeURIComponent(client),
-        "newGrouping": encodeURIComponent(newGrouping)
+        "newGrouping": encodeURIComponent(newGrouping),
+        "appendClientName": appendClientName,
         })
-  
+
   });
   return;
 }

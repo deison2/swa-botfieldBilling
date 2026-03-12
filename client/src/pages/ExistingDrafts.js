@@ -756,8 +756,9 @@ function JobDetailsPanel({ details, pinRequest, setGlobalLoading }) {
 export default function ExistingDrafts() {
 
 const [showAbandonModal, setShowAbandonModal] = useState(false);
-const [abandonTarget, setAbandonTarget] = useState(null); // { draftFeeIdx, billedClient }
+const [abandonTarget, setAbandonTarget] = useState(null); // { draftFeeIdx, billedClient, debtTranDate }
 const [isAbandoning, setIsAbandoning] = useState(false);
+const [abandonReason, setAbandonReason] = useState('');
 
 const [knuulaFees, setKnuulaFees] = useState([]);
 const [knuulaContracts, setKnuulaContracts] = useState([]);
@@ -794,9 +795,8 @@ useEffect(() => {
   return () => { cancelled = true; };
 }, []);
 
-const handleAbandonDraftClick = (draftFeeIdx, billedClient) => { 
-  setAbandonTarget({ draftFeeIdx, billedClient });
-  console.log(abandonTarget);
+const handleAbandonDraftClick = (draftFeeIdx, billedClient, debtTranDate) => {
+  setAbandonTarget({ draftFeeIdx, billedClient, debtTranDate });
   setShowAbandonModal(true);
 };
 
@@ -804,10 +804,20 @@ const handleConfirmAbandon = async () => {
   const draftFeeIdx = abandonTarget?.draftFeeIdx;
   if (!draftFeeIdx) return;
 
+  if (!abandonReason.trim()) {
+    toast.warn('Please enter a reason before abandoning the draft.');
+    return;
+  }
+
   setIsAbandoning(true);
 
   try {
-    await abandonDraft(draftFeeIdx);
+    await abandonDraft(draftFeeIdx, {
+      userEmail: email,
+      debtTranDate: abandonTarget.debtTranDate ?? '',
+      draftFeeIdx,
+      reason: abandonReason.trim(),
+    });
 
     // Remove that draft from the table
     setRawRows(prev => prev.filter(r => Number(r.DRAFTFEEIDX) !== Number(draftFeeIdx)));
@@ -818,7 +828,7 @@ const handleConfirmAbandon = async () => {
       next.delete(Number(draftFeeIdx));
       return next;
     });
-    
+
   } catch (err) {
     console.error("abandonDraft failed:", err);
     alert("Could not abandon draft. Please try again.");
@@ -826,6 +836,7 @@ const handleConfirmAbandon = async () => {
     setIsAbandoning(false);
     setShowAbandonModal(false);
     setAbandonTarget(null);
+    setAbandonReason('');
   }
 };
 
@@ -835,6 +846,7 @@ const handleConfirmAbandon = async () => {
 // cancel/close modal
 const handleCancelAbandon = () => {
   setShowAbandonModal(false);
+  setAbandonReason('');
 };
 
 
@@ -2124,7 +2136,7 @@ const closeCreated = () => {
                     type="button"
                     className={`abandon-draft-btn ${!editDraftEnabled ? 'is-disabled' : ''}`}
                     disabled={!editDraftEnabled}
-                    onClick={() => handleAbandonDraftClick(data.DRAFTFEEIDX, data.BILLEDCLIENT)}
+                    onClick={() => handleAbandonDraftClick(data.DRAFTFEEIDX, data.BILLEDCLIENT, data.DEBTTRANDATE)}
                     aria-disabled={!editDraftEnabled}
                     title={
                       editDraftEnabled
@@ -3862,6 +3874,15 @@ console.log('PDF header:', header);
               Are you sure you want to abandon {abandonTarget?.billedClient}
               {"'"}s draft?
             </p>
+
+            <textarea
+              className="abandon-reason-input"
+              placeholder="Enter reason for abandoning this draft…"
+              value={abandonReason}
+              onChange={e => setAbandonReason(e.target.value)}
+              rows={3}
+              disabled={isAbandoning}
+            />
 
             <div className="scope-btn-row">
               <button
