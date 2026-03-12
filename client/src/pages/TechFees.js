@@ -161,9 +161,16 @@ export default function TechFees() {
     });
   }, []);
 
+  const allUnchecked = includedSet.size === 0;
+
   const handleUncheckAll = () => {
-    setIncludedSet(new Set());
-    setExcludedSet(new Set());
+    if (allUnchecked) {
+      setIncludedSet(new Set(rows.map(r => r._rowIdx)));
+      setExcludedSet(new Set());
+    } else {
+      setIncludedSet(new Set());
+      setExcludedSet(new Set());
+    }
   };
 
   const handleCreate = async () => {
@@ -378,7 +385,7 @@ export default function TechFees() {
                 onClick={handleUncheckAll}
                 disabled={loading || writing}
               >
-                Uncheck All
+                {allUnchecked ? 'Check All' : 'Uncheck All'}
               </button>
 
               {billingSuperUser && (
