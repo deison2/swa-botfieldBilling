@@ -52,3 +52,17 @@ export async function writeAuditRecords(payload) {
   }
   return res.json();
 }
+
+
+export async function createForcedTechFees(payload) {
+  const res = await fetch('/api/techFees/audit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ payload: { ...payload, runType: 'write' } }),
+  });
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`createForcedTechFees failed: ${res.status} ${msg}`);
+  }
+  return res.json();
+}
