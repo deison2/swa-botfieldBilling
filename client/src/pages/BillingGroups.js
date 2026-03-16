@@ -210,11 +210,13 @@ const DEFAULT_EDITED = Object.freeze({
 const [relChildSet, setRelChildSet] = useState(new Set());
 const [relParentCount, setRelParentCount] = useState(new Map());
 const [relChildToParent, setRelChildToParent] = useState(new Map());
+const [relAppendClientNameMap, setRelAppendClientNameMap] = useState(new Map());
 
 const buildFromPairs = (pairs = []) => {
   const childSet = new Set();            // all children
   const parentCount = new Map();         // parent -> #children
   const childToParent = new Map();       // child -> parent
+  const appendClientNameMap = new Map(); // child -> boolean
 
   for (const row of pairs) {
     const p = String(row?.parentCode ?? '').trim();
@@ -229,8 +231,9 @@ const buildFromPairs = (pairs = []) => {
 
     // If duplicates exist, latest wins (or change logic as needed)
     childToParent.set(c, p);
+    appendClientNameMap.set(c, Boolean(row?.appendClientName ?? false));
   }
-  return { childSet, parentCount, childToParent };
+  return { childSet, parentCount, childToParent, appendClientNameMap };
 };
 
 useEffect(() => {
@@ -240,10 +243,11 @@ useEffect(() => {
       const pairs = await getBillingGroups(); // returns [{ parentCode, childCode }, ...]
       console.log(pairs);
       if (cancelled) return;
-      const { childSet, parentCount, childToParent } = buildFromPairs(pairs);
+      const { childSet, parentCount, childToParent, appendClientNameMap } = buildFromPairs(pairs);
       setRelChildSet(childSet);
       setRelParentCount(parentCount);
       setRelChildToParent(childToParent);
+      setRelAppendClientNameMap(appendClientNameMap);
     } catch (e) {
       console.error('getBillingGroups failed:', e);
       if (!cancelled) {
@@ -713,10 +717,10 @@ const tableData = useMemo(() => {
       _instructions:     e.instructions ?? (r.BillingInstructions ?? ''),
       _grouping:         r.ClientGrouping ?? '',
       _billingClient:    e.billingClient ?? parentForThisClient ?? r.ClientCode,
-      _appendClientName: e.appendClientName ?? false,
+      _appendClientName: e.appendClientName ?? relAppendClientNameMap.get(r.ClientCode) ?? false,
     };
   });
-}, [rows, edited, relChildToParent]);
+}, [rows, edited, relChildToParent, relAppendClientNameMap]);
 
 // Map all returned items by their parent, sorted by totalChildDrafts desc
 const childByParent = useMemo(() => {
@@ -896,8 +900,7 @@ const childByParent = useMemo(() => {
               onChange={() => {
                 const next = !checked;
                 updateEdited(code, { appendClientName: next });
-                const grouping = row._grouping || '';
-                updateClientGrouping(code, grouping, next);
+                addBillingGroup(code, row._billingClient, next);
               }}
             />
           );

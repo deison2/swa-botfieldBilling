@@ -68,12 +68,13 @@ export async function getBillingGroups() {
   return tempBody;
 }
 
-export async function addBillingGroup(child, parent) {
+export async function addBillingGroup(child, parent, appendClientName = false) {
   const res = await fetch('/api/billingGroups', {
     method: "POST",
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ "child": child,
-                           "parent": parent })
+                           "parent": parent,
+                           "appendClientName": appendClientName })
 });
   if (!res.ok) {
     const text = await res.text(); // capture error payload

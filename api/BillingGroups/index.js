@@ -7,11 +7,6 @@ module.exports = async function (context, req) {
   const method = String(req.method || "GET").toUpperCase();
   const conn = process.env.AZURE_STORAGE_CONNECTION_STRING;
 
-  if (!conn) {
-    context.res = { status: 500, body: "Missing AZURE_STORAGE_CONNECTION_STRING" };
-    return;
-  }
-
   const blobSvc = BlobServiceClient.fromConnectionString(conn);
   const container = blobSvc.getContainerClient(CONTAINER);
   const blob = container.getBlockBlobClient(BLOB);
@@ -30,7 +25,8 @@ module.exports = async function (context, req) {
     if (method === "POST") {
       const childCode = req.body.child;
       const parentCode = req.body.parent;
-      console.log(`Received request to add/update billing group: childCode=${childCode}, parentCode=${parentCode}`);
+      const appendClientName = Boolean(req.body.appendClientName ?? false);
+      console.log(`Received request to add/update billing group: childCode=${childCode}, parentCode=${parentCode}, appendClientName=${appendClientName}`);
       const norm = (s) => String(s ?? "").trim();
       const normChild = norm(childCode);
       const normParent = norm(parentCode);
@@ -108,10 +104,10 @@ module.exports = async function (context, req) {
 
       let result;
       if (idx !== -1) {
-        list[idx] = { ...list[idx], childCode: normChild, parentCode: normParent };
+        list[idx] = { ...list[idx], childCode: normChild, parentCode: normParent, appendClientName };
         result = { status: "updated", item: list[idx] };
       } else {
-        const newItem = { childCode: normChild, parentCode: normParent };
+        const newItem = { childCode: normChild, parentCode: normParent, appendClientName };
         list.push(newItem);
         result = { status: "created", item: newItem };
       }
