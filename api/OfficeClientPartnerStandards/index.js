@@ -47,8 +47,8 @@ module.exports = async function (context, req) {
               const merged = { ...obj, ...match };
 
               if (type === "client") {
-                if (merged.serv == null && merged.value != null) merged.serv = merged.value;
-                delete merged.value;
+                // Client type uses both serv (service code) and value (standard %)
+                // Keep both fields intact
               } else {
                 if (merged.value == null && merged.serv != null) merged.value = merged.serv;
                 delete merged.serv;
@@ -57,11 +57,12 @@ module.exports = async function (context, req) {
               result.push(merged);
             }
           } else {
-            // no match: push population row with null in the correct field
-            result.push({
-              ...obj,
-              [valueField]: null
-            });
+            // no match: push population row with null standard
+            if (type === "client") {
+              result.push({ ...obj, serv: null, value: null });
+            } else {
+              result.push({ ...obj, value: null });
+            }
           }
         }
 
@@ -104,41 +105,49 @@ module.exports = async function (context, req) {
       const body = req.body || {};
       const id = body.id;
 
-      const valueField = type === "client" ? "serv" : "value";
+      if (type === "client") {
+        // Client type: blob stores { id, serv, value } — all three fields
+        const serv = body.serv ?? null;
+        const value = body.value ?? null;
 
-      // accept either field name, but persist the canonical one
-      const incomingVal =
-        body[valueField] ??
-        (type === "client" ? body.value : body.serv) ??
-        null;
+        const idx = list.findIndex(
+          i => i.id === id && (i.serv ?? null) === (serv ?? null)
+        );
 
-      const idx =
-        type === "client"
-          ? list.findIndex(
-              i => i.id === id && (i.serv ?? null) === (incomingVal ?? null)
-            )
-          : list.findIndex(i => i.id === id);
-
-      if (idx === -1) {
-        // Insert
-        const toInsert = { ...body, id, [valueField]: incomingVal };
-        if (type === "client") delete toInsert.value;
-        else delete toInsert.serv;
-
-        list.push(toInsert);
-        await writeAll(blob, list);
-        context.res = { status: 201, body: toInsert };
-        return;
+        if (idx === -1) {
+          const toInsert = { id, serv, value };
+          list.push(toInsert);
+          await writeAll(blob, list);
+          context.res = { status: 201, body: toInsert };
+          return;
+        } else {
+          const updated = { ...list[idx], id, serv, value };
+          list[idx] = updated;
+          await writeAll(blob, list);
+          context.res = { status: 200, body: updated };
+          return;
+        }
       } else {
-        // Update
-        const updated = { ...list[idx], ...body, id, [valueField]: incomingVal };
-        if (type === "client") delete updated.value;
-        else delete updated.serv;
+        // Non-client types: blob stores { id, value }
+        const incomingVal = body.value ?? body.serv ?? null;
 
-        list[idx] = updated;
-        await writeAll(blob, list);
-        context.res = { status: 200, body: updated };
-        return;
+        const idx = list.findIndex(i => i.id === id);
+
+        if (idx === -1) {
+          const toInsert = { ...body, id, value: incomingVal };
+          delete toInsert.serv;
+          list.push(toInsert);
+          await writeAll(blob, list);
+          context.res = { status: 201, body: toInsert };
+          return;
+        } else {
+          const updated = { ...list[idx], ...body, id, value: incomingVal };
+          delete updated.serv;
+          list[idx] = updated;
+          await writeAll(blob, list);
+          context.res = { status: 200, body: updated };
+          return;
+        }
       }
     }
   }
