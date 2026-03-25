@@ -90,15 +90,15 @@ export function AuthProvider({ children }) {
       .then(({ clientPrincipal }) => {
         const email          = clientPrincipal?.userDetails?.toLowerCase() || '';
 
-        // // Block non-BMSS domain users (also block empty/null principal)
-        // if (!email || !email.endsWith('@bmss.com')) {
-        //   console.warn('[AUTH] Unauthorized or missing domain:', email || '(empty)');
-        //   setState({
-        //     ready: true, principal: null, isSuperUser: false,
-        //     billingSuperUser: false, email: '', blocked: true
-        //   });
-        //   return;
-        // }
+        // Block non-BMSS domain users (only when a real non-BMSS email is present)
+        if (email && !email.endsWith('@bmss.com')) {
+          console.warn('[AUTH] Unauthorized domain:', email);
+          setState({
+            ready: true, principal: null, isSuperUser: false,
+            billingSuperUser: false, email: '', blocked: true
+          });
+          return;
+        }
 
         const isSuper        = SUPER_USERS.includes(email);
         const isBillingSuper = BILLING_SUPER_USERS.includes(email);
