@@ -87,20 +87,27 @@ export function AuthProvider({ children }) {
         return json;
       })
       .then(({ clientPrincipal }) => {
-        const email          = clientPrincipal?.userDetails?.toLowerCase() || '';
+        const email          = clientPrincipal?.userDetails?.toLowerCase() || ‘’;
+
+        // Block non-BMSS domain users
+        if (email && !email.endsWith(‘@bmss.com’)) {
+          console.warn(‘[AUTH] Unauthorized domain — redirecting to logout.’);
+          window.location.href = ‘/.auth/logout?post_logout_redirect_uri=/’;
+          return;
+        }
+
         const isSuper        = SUPER_USERS.includes(email);
         const isBillingSuper = BILLING_SUPER_USERS.includes(email);
 
         if (DEBUG) {
-          console.debug('principal  ', {
+          console.debug(‘principal  ‘, {
             email,
             identityProvider: clientPrincipal?.identityProvider,
             userId: clientPrincipal?.userId,
             userRoles: clientPrincipal?.userRoles
           });
-          // If email is empty, SWA likely thinks you’re anonymous in prod.
           if (!email) {
-            console.warn('[AUTH] Empty email from /.auth/me — likely anonymous session.');
+            console.warn(‘[AUTH] Empty email from /.auth/me — likely anonymous session.’);
           }
         }
 

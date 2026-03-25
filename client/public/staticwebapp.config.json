@@ -1,12 +1,27 @@
 {
   "platform": { "apiRuntime": "node:20" },
 
+  "auth": {
+    "identityProviders": {
+      "azureActiveDirectory": {
+        "registration": {
+          "openIdIssuer": "https://login.microsoftonline.com/bmss.com/v2.0",
+          "clientIdSettingName": "AAD_CLIENT_ID",
+          "clientSecretSettingName": "AAD_CLIENT_SECRET"
+        }
+      }
+    }
+  },
+
   "navigationFallback": {
     "rewrite": "/index.html",
     "exclude": ["/.auth/*", "/api/*"]
   },
 
   "routes": [
+    { "route": "/.auth/login/github",  "statusCode": 404 },
+    { "route": "/.auth/login/twitter", "statusCode": 404 },
+
     { "route": "/api/*",                "allowedRoles": ["authenticated"] },
 
     { "route": "/manifest.json",        "allowedRoles": ["anonymous"] },
