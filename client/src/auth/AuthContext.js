@@ -60,7 +60,8 @@ export function AuthProvider({ children }) {
     principal        : null,
     isSuperUser      : false,
     billingSuperUser : false,
-    email            : undefined
+    email            : undefined,
+    blocked          : false
   });
 
   useEffect(() => {
@@ -89,10 +90,13 @@ export function AuthProvider({ children }) {
       .then(({ clientPrincipal }) => {
         const email          = clientPrincipal?.userDetails?.toLowerCase() || '';
 
-        // Block non-BMSS domain users
-        if (email && !email.endsWith('@bmss.com')) {
-          console.warn('[AUTH] Unauthorized domain - redirecting to logout.');
-          window.location.href = '/.auth/logout?post_logout_redirect_uri=/';
+        // Block non-BMSS domain users (also block empty/null principal)
+        if (!email || !email.endsWith('@bmss.com')) {
+          console.warn('[AUTH] Unauthorized or missing domain:', email || '(empty)');
+          setState({
+            ready: true, principal: null, isSuperUser: false,
+            billingSuperUser: false, email: '', blocked: true
+          });
           return;
         }
 
@@ -125,6 +129,39 @@ export function AuthProvider({ children }) {
       })
       .finally(() => console.groupEnd());
   }, []);
+
+  if (state.blocked) {
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        height: '100vh', background: '#f9fafb', fontFamily: "'Segoe UI', sans-serif"
+      }}>
+        <div style={{
+          textAlign: 'center', padding: '48px', background: '#fff',
+          borderRadius: '12px', boxShadow: '0 4px 24px rgba(0,0,0,0.1)', maxWidth: '440px'
+        }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>&#128274;</div>
+          <h1 style={{ fontSize: '1.4rem', color: '#063941', margin: '0 0 8px' }}>
+            Unauthorized Access
+          </h1>
+          <p style={{ color: '#6b7280', fontSize: '0.9rem', lineHeight: 1.5, margin: '0 0 20px' }}>
+            This application is restricted to BMSS users only.
+            Please sign in with your @bmss.com account.
+          </p>
+          <a
+            href="/.auth/logout?post_logout_redirect_uri=/login"
+            style={{
+              display: 'inline-block', padding: '10px 24px', background: '#063941',
+              color: '#fff', borderRadius: '8px', textDecoration: 'none',
+              fontSize: '0.9rem', fontWeight: 600
+            }}
+          >
+            Sign in with a different account
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <AuthCtx.Provider value={state}>
