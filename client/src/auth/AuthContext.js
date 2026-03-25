@@ -16,6 +16,12 @@ const BILLING_SUPER_USERS = [
   'chenriksen@bmss.com',
 ];
 
+const BILLING_TEAM = [
+  'deison@bmss.com',
+  'chenriksen@bmss.com',
+  'lambrose@bmss.com',
+];
+
 const SUPER_USERS = [
   'hstaggs@bmss.com',
   'tcrawford@bmss.com',
@@ -45,6 +51,7 @@ const AuthCtx = createContext({
   principal        : null,
   isSuperUser      : false,
   billingSuperUser : false,
+  isBillingTeam    : false,
   email            : undefined
 });
 
@@ -58,6 +65,7 @@ export function AuthProvider({ children }) {
     principal        : null,
     isSuperUser      : false,
     billingSuperUser : false,
+    isBillingTeam    : false,
     email            : undefined
   });
 
@@ -88,6 +96,7 @@ export function AuthProvider({ children }) {
         const email          = clientPrincipal?.userDetails?.toLowerCase() || '';
         const isSuper        = SUPER_USERS.includes(email);
         const isBillingSuper = BILLING_SUPER_USERS.includes(email);
+        const isBillingTeamMember = BILLING_TEAM.includes(email);
 
         if (DEBUG) {
           console.debug('principal  ', {
@@ -107,12 +116,13 @@ export function AuthProvider({ children }) {
           principal        : clientPrincipal,
           isSuperUser      : isSuper,
           billingSuperUser : isBillingSuper,
+          isBillingTeam    : isBillingTeamMember,
           email
         });
       })
       .catch(err => {
         console.error('AUTH error', err);
-        setState({ ready: true, principal: null, isSuperUser: false, billingSuperUser: false, email: '' });
+        setState({ ready: true, principal: null, isSuperUser: false, billingSuperUser: false, isBillingTeam: false, email: '' });
       })
       .finally(() => console.groupEnd());
   }, []);

@@ -5,6 +5,7 @@
 // htmlData/automatedBilling/drafts/billed/<billThroughDate>/<user>_<UTC>_draft_<draftIdx>.json
 
 const { BlobServiceClient } = require('@azure/storage-blob');
+const { sql: mssql, query: sqlQuery } = require('../shared/db');
 
 const CONTAINER = 'container-bmssprod001';
 const AUDIT_PREFIX = 'htmlData/automatedBilling/drafts/changes/';
@@ -124,6 +125,49 @@ module.exports = async function (context, req) {
     });
 
     log('Saved draft edit audit', { blobName });
+
+    // Also write a COMMENT action to billing.workflow_actions (non-blocking)
+    try {
+      const wiResult = await sqlQuery(
+        `SELECT wi.instance_id, wi.cycle_id, wi.current_stage_id,
+                wsd.stage_code, wsd.stage_name
+         FROM billing.workflow_instances wi
+         JOIN billing.billing_cycles bc ON wi.cycle_id = bc.cycle_id
+         JOIN billing.workflow_stage_definitions wsd ON wi.current_stage_id = wsd.stage_id
+         WHERE wi.draft_fee_idx = @feeIdx AND bc.is_active = 1`,
+        { feeIdx: { type: mssql.Int, value: Number(draftIdx) } }
+      );
+
+      if (wiResult.recordset.length) {
+        const wi = wiResult.recordset[0];
+
+        // Update the blob with stage info so draftActivity can read it later
+        try {
+          doc.stageCode = wi.stage_code || null;
+          doc.stageName = wi.stage_name || null;
+          const updatedText = JSON.stringify(doc, null, 2);
+          await blob.upload(updatedText, Buffer.byteLength(updatedText), {
+            blobHTTPHeaders: { blobContentType: 'application/json; charset=utf-8' },
+          });
+        } catch (_) { /* best-effort */ }
+
+        await sqlQuery(
+          `INSERT INTO billing.workflow_actions (instance_id, cycle_id, stage_id, action_type, action_by, comments)
+           VALUES (@instId, @cycleId, @stageId, 'COMMENT', @by, @comments)`,
+          {
+            instId: { type: mssql.Int, value: wi.instance_id },
+            cycleId: { type: mssql.Int, value: wi.cycle_id },
+            stageId: { type: mssql.TinyInt, value: wi.current_stage_id },
+            by: user || 'unknown',
+            comments: `Draft edit audit: ${reason || 'edit'}`,
+          }
+        );
+        log('Wrote billing.workflow_actions COMMENT for instance', wi.instance_id);
+      }
+    } catch (sqlErr) {
+      // Non-blocking: blob audit already succeeded
+      log('WARN: billing.workflow_actions write failed (non-blocking):', sqlErr.message);
+    }
 
     context.res = {
       status: 204,

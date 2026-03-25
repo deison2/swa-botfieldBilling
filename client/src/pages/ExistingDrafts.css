@@ -785,7 +785,7 @@
 
   /* sizing to look like your other inputs */
   height: 36px;
-  min-width: 220px;
+  min-width: 180px;
   padding: 6px 12px;
   border-radius: 10px;
   border: 2px solid #d1d5db;
@@ -1490,9 +1490,9 @@
   display: block;
 }
 
-/* Give the row a little more room so the taller icon isn’t squashed */
+/* Give the row room for the stacked financials column (5 rows) */
 .existing-drafts .rdt_TableRow {
-  min-height: 64px;          /* tweak to taste (56–68px) */
+  min-height: 110px;
 }
 /* ===== Draft WIP expansion (scoped, deduped) =========================== */
 .existing-drafts{
@@ -1996,6 +1996,220 @@ button.bare {
 .drill-subhead-grid .hdr-left { font-weight: 600; color: #274c77; }
 .drill-subhead-grid .hdr-hours { justify-self: end; color: #274c77; }
 
+/* ── Stacked Financials column ──────────────────────────────── */
+.fin-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 4px 0;
+  width: fit-content;
+  margin: 0 auto;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.fin-row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.fin-label {
+  font-weight: 700;
+  white-space: nowrap;
+  min-width: 38px;
+}
+
+.fin-value {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Color coding — single gradient spanning all rows top to bottom */
+.fin-stack {
+  background: linear-gradient(to bottom, #063941, #2fb3a5);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ── Review Status column ─────────────────────────────────────── */
+.rv-status-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+}
+.rv-status-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #374151;
+  text-align: center;
+  line-height: 1.2;
+}
+.rv-status-avatars {
+  display: flex;
+  justify-content: center;
+}
+.rv-status-avatars .rv-avatar + .rv-avatar {
+  margin-left: -6px;
+}
+.rv-status-avatars .rv-avatar {
+  border: 1.5px solid #fff;
+}
+
+/* ── Reviewer avatar (inline) ────────────────────────────────── */
+.rv-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  overflow: hidden;
+  background: #e5e7eb;
+  color: #374151;
+  font-weight: 700;
+  font-family: Inter, system-ui, sans-serif;
+  cursor: default;
+  flex-shrink: 0;
+}
+.rv-avatar__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.rv-avatar__init {
+  user-select: none;
+  line-height: 1;
+}
+
+/* ── Review column button ─────────────────────────────────────── */
+.rwm-open-btn {
+  padding: 8px 12px;
+  white-space: nowrap;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+/* Assigned to current user — yellow chip */
+.rwm-open-btn--assigned {
+  border: 1.5px solid #d97706;
+  background: #fef3c7;
+  color: #92400e;
+}
+.rwm-open-btn--assigned:hover {
+  background: #d97706;
+  color: #fff;
+  border-color: #d97706;
+}
+
+/* Not assigned — green chip */
+.rwm-open-btn--history {
+  border: 1.5px solid #059669;
+  background: #d1fae5;
+  color: #065f46;
+}
+.rwm-open-btn--history:hover {
+  background: #059669;
+  color: #fff;
+  border-color: #059669;
+}
+
+/* Unread comment badge — speech bubble on Review button */
+.rwm-unread-badge {
+  position: absolute;
+  top: -8px;
+  right: -10px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 10px;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+/* ── Quick Sign-Off Modal ──────────────────────────────────────── */
+.qs-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 850;
+  background: rgba(6, 57, 65, 0.35);
+  backdrop-filter: blur(2px);
+  display: grid;
+  place-items: center;
+}
+
+.qs-modal {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
+  padding: 32px 36px;
+  text-align: center;
+  min-width: 340px;
+}
+
+.qs-title {
+  margin: 0 0 4px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #063941;
+}
+
+.qs-subtitle {
+  margin: 0 0 24px;
+  font-size: 0.85rem;
+  color: #5a7a7e;
+}
+
+.qs-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.qs-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+
+.qs-btn:active {
+  transform: scale(0.97);
+}
+
+.qs-btn--review {
+  background: linear-gradient(135deg, #063941, #0d5b56);
+  color: #fff;
+}
+
+.qs-btn--review:hover {
+  opacity: 0.88;
+}
+
+.qs-btn--history {
+  background: #fff;
+  color: #063941;
+  border: 1px solid #2fb3a5;
+}
+
+.qs-btn--history:hover {
+  background: #063941;
+  color: #fff;
+  border-color: #063941;
+}
+
 /* --- Row left area with icon + label + hours --- */
 .drill-item .row-left {
   display: grid;
@@ -2415,7 +2629,7 @@ button.bare {
 /* Tray itself – pinned to bottom, from sidebar to right edge */
 .edtray {
   position: absolute;        /* relative to .edtray-backdrop */
-  left: var(--sidebar-width, 260px);
+  left: 0;
   right: 0;
   bottom: 0;
 
@@ -2465,6 +2679,25 @@ button.bare {
   font-size: 1.15rem;
   font-weight: 700;
   color: #063941;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.edtray__review-btn {
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 4px 14px;
+  border-radius: 4px;
+  border: 1.5px solid #2fb3a5;
+  background: #fff;
+  color: #063941;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.edtray__review-btn:hover {
+  background: #063941;
+  color: #fff;
 }
 .edtray__meta {
   font-size: 0.85rem;

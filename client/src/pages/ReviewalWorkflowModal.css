@@ -1,0 +1,615 @@
+/* ═══════════════════════════════════════════════════════════════
+   ReviewalWorkflowModal.css
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Backdrop ─────────────────────────────────────────────────── */
+.rwm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: rgba(6, 57, 65, 0.45);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Elevated: render above edit tray (z-index 1200) */
+.rwm-backdrop--elevated {
+  z-index: 1300;
+}
+
+/* ── Layout wrapper (modal centered, feed floats to its right) ── */
+.rwm-layout {
+  position: relative;
+  max-height: 88vh;
+}
+
+/* ── Modal shell ──────────────────────────────────────────────── */
+.rwm-modal {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  width: min(92vw, 1320px);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Header ───────────────────────────────────────────────────── */
+.rwm-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 20px 28px 12px;
+  border-bottom: 1px solid #e5eaea;
+}
+
+.rwm-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #063941;
+}
+
+.rwm-subtitle {
+  font-size: 0.9rem;
+  color: #5a7a7e;
+  font-weight: 500;
+}
+
+.rwm-lock-banner {
+  margin-left: auto;
+  font-size: 0.78rem;
+  color: #dc2626;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+/* ── Progress graph (top section) ─────────────────────────────── */
+.rwm-progress {
+  position: relative;
+  height: 120px;
+  margin: 24px 48px 12px;
+  flex-shrink: 0;
+}
+
+/* Background line */
+.rwm-progress-line {
+  position: absolute;
+  top: 20px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: #d8e4e3;
+  border-radius: 2px;
+}
+
+/* Filled portion of the line */
+.rwm-progress-fill {
+  position: absolute;
+  top: 20px;
+  left: 0;
+  height: 4px;
+  background: linear-gradient(to right, #063941, #2fb3a5);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+/* Each point container */
+.rwm-point {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 110px;
+  text-align: center;
+}
+
+/* The dot */
+.rwm-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #d8e4e3;
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px #d8e4e3;
+  position: relative;
+  top: 13px;
+  z-index: 2;
+  transition: all 0.2s ease;
+}
+
+.rwm-point--past .rwm-dot {
+  background: #2fb3a5;
+  box-shadow: 0 0 0 2px #2fb3a5;
+}
+
+.rwm-point--current .rwm-dot {
+  background: #063941;
+  box-shadow: 0 0 0 2px #063941, 0 0 0 5px rgba(6, 57, 65, 0.2);
+  width: 18px;
+  height: 18px;
+  top: 12px;
+}
+
+.rwm-point--active .rwm-dot {
+  box-shadow: 0 0 0 2px #059669, 0 0 0 6px rgba(5, 150, 105, 0.25);
+}
+
+.rwm-point--clickable {
+  cursor: pointer;
+}
+
+.rwm-point--clickable:hover .rwm-dot {
+  transform: scale(1.2);
+}
+
+/* Label under the dot */
+.rwm-point-label {
+  margin-top: 20px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #5a7a7e;
+  line-height: 1.2;
+}
+
+.rwm-point--past .rwm-point-label {
+  color: #2fb3a5;
+}
+
+.rwm-point--current .rwm-point-label {
+  color: #063941;
+  font-weight: 700;
+}
+
+/* Who / when metadata under the label */
+.rwm-point-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 2px;
+  font-size: 0.65rem;
+  color: #8aa0a3;
+}
+
+.rwm-point-who {
+  font-weight: 600;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Body (middle section — draft data) ───────────────────────── */
+.rwm-body {
+  flex: 1;
+  overflow: auto;
+  padding: 16px 28px;
+  min-height: 0;
+}
+
+/* Comparison mode: side-by-side */
+.rwm-body--compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+/* Version wrapper */
+.rwm-version {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rwm-version-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #063941;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  background: rgba(47, 179, 165, 0.12);
+  border-radius: 4px;
+  width: fit-content;
+}
+
+.rwm-version--old .rwm-version-label {
+  background: rgba(79, 70, 229, 0.12);
+  color: #4F46E5;
+}
+
+.rwm-btn--revert {
+  background: #fff;
+  color: #4F46E5;
+  border: 1.5px solid #4F46E5;
+  outline: 2px solid rgba(79, 70, 229, 0.3);
+  outline-offset: 1px;
+  padding: 3px 12px;
+  font-size: 0.72rem;
+}
+
+.rwm-btn--revert:hover:not(:disabled) {
+  background: #4F46E5;
+  color: #fff;
+}
+
+.rwm-btn--revert:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Draft data grid (analysis left, narrative right) */
+.rwm-draft-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 1.1fr;
+  gap: 16px;
+}
+
+/* Single-view full width */
+.rwm-version--single .rwm-draft-grid {
+  grid-template-columns: 1.3fr 1.1fr;
+}
+
+/* In compare mode, stack within each side */
+.rwm-body--compare .rwm-draft-grid {
+  grid-template-columns: 1fr;
+}
+
+/* Section panels */
+.rwm-analysis,
+.rwm-narrative {
+  background: #f8fafb;
+  border: 1px solid #e5eaea;
+  border-radius: 10px;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.rwm-section-title {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #063941;
+}
+
+.rwm-placeholder {
+  font-size: 0.82rem;
+  color: #8aa0a3;
+  font-style: italic;
+  padding: 12px 0;
+}
+
+/* ── Loading spinner for panels ──────────────────────────────── */
+.rwm-loading-panel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 24px 0;
+  font-size: 0.82rem;
+  color: #8aa0a3;
+  font-style: italic;
+}
+
+.rwm-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2.5px solid #e0e7e8;
+  border-top-color: #2fb3a5;
+  border-radius: 50%;
+  animation: rwm-spin 0.7s linear infinite;
+}
+
+@keyframes rwm-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Tables */
+.rwm-table-wrap {
+  overflow-x: auto;
+}
+
+.rwm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.rwm-table th {
+  background: #e8f3f1;
+  font-weight: 700;
+  color: #33434b;
+  padding: 6px 8px;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 2px solid #d0e0dd;
+}
+
+.rwm-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid #eef2f1;
+  color: #33434b;
+}
+
+.rwm-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.rwm-narr-text {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Footer (buttons) ─────────────────────────────────────────── */
+.rwm-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 28px;
+  border-top: 1px solid #e5eaea;
+  flex-shrink: 0;
+}
+
+.rwm-footer-left,
+.rwm-footer-right {
+  display: flex;
+  gap: 10px;
+}
+
+.rwm-btn {
+  padding: 8px 22px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+
+.rwm-btn:active {
+  transform: scale(0.97);
+}
+
+.rwm-btn--close {
+  background: #e5eaea;
+  color: #33434b;
+}
+
+.rwm-btn--close:hover {
+  background: #d0dada;
+}
+
+.rwm-btn--review {
+  background: linear-gradient(135deg, #063941, #0d5b56);
+  color: #fff;
+}
+
+.rwm-btn--review:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.rwm-btn--review:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.rwm-btn--edit {
+  background: #fff;
+  color: #063941;
+  border: 1px solid #2fb3a5;
+}
+
+.rwm-btn--edit:hover {
+  background: #063941;
+  color: #fff;
+}
+
+/* ── Activity Feed (floating panel to the right of the modal) ── */
+.rwm-feed {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 16px);
+  transform: translateY(-50%);
+  width: 340px;
+  max-height: 88vh;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.rwm-feed-title {
+  margin: 0;
+  padding: 12px 16px 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #063941;
+  border-bottom: 1px solid #e5eaea;
+  flex-shrink: 0;
+}
+
+.rwm-feed-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rwm-feed-loading,
+.rwm-feed-empty {
+  font-size: 0.8rem;
+  color: #8aa0a3;
+  font-style: italic;
+  padding: 16px 4px;
+  text-align: center;
+}
+
+/* ── Event card ──────────────────────────────────────────────── */
+.rwm-evt {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.rwm-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  letter-spacing: 0.03em;
+}
+
+.rwm-evt-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.rwm-evt-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.rwm-evt-user {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #063941;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rwm-evt-stage {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  border: 1px solid;
+}
+
+.rwm-evt-bubble {
+  background: #fff;
+  border: 1px solid #e5eaea;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  color: #33434b;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.rwm-evt--comment .rwm-evt-bubble {
+  background: #eef9f7;
+  border-color: #c8e8e3;
+}
+
+.rwm-evt--approved .rwm-evt-bubble,
+.rwm-evt--force_approved .rwm-evt-bubble {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+.rwm-evt--rejected .rwm-evt-bubble {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.rwm-evt--viewed .rwm-evt-bubble {
+  background: #f5f5f5;
+  border-color: #e5e5e5;
+  font-style: italic;
+  color: #8aa0a3;
+}
+
+.rwm-evt--draft_change .rwm-evt-bubble {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+.rwm-evt-changes {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.72rem;
+  color: #6b7280;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.rwm-evt-time {
+  font-size: 0.65rem;
+  color: #8aa0a3;
+  margin-top: 2px;
+}
+
+/* ── Comment input ───────────────────────────────────────────── */
+.rwm-comment-input {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px;
+  border-top: 1px solid #e5eaea;
+  flex-shrink: 0;
+  background: #fff;
+}
+
+.rwm-comment-textarea {
+  flex: 1;
+  resize: none;
+  border: 1px solid #d0e0dd;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  font-family: inherit;
+  color: #33434b;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.rwm-comment-textarea:focus {
+  border-color: #2fb3a5;
+}
+
+.rwm-comment-textarea:disabled {
+  opacity: 0.5;
+}
+
+.rwm-comment-send {
+  align-self: flex-end;
+  padding: 6px 14px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #063941, #0d5b56);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.rwm-comment-send:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.rwm-comment-send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

@@ -32,6 +32,10 @@ import {
   getDraftFeeNarratives,
   saveDraftFeeAnalysisRow,
   updateDraftFeeNarrative,
+  deleteDraftFeeNarrative,
+  addDraftFeeNarrative,
+  draftFeeDeleteWipAllocation,
+  draftFeeAddClients,
   logDraftEdits,
   AbandonDraft as abandonDraft,
   getKnuulaFees,
@@ -46,6 +50,17 @@ import {
 } from "../services/BillingGroups";
 
 import ExistingDraftsEditTray from './ExistingDraftsEditTray';
+import ReviewalWorkflowModal from './ReviewalWorkflowModal';
+import {
+  getWorkflowReviewData,
+  ensureWorkflowInstance,
+  markDraftReviewed,
+  getDraftActivityFeed,
+  postWorkflowComment,
+  logWorkflowViewed,
+  getDraftVersions,
+  saveDraftVersion,
+} from '../services/ExistingDraftsService';
 
 // Recurring billing configuration (masterRecurrings.json)
 import { loadRecurrings } from '../services/RecurringService'; // <-- adjust path if needed
@@ -137,6 +152,101 @@ const deriveCreatedMeta = (group) => {
   };
 };
 
+
+/* ═══════════════════════════════════════════════════════════════
+   usePageActivity — tracks tab visibility + user activity
+   Returns { isActive, isVisible } where:
+     isVisible = tab is in foreground
+     isActive  = user has interacted within the last `idleMs` ms
+   ═══════════════════════════════════════════════════════════════ */
+/* ── Billing team list (mirrors AuthContext) ───────────────────────── */
+const BILLING_TEAM = ['deison@bmss.com', 'chenriksen@bmss.com', 'lambrose@bmss.com'];
+const BILLING_TEAM_VISIBLE = ['chenriksen@bmss.com', 'lambrose@bmss.com'];
+
+const STAGE_LABELS = {
+  BR: 'Billing Team Review',
+  MR: 'Manager Review',
+  PR: 'Partner Review',
+  OR: 'Originator Review',
+  POST: 'Post',
+};
+
+/* ── ReviewerAvatar — tiny inline avatar for review status column ───── */
+const photoCache = new Map(); // email → { url: string|null, checked: bool }
+
+function ReviewerAvatar({ email, size = 26 }) {
+  const [state, setState] = React.useState(() => {
+    const cached = photoCache.get(email);
+    if (cached) return cached;
+    return { url: null, checked: false };
+  });
+
+  React.useEffect(() => {
+    if (state.checked) return;
+    let cancelled = false;
+    const img = new Image();
+    const src = `/api/userPhoto?email=${encodeURIComponent(email)}&size=64x64`;
+    img.onload = () => {
+      if (cancelled) return;
+      const entry = { url: src, checked: true };
+      photoCache.set(email, entry);
+      setState(entry);
+    };
+    img.onerror = () => {
+      if (cancelled) return;
+      const entry = { url: null, checked: true };
+      photoCache.set(email, entry);
+      setState(entry);
+    };
+    // userPhoto returns 204 for no-photo; img.onerror fires for non-image responses
+    img.src = src;
+    return () => { cancelled = true; };
+  }, [email, state.checked]);
+
+  const initial = (email || '?').split('@')[0].charAt(0).toUpperCase();
+
+  return (
+    <span className="rv-avatar" title={email} style={{ width: size, height: size, fontSize: size * 0.44 }}>
+      {state.url
+        ? <img src={state.url} alt="" className="rv-avatar__img" />
+        : <span className="rv-avatar__init">{initial}</span>
+      }
+    </span>
+  );
+}
+
+const IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
+
+function usePageActivity() {
+  const [isVisible, setIsVisible] = useState(!document.hidden);
+  const lastActivityRef = useRef(Date.now());
+  const [isActive, setIsActive] = useState(true);
+
+  useEffect(() => {
+    // Visibility change
+    const onVis = () => setIsVisible(!document.hidden);
+    document.addEventListener('visibilitychange', onVis);
+
+    // User activity (mouse, keyboard, touch, scroll)
+    const onActivity = () => { lastActivityRef.current = Date.now(); setIsActive(true); };
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
+    events.forEach(e => window.addEventListener(e, onActivity, { passive: true }));
+
+    // Periodic idle check
+    const idleCheck = setInterval(() => {
+      const idle = Date.now() - lastActivityRef.current > IDLE_TIMEOUT_MS;
+      setIsActive(!idle);
+    }, 30000); // check every 30s
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      events.forEach(e => window.removeEventListener(e, onActivity));
+      clearInterval(idleCheck);
+    };
+  }, []);
+
+  return { isVisible, isActive };
+}
 
 export const IconSearchOutline = ({ size=18, stroke=1.8 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true"
@@ -755,6 +865,8 @@ function JobDetailsPanel({ details, pinRequest, setGlobalLoading }) {
 /* ─── page ────────────────────────────────────────────────────────── */
 export default function ExistingDrafts() {
 
+const { isVisible, isActive } = usePageActivity();
+
 const [showAbandonModal, setShowAbandonModal] = useState(false);
 const [abandonTarget, setAbandonTarget] = useState(null); // { draftFeeIdx, billedClient, debtTranDate }
 const [isAbandoning, setIsAbandoning] = useState(false);
@@ -872,8 +984,495 @@ const [editTrayState, setEditTrayState] = useState({
     narrativeItems: [],
   });
 
+  /* ── Quick Signoff modal state ─────────────────────────────── */
+  const [quickSignoff, setQuickSignoff] = useState({ open: false, draftFeeIdx: null, row: null });
+
+  /* ── Reviewal Workflow Modal state ──────────────────────────── */
+  const [reviewModalState, setReviewModalState] = useState({
+    open: false,
+    draftFeeIdx: null,
+    workflow: null,
+    analysisItems: [],
+    narrativeItems: [],
+    rowData: null,
+  });
+  const [activityFeed, setActivityFeed] = useState([]);
+  const [feedLoading, setFeedLoading] = useState(false);
+  const [draftVersions, setDraftVersions] = useState([]);
+  const [reviewDataLoading, setReviewDataLoading] = useState(false);
+  const [reviewModalElevated, setReviewModalElevated] = useState(false);
+  const [reviewLockInfo, setReviewLockInfo] = useState(null); // { lockedBy } or null
+  const preloadRef = useRef(null); // preloaded review modal data from quick signoff
+
+  const handleOpenReviewModal = async (draftFeeIdx, row) => {
+    // Use workflow data from the row if available (enriched by getDraftPopulation)
+    let workflow = row?.workflow || null;
+
+    // If workflow not on row, ensure one exists (auto-creates if needed)
+    if (!workflow && draftFeeIdx) {
+      try {
+        const inst = await ensureWorkflowInstance(draftFeeIdx, row);
+        if (inst?.instance_id) {
+          workflow = {
+            instance_id: inst.instance_id,
+            stage_code: inst.stage_code,
+            stage_name: inst.stage_name,
+            status: inst.current_status,
+            billing_reviewer: inst.billing_reviewer,
+            manager_reviewer: inst.manager_reviewer,
+            partner_reviewer: inst.partner_reviewer,
+            originator_reviewer: inst.originator_reviewer,
+            br_completed_at: inst.br_completed_at,
+            mr_completed_at: inst.mr_completed_at,
+            pr_completed_at: inst.pr_completed_at,
+            or_completed_at: inst.or_completed_at,
+            posted_at: inst.posted_at,
+          };
+        }
+      } catch (err) {
+        console.warn('Failed to ensure workflow instance:', err);
+      }
+    }
+
+    // Open modal immediately — lock check happens in background
+    setReviewLockInfo(null);
+    setReviewModalState({
+      open: true,
+      draftFeeIdx,
+      workflow,
+      analysisItems: [],
+      narrativeItems: [],
+      rowData: row,
+    });
+
+    // Use preloaded data if available for this draft, otherwise fetch fresh
+    setFeedLoading(true);
+    setReviewDataLoading(true);
+    setActivityFeed([]);
+    setDraftVersions([]);
+    try {
+      const preloaded = preloadRef.current;
+      const dataPromise = (preloaded && preloaded.draftFeeIdx === draftFeeIdx)
+        ? preloaded.promise
+        : Promise.all([
+            getDraftFeeAnalysis(draftFeeIdx).catch(() => null),
+            getDraftFeeNarratives(draftFeeIdx).catch(() => []),
+            getDraftActivityFeed(draftFeeIdx).catch(() => []),
+            getDraftVersions(draftFeeIdx).catch(() => []),
+          ]);
+      preloadRef.current = null;
+
+      const [analysisRes, narrRes, feed, versions] = await dataPromise;
+
+      setReviewModalState(prev => ({
+        ...prev,
+        analysisItems: analysisRes?.Items || [],
+        narrativeItems: Array.isArray(narrRes) ? narrRes : [],
+      }));
+      setActivityFeed(Array.isArray(feed) ? feed : []);
+      setDraftVersions(Array.isArray(versions) ? versions : []);
+    } catch (err) {
+      console.warn('Failed to load review modal data:', err);
+    } finally {
+      setFeedLoading(false);
+      setReviewDataLoading(false);
+    }
+
+    // Log VIEWED action (non-blocking)
+    if (workflow?.instance_id) {
+      logWorkflowViewed(workflow.instance_id).catch(() => {});
+    }
+
+    // Background lock check — silently check if draft is locked by another user
+    if (draftFeeIdx) {
+      checkDraftInUse(draftFeeIdx).then(({ inUse, user }) => {
+        if (inUse) {
+          const me = (email || '').trim().toLowerCase();
+          const lockUser = (user || '').trim().toLowerCase();
+          if (lockUser && lockUser !== me) {
+            setReviewLockInfo({ lockedBy: user });
+          }
+        }
+      }).catch(() => {});
+    }
+  };
+
+  const handlePostComment = async (comment) => {
+    const instId = reviewModalState.workflow?.instance_id;
+    if (!instId) return;
+    await postWorkflowComment(instId, comment);
+    // Refresh the feed after posting
+    try {
+      const feed = await getDraftActivityFeed(reviewModalState.draftFeeIdx);
+      setActivityFeed(Array.isArray(feed) ? feed : []);
+    } catch (err) {
+      console.warn('Failed to refresh activity feed:', err);
+    }
+  };
+
+  // Update a row's workflow in local state after stage advance
+  const updateRowWorkflow = (instanceId, updated) => {
+    if (!updated) return;
+    setRawRows(prev => prev.map(r => {
+      if (r.workflow?.instance_id !== instanceId) return r;
+      return {
+        ...r,
+        workflow: {
+          ...r.workflow,
+          stage_code: updated.stage_code || r.workflow.stage_code,
+          stage_name: updated.stage_name || r.workflow.stage_name,
+          status: updated.current_status || r.workflow.status,
+          current_stage_id: updated.current_stage_id ?? r.workflow.current_stage_id,
+          br_completed_at: updated.br_completed_at ?? r.workflow.br_completed_at,
+          mr_completed_at: updated.mr_completed_at ?? r.workflow.mr_completed_at,
+          pr_completed_at: updated.pr_completed_at ?? r.workflow.pr_completed_at,
+          or_completed_at: updated.or_completed_at ?? r.workflow.or_completed_at,
+          posted_at: updated.posted_at ?? r.workflow.posted_at,
+        },
+      };
+    }));
+  };
+
+  const handleMarkReviewed = async (instanceId) => {
+    try {
+      const updated = await markDraftReviewed(instanceId);
+      toast.success('Draft marked as reviewed');
+      updateRowWorkflow(instanceId, updated);
+      setReviewModalState(s => ({ ...s, open: false }));
+    } catch (err) {
+      toast.error(`Mark reviewed failed: ${err.message}`);
+    }
+  };
+
+  /* ── Revert to prior version handler ─────────────────────────── */
+  const handleRevertToVersion = async ({ analysisData, narrativeData, version, stageLabel }) => {
+    const data = reviewModalState.rowData;
+    if (!data) throw new Error('No row data available');
+
+    const draftIdx = data.DRAFTFEEIDX;
+    const debttrandate = data.DEBTTRANDATE;
+    const wipindexes = data.WIPINDEXES?.split(',');
+
+    if (!draftIdx) throw new Error('Missing draftFeeIdx');
+
+    // 1) Get the current analysis + narrative rows from PE to know what to delete
+    const [currentAnalysis, currentNarrative] = await Promise.all([
+      getDraftFeeAnalysis(draftIdx).then(r => r?.Items || []),
+      getDraftFeeNarratives(draftIdx).catch(() => []),
+    ]);
+
+    const processes = [];
+
+    // 2) Revert analysis: delete current rows, re-add from version snapshot
+    const targetAnalysis = Array.isArray(analysisData) ? analysisData : [];
+    if (currentAnalysis.length || targetAnalysis.length) {
+      processes.push((async () => {
+        // Delete current allocations
+        const allocIndexes = currentAnalysis.map(r => r.AllocIdx).filter(Boolean);
+        if (allocIndexes.length > 0) {
+          await draftFeeDeleteWipAllocation(draftIdx, allocIndexes);
+        }
+
+        // Re-add clients from version data
+        const uniqueContIndexes = Array.from(
+          new Set((targetAnalysis)
+            .map(item => item?.ContIndex)
+            .filter(v => v !== null && v !== undefined)
+            .map(Number)
+            .filter(Number.isFinite))
+        );
+        if (uniqueContIndexes.length > 0) {
+          await draftFeeAddClients(draftIdx, uniqueContIndexes, wipindexes || []);
+        }
+
+        // Re-add each analysis row
+        await Promise.all(
+          targetAnalysis.map(item => {
+            const payload = {
+              AllocIndex: item.AllocIdx ?? item.AllocIndex,
+              BillAmount: item.BillInClientCur ?? item.BillAmount ?? 0,
+              WIPOS: item.WIPInClientCur ?? item.WIP ?? 0,
+              BillType: item.Job_Billing_Type ?? '',
+              BillWoff: item.WoffInClientCur ?? item.BillWoff ?? 0,
+              DebtTranIndex: draftIdx,
+              Job_Allocation_Type: item.Job_Allocation_Type ?? '',
+              Narrative: '',
+              VATCode: '0',
+              WipAnalysis: item.WipAnalysis ?? '',
+              VATAmt: 0,
+              DebtTranDate: debttrandate,
+              CFwd: false,
+            };
+            return saveDraftFeeAnalysisRow(draftIdx, payload);
+          })
+        );
+      })());
+    }
+
+    // 3) Revert narratives: delete current, re-add from version snapshot
+    const targetNarrative = Array.isArray(narrativeData) ? narrativeData : [];
+    if (currentNarrative.length || targetNarrative.length) {
+      processes.push((async () => {
+        // Delete current narratives
+        await Promise.all(
+          currentNarrative.map(row => deleteDraftFeeNarrative(draftIdx, row.DebtNarrIndex))
+        );
+
+        // Add blank narratives (one per target row)
+        await Promise.all(
+          targetNarrative.map(() => addDraftFeeNarrative(draftIdx))
+        );
+
+        // Fetch fresh blank narrative rows
+        const blankNarrs = await getDraftFeeNarratives(draftIdx);
+
+        // Populate each blank with version data
+        await Promise.all(
+          blankNarrs.map((narr, idx) => {
+            const src = targetNarrative[idx];
+            if (!src) return Promise.resolve();
+            const payload = {
+              Amount: Number(src.Amount ?? src.AMOUNT ?? 0),
+              DebtNarrIndex: narr.DebtNarrIndex,
+              DraftFeeIdx: draftIdx,
+              FeeNarrative: src.FeeNarrative ?? src.FEENARRATIVE ?? '',
+              LineOrder: Number(narr.LineOrder ?? src.LineOrder ?? 0),
+              ServIndex: src.ServIndex ?? src.SERVINDEX ?? '',
+              Units: Number(src.Units ?? 0),
+              VATAmount: Number(src.VATAmount ?? 0),
+              VATPercent: Number(src.VATPercent ?? 0),
+              VATRate: src.VATRate ?? '0',
+              WIPType: src.WIPType ?? src.WIPTYPE ?? 'TIME',
+            };
+            return updateDraftFeeNarrative(payload);
+          })
+        );
+      })());
+    }
+
+    await Promise.all(processes);
+
+    // 4) Refresh the review modal with the reverted data
+    const [freshAnalysis, freshNarrative] = await Promise.all([
+      getDraftFeeAnalysis(draftIdx).then(r => r?.Items || []),
+      getDraftFeeNarratives(draftIdx).catch(() => []),
+    ]);
+
+    setReviewModalState(prev => ({
+      ...prev,
+      analysisItems: freshAnalysis,
+      narrativeItems: freshNarrative,
+    }));
+
+    // 5) Save a new version snapshot recording the revert
+    try {
+      await saveDraftVersion({
+        draftFeeIdx: draftIdx,
+        analysisData: freshAnalysis,
+        narrativeData: freshNarrative,
+        reason: `Reverted to ${stageLabel} (v${version.version_number})`,
+      });
+      // Refresh versions list
+      const versions = await getDraftVersions(draftIdx);
+      setDraftVersions(versions || []);
+    } catch (verErr) {
+      console.warn('saveDraftVersion after revert failed (non-blocking):', verErr);
+    }
+
+    toast.success(`Draft reverted to ${stageLabel} (v${version.version_number})`);
+  };
+
+  /* ── Quick Signoff handlers ──────────────────────────────────── */
+  const handleReviewClick = (draftFeeIdx, row, isAssigned) => {
+    if (!isAssigned) {
+      // Not assigned — skip quick signoff, go straight to review modal
+      handleOpenReviewModal(draftFeeIdx, row);
+      return;
+    }
+    setQuickSignoff({ open: true, draftFeeIdx, row });
+
+    // Preload review modal data while user decides
+    preloadRef.current = { draftFeeIdx, promise: Promise.all([
+      getDraftFeeAnalysis(draftFeeIdx).catch(() => null),
+      getDraftFeeNarratives(draftFeeIdx).catch(() => []),
+      getDraftActivityFeed(draftFeeIdx).catch(() => []),
+      getDraftVersions(draftFeeIdx).catch(() => []),
+    ]) };
+  };
+
+  const handleQuickMarkReviewed = async () => {
+    const row = quickSignoff.row;
+    const draftFeeIdx = quickSignoff.draftFeeIdx;
+    let instanceId = row?.workflow?.instance_id;
+    setQuickSignoff({ open: false, draftFeeIdx: null, row: null });
+
+    // If workflow wasn't on the row, ensure one exists (auto-creates if needed)
+    if (!instanceId && draftFeeIdx) {
+      try {
+        const inst = await ensureWorkflowInstance(draftFeeIdx, row);
+        instanceId = inst?.instance_id;
+      } catch (err) {
+        console.warn('Failed to ensure workflow instance:', err);
+      }
+    }
+
+    if (instanceId) {
+      try {
+        const updated = await markDraftReviewed(instanceId);
+        toast.success('Draft marked as reviewed');
+        updateRowWorkflow(instanceId, updated);
+      } catch (err) {
+        toast.error(`Mark reviewed failed: ${err.message}`);
+      }
+    } else {
+      toast.error('No workflow instance found for this draft');
+    }
+  };
+
+  const handleQuickReviewHistory = () => {
+    const { draftFeeIdx, row } = quickSignoff;
+    setQuickSignoff({ open: false, draftFeeIdx: null, row: null });
+    handleOpenReviewModal(draftFeeIdx, row);
+  };
+
+  const handleEditDraftFromModal = async () => {
+    const data = reviewModalState.rowData;
+    if (!data) return;
+
+    // If draft is locked by another user, show toast instead of opening tray
+    if (reviewLockInfo?.lockedBy) {
+      toast.warn(`This draft is currently locked by ${reviewLockInfo.lockedBy}`);
+      return;
+    }
+
+    if (!isSuperUser) {
+      alert('Only super users can edit drafts.');
+      return;
+    }
+
+    const draftId = data.DRAFTFEEIDX;
+    if (!draftId) return;
+
+    const wipindexes = data.WIPINDEXES?.split(',');
+    const billedClient = data.BILLEDCLIENT;
+    const debttrandate = data.DEBTTRANDATE;
+
+    if (!wipindexes) return;
+    if (!email) {
+      alert('We could not determine your user login. Please refresh and try again.');
+      return;
+    }
+
+    // Keep the review modal open — the edit tray renders at z-index 1200
+    // on top of the modal backdrop (z-index 900)
+
+    // Open the edit tray (same flow as handleEditDraftClick)
+    setEditingDraftIdx(draftId);
+
+    // Use already-loaded data from the review modal if available
+    const hasModalData = reviewModalState.analysisItems?.length > 0 || reviewModalState.narrativeItems?.length > 0;
+
+    // Only show loading spinner if we need to fetch data
+    if (!hasModalData) setTrayLoading(true);
+
+    setEditTrayState({
+      open: true,
+      draftIdx: draftId,
+      clientName: (data.CLIENTS?.[0]?.name) || '',
+      clientCode: (data.CLIENTS?.[0]?.code) || '',
+      billedClient,
+      analysisItems: hasModalData ? reviewModalState.analysisItems : [],
+      narrativeItems: hasModalData ? reviewModalState.narrativeItems : [],
+      wipindexes,
+      debttrandate,
+    });
+
+    try {
+      const { inUse, user } = await checkDraftInUse(draftId);
+      const me = (email || '').trim().toLowerCase();
+      const lockUser = (user || '').trim().toLowerCase();
+
+      if (inUse) {
+        if (lockUser && lockUser !== me) {
+          alert(`This draft is currently being edited by ${user}. Please try again after they finish.`);
+          setEditingDraftIdx(null);
+          setEditTrayState(prev => ({ ...prev, open: false }));
+          return;
+        }
+        if (!lockUser) {
+          alert('This draft is currently being edited by another user. Please try again later.');
+          setEditingDraftIdx(null);
+          setEditTrayState(prev => ({ ...prev, open: false }));
+          return;
+        }
+      }
+
+      await lockUnlockDraft(draftId, email);
+
+      // Skip API calls if we already have data from the review modal
+      if (!hasModalData) {
+        const [analysisRes, narrRes] = await Promise.all([
+          getDraftFeeAnalysis(draftId),
+          getDraftFeeNarratives(draftId),
+        ]);
+
+        setEditTrayState(prev => ({
+          ...prev,
+          analysisItems: analysisRes?.Items || [],
+          narrativeItems: narrRes || [],
+        }));
+
+        // Version 0: if no versions exist yet, save the original API data as version 0
+        try {
+          const versions = await getDraftVersions(draftId);
+          if (!versions || !versions.length) {
+            await saveDraftVersion({
+              draftFeeIdx: draftId,
+              versionNumber: 0,
+              analysisData: analysisRes?.Items || [],
+              narrativeData: narrRes || [],
+              reason: 'Original API version',
+            });
+          }
+        } catch (v0Err) {
+          console.warn('Version 0 check/create failed (non-blocking):', v0Err);
+        }
+      }
+    } catch (err) {
+      console.error('Error preparing draft for edit:', err);
+      alert('Sorry, something went wrong trying to enter edit mode.');
+      setEditTrayState(prev => ({ ...prev, open: false }));
+      setEditingDraftIdx(null);
+    } finally {
+      setTrayLoading(false);
+    }
+  };
+
+  // Handler for "Review" button inside the edit tray
+  const handleReviewFromTray = async () => {
+    if (reviewModalState.open) {
+      // Modal already open — elevate it above the edit tray
+      setReviewModalElevated(true);
+    } else {
+      // Open the review modal for this draft
+      const data = reviewModalState.rowData || editTrayState;
+      const draftFeeIdx = editTrayState.draftIdx;
+      // Find the row from rawRows to pass full PE data
+      const row = rows.find(r => String(r.DRAFTFEEIDX) === String(draftFeeIdx));
+      if (row) {
+        await handleOpenReviewModal(draftFeeIdx, row);
+      }
+    }
+  };
+
 useEffect(() => {
   let cancelled = false;
+
+  // Fire GetGranularWIPData immediately — it doesn't need bill-through date
+  const wipPromise = GetGranularWIPData().catch(err => {
+    console.error("GetGranularWIPData failed:", err);
+    return null;
+  });
 
   (async () => {
     setLoading(true);
@@ -895,22 +1494,11 @@ useEffect(() => {
       setBillThrough(bt);
       const iso = toIsoYmd(bt);
 
-      // 2) Fire granular job data WITHOUT blocking loading
-      // (keep same functionality: still sets granularData + logs errors)
-      void GetGranularJobData(iso)
-        .then((data) => {
-          if (cancelled) return;
-          setGranularData(Array.isArray(data) ? data : []);
-        })
-        .catch((err) => {
-          if (cancelled) return;
-          console.error("GetGranularJobData failed:", err);
-        });
-
-      // 3) Await only the stuff you want loading to depend on
-      const [dRes, wipRes, recRes] = await Promise.allSettled([
+      // 2) Fire all remaining calls in parallel (WIP already started above)
+      const [dRes, jobRes, wipRes, recRes] = await Promise.allSettled([
         GetDrafts(iso),
-        GetGranularWIPData(),
+        GetGranularJobData(iso),
+        wipPromise,
         loadRecurrings(),
       ]);
       if (cancelled) return;
@@ -918,8 +1506,10 @@ useEffect(() => {
       if (dRes.status === "fulfilled") setRawRows(Array.isArray(dRes.value) ? dRes.value : []);
       else console.error("GetDrafts failed:", dRes.reason);
 
-      if (wipRes.status === "fulfilled") setGranularWip(Array.isArray(wipRes.value) ? wipRes.value : []);
-      else console.error("GetGranularWIPData failed:", wipRes.reason);
+      if (jobRes.status === "fulfilled") setGranularData(Array.isArray(jobRes.value) ? jobRes.value : []);
+      else console.error("GetGranularJobData failed:", jobRes.reason);
+
+      if (wipRes.status === "fulfilled" && wipRes.value) setGranularWip(Array.isArray(wipRes.value) ? wipRes.value : []);
 
       if (recRes.status === "fulfilled") {
         const arr = Array.isArray(recRes.value) ? recRes.value : [];
@@ -963,7 +1553,7 @@ useEffect(() => {
  //const sampleDraftIndexes = [94929]
 
   /* ── AUTH ───────────────────────────────────────────────────── */
-  const { ready, principal, isSuperUser } = useAuth();
+  const { ready, principal, isSuperUser, billingSuperUser, isBillingTeam } = useAuth();
   const email = principal?.userDetails?.toLowerCase() || '';
   const currentUserName =
   principal?.userDetails || principal?.userPrincipalName || email;
@@ -1336,15 +1926,96 @@ useEffect(() => {
       )
     }, 
     { name : 'Office',    selector: r => r.CLIENTOFFICE, sortable:true, width:'80px', grow: 0.4 },
-    { name : 'WIP',       selector: r => r.WIP,    sortable:true, format: r => currency(r.WIP) , grow: 0.4},
-    { name : 'Bill',      selector: r => r.BILLED, sortable:true, format: r => currency(r.BILLED) , grow: 0.4},
-    { name : 'W/Off',     selector: r => r.WRITEOFFUP, sortable:true,
-                          format: r => currency(r.WRITEOFFUP) , grow: 0.4},
-    { name : 'C/F',     selector: r => r.CARRYFORWARD, sortable:true,
-                          format: r => currency(r.CARRYFORWARD) , grow: 0.4},
-    { name : 'Real.%',    selector: r => r.BILLED / (r.WIP || 1), sortable:true,
-                          format: r => `${((r.BILLED / (r.WIP || 1))*100).toFixed(1)}%`,
-                          width:'84px', grow: 0 },
+    {
+      name: 'Financials',
+      selector: r => r.WIP,
+      sortable: true,
+      center: true,
+      grow: 0.8,
+      cell: r => {
+        const woff = r.WRITEOFFUP ?? r['Write Off(Up)'] ?? 0;
+        const cf   = r.CARRYFORWARD ?? 0;
+        const real = ((r.BILLED / (r.WIP || 1)) * 100).toFixed(1);
+        return (
+          <div className="fin-stack">
+            <div className="fin-row fin-wip"><span className="fin-label">WIP</span><span className="fin-value">{currency(r.WIP)}</span></div>
+            <div className="fin-row fin-bill"><span className="fin-label">Bill</span><span className="fin-value">{currency(r.BILLED)}</span></div>
+            <div className="fin-row fin-woff"><span className="fin-label">W/Off</span><span className="fin-value">{currency(woff)}</span></div>
+            <div className="fin-row fin-cf"><span className="fin-label">C/F</span><span className="fin-value">{currency(cf)}</span></div>
+            <div className="fin-row fin-real"><span className="fin-label">Real.%</span><span className="fin-value">{real}%</span></div>
+          </div>
+        );
+      }
+    },
+    {
+      name: 'Review Status',
+      width: '180px',
+      center: true,
+      cell: r => {
+        const w = r.workflow;
+        const stage = w?.stage_code || 'BR';
+        const label = STAGE_LABELS[stage] || stage;
+
+        const reviewerEmails = (() => {
+          if (stage === 'BR') return BILLING_TEAM_VISIBLE;
+          if (stage === 'POST') return BILLING_TEAM_VISIBLE;
+          const map = { MR: 'manager_reviewer', PR: 'partner_reviewer', OR: 'originator_reviewer' };
+          const col = map[stage];
+          const val = col && w ? (w[col] || '').toLowerCase().trim() : '';
+          return val ? [val] : [];
+        })();
+
+        return (
+          <div className="rv-status-cell">
+            <span className="rv-status-label">{label}</span>
+            <div className="rv-status-avatars">
+              {reviewerEmails.map(e => (
+                <ReviewerAvatar key={e} email={e} size={30} />
+              ))}
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      name: 'Review',
+      width: '160px',
+      center: true,
+      ignoreRowClick: true,
+      cell: r => {
+        const w = r.workflow;
+        const isAssigned = (() => {
+          if (!w || !email) return false;
+          const e = email.toLowerCase();
+          const stage = w.stage_code || 'BR';
+          if (stage === 'BR') return isBillingTeam || billingSuperUser;
+          if (stage === 'POST') return billingSuperUser;
+          const map = { MR: 'manager_reviewer', PR: 'partner_reviewer', OR: 'originator_reviewer' };
+          const col = map[stage];
+          if (!col) return false;
+          return billingSuperUser || (w[col] || '').toLowerCase() === e;
+        })();
+
+        const unreadCount = email ? (r.unread_comments?.[email.toLowerCase()] || 0) : 0;
+
+        return (
+          <div style={{ position: 'relative', display: 'inline-block' }}>
+            <button
+              className={`rwm-open-btn ${isAssigned ? 'rwm-open-btn--assigned' : 'rwm-open-btn--history'}`}
+              title={isAssigned ? 'You are assigned to review this draft' : 'View draft review history'}
+              onClick={() => handleReviewClick(r.DRAFTFEEIDX, r, isAssigned)}
+            >
+              {isAssigned ? 'Review' : 'Draft Review History'}
+            </button>
+            {unreadCount > 0 && (
+              <span className="rwm-unread-badge" title={`${unreadCount} unread comment${unreadCount > 1 ? 's' : ''}`}>
+                💬 {unreadCount}
+              </span>
+            )}
+          </div>
+        );
+      },
+    },
     {
       name: "Draft Link",
       width: "90px",              // optional: match your PE Link column width
@@ -1652,6 +2323,22 @@ const Expandable = ({ data, isSuperUser, editingDraftIdx }) => {
         analysisItems: analysisRes?.Items || [],
         narrativeItems: narrRes || [],
       }));
+
+      // Version 0: if no versions exist yet, save the original API data as version 0
+      try {
+        const versions = await getDraftVersions(draftId);
+        if (!versions || !versions.length) {
+          await saveDraftVersion({
+            draftFeeIdx: draftId,
+            versionNumber: 0,
+            analysisData: analysisRes?.Items || [],
+            narrativeData: narrRes || [],
+            reason: 'Original API version',
+          });
+        }
+      } catch (v0Err) {
+        console.warn('Version 0 check/create failed (non-blocking):', v0Err);
+      }
     } catch (err) {
       console.error('Error preparing draft for edit:', err);
       alert('Sorry, something went wrong trying to enter edit mode.');
@@ -2547,6 +3234,108 @@ const closeCreated = () => {
         setLoading(false);
       }
     }
+
+  /* ── POLLING: silent background refresh ────────────────── */
+  // Big data refresh: every 5 minutes (silent, no loading spinner)
+  useEffect(() => {
+    const DATA_POLL_MS = 5 * 60 * 1000; // 5 minutes
+
+    const interval = setInterval(() => {
+      if (!isVisible || !isActive) return; // skip if tab hidden or user idle
+      const iso = toIsoYmd(billThrough);
+
+      GetDrafts(iso)
+        .then(dRes => setRawRows(Array.isArray(dRes) ? dRes : []))
+        .catch(err => console.warn('Silent draft poll failed:', err));
+
+      GetGranularJobData(iso)
+        .then(data => setGranularData(Array.isArray(data) ? data : []))
+        .catch(err => console.warn('Silent granular job poll failed:', err));
+
+      GetGranularWIPData()
+        .then(data => setGranularWip(Array.isArray(data) ? data : []))
+        .catch(err => console.warn('Silent granular WIP poll failed:', err));
+    }, DATA_POLL_MS);
+
+    return () => clearInterval(interval);
+  }, [isVisible, isActive, billThrough]);
+
+  // Workflow data: every 30 seconds (if review modal is open)
+  useEffect(() => {
+    const WORKFLOW_POLL_MS = 30 * 1000; // 30 seconds
+
+    const interval = setInterval(() => {
+      if (!isVisible || !isActive) return;
+      if (!reviewModalState.open || !reviewModalState.draftFeeIdx) return;
+
+      const draftFeeIdx = reviewModalState.draftFeeIdx;
+
+      // Silently refresh activity feed + workflow status + versions
+      Promise.all([
+        getDraftActivityFeed(draftFeeIdx).catch(() => null),
+        getDraftVersions(draftFeeIdx).catch(() => null),
+        // Re-fetch workflow instance to get updated stage/status
+        ensureWorkflowInstance(draftFeeIdx, reviewModalState.rowData).catch(() => null),
+      ]).then(([feed, versions, inst]) => {
+        if (feed) setActivityFeed(Array.isArray(feed) ? feed : []);
+        if (versions) setDraftVersions(Array.isArray(versions) ? versions : []);
+        if (inst?.instance_id) {
+          setReviewModalState(prev => ({
+            ...prev,
+            workflow: {
+              instance_id: inst.instance_id,
+              stage_code: inst.stage_code,
+              stage_name: inst.stage_name,
+              status: inst.current_status,
+              billing_reviewer: inst.billing_reviewer,
+              manager_reviewer: inst.manager_reviewer,
+              partner_reviewer: inst.partner_reviewer,
+              originator_reviewer: inst.originator_reviewer,
+              br_completed_at: inst.br_completed_at,
+              mr_completed_at: inst.mr_completed_at,
+              pr_completed_at: inst.pr_completed_at,
+              or_completed_at: inst.or_completed_at,
+              posted_at: inst.posted_at,
+            },
+          }));
+        }
+      });
+    }, WORKFLOW_POLL_MS);
+
+    return () => clearInterval(interval);
+  }, [isVisible, isActive, reviewModalState.open, reviewModalState.draftFeeIdx]);
+
+  // Immediate refresh when tab regains focus (after being hidden)
+  useEffect(() => {
+    const onFocus = () => {
+      // Silent data refresh
+      const iso = toIsoYmd(billThrough);
+      GetDrafts(iso)
+        .then(dRes => setRawRows(Array.isArray(dRes) ? dRes : []))
+        .catch(err => console.warn('Focus draft refresh failed:', err));
+      GetGranularJobData(iso)
+        .then(data => setGranularData(Array.isArray(data) ? data : []))
+        .catch(err => console.warn('Focus granular job refresh failed:', err));
+      GetGranularWIPData()
+        .then(data => setGranularWip(Array.isArray(data) ? data : []))
+        .catch(err => console.warn('Focus granular WIP refresh failed:', err));
+
+      // If review modal is open, refresh its data too
+      if (reviewModalState.open && reviewModalState.draftFeeIdx) {
+        const draftFeeIdx = reviewModalState.draftFeeIdx;
+        Promise.all([
+          getDraftActivityFeed(draftFeeIdx).catch(() => null),
+          getDraftVersions(draftFeeIdx).catch(() => null),
+        ]).then(([feed, versions]) => {
+          if (feed) setActivityFeed(Array.isArray(feed) ? feed : []);
+          if (versions) setDraftVersions(Array.isArray(versions) ? versions : []);
+        });
+      }
+    };
+
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [billThrough, reviewModalState.open, reviewModalState.draftFeeIdx]);
 
   /* ── events ─────────────────────────────────────────── */
   const clearFilters = () => {
@@ -3637,7 +4426,8 @@ console.log('PDF header:', header);
         narrativeItems={editTrayState.narrativeItems}
         currentUser={currentUserName}
         billThroughDate={billThrough}
-        loading={trayLoading}   
+        loading={trayLoading}
+        onReview={handleReviewFromTray}
         onClose={async (saved) => {
           const idx = editTrayState.draftIdx;
 
@@ -3660,13 +4450,24 @@ console.log('PDF header:', header);
 
           // After a successful save, refresh the draft list so the table + KPIs update
           if (saved) {
-            await reloadDraftsForCurrentBillThrough();
+            if (reviewModalState.open) {
+              // Silently refresh without loading screen when review modal is open
+              try {
+                const iso = toIsoYmd(billThrough);
+                const dRes = await GetDrafts(iso);
+                setRawRows(Array.isArray(dRes) ? dRes : []);
+              } catch (err) {
+                console.error('Silent reload drafts failed:', err);
+              }
+            } else {
+              await reloadDraftsForCurrentBillThrough();
+            }
           }
         }}
 
         onSave={async (payload) => {
           const {
-            analysisRows,
+            analysisRows_New: analysisRows,
             narrativeRows,
             draftIdx,
             user,
@@ -3678,6 +4479,15 @@ console.log('PDF header:', header);
             _original,          // { analysisItems, narrativeItems } from tray open
           } = payload;
 
+          // Immediately update the review modal's current version if it's open
+          if (reviewModalState.open && reviewModalState.draftFeeIdx === draftIdx) {
+            setReviewModalState(prev => ({
+              ...prev,
+              analysisItems: analysisRows || [],
+              narrativeItems: narrativeRows || [],
+            }));
+          }
+
           // 1) Build promises for analysis rows (job-level Draft Amt / narrative)
           const analysisPromises = (analysisRows || []).map((r) => {
             const bill = Number(r.BillInClientCur ?? r.BillAmount ?? 0);
@@ -3685,8 +4495,7 @@ console.log('PDF header:', header);
             const bal  = Number(r.BalInClientCur ?? 0);
             const woff = wip - bill - bal;             // keep PE-style recompute
 
-            return saveDraftFeeAnalysisRow({
-              draftFeeIdx: draftIdx,
+            return saveDraftFeeAnalysisRow(draftIdx, {
               AllocIndex: r.AllocIdx,
               BillAmount: bill,                        // → BillInClientCur
               WIPOS: wip,                              // → WIPInClientCur
@@ -3856,6 +4665,18 @@ console.log('PDF header:', header);
               narrativeRows,
             },
           });
+
+          // 6) Save version snapshot to SQL (non-blocking)
+          try {
+            await saveDraftVersion({
+              draftFeeIdx: draftIdx,
+              analysisData: analysisRows,
+              narrativeData: narrativeRows,
+              reason: reason || 'Draft edit',
+            });
+          } catch (verErr) {
+            console.warn('saveDraftVersion failed (non-blocking):', verErr);
+          }
         }}
         onWipAdded={() => refreshEditTrayData(editTrayState.draftIdx)}
       />
@@ -3906,6 +4727,57 @@ console.log('PDF header:', header);
           </div>
         </div>
       )}
+      {/* ── Quick Signoff Modal ──────────────────────────────── */}
+      {quickSignoff.open && (
+        <div className="qs-backdrop" onClick={() => setQuickSignoff({ open: false, draftFeeIdx: null, row: null })}>
+          <div className="qs-modal" onClick={e => e.stopPropagation()}>
+            <h3 className="qs-title">Quick Sign-Off</h3>
+            <p className="qs-subtitle">Draft #{quickSignoff.draftFeeIdx}</p>
+            <div className="qs-actions">
+              <button className="qs-btn qs-btn--review" onClick={handleQuickMarkReviewed}>
+                Mark Reviewed
+              </button>
+              <button className="qs-btn qs-btn--history" onClick={handleQuickReviewHistory}>
+                Review Draft History
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ReviewalWorkflowModal
+        open={reviewModalState.open}
+        onClose={async () => {
+          // If elevated over the edit tray, just de-elevate (go back behind tray)
+          if (reviewModalElevated && editTrayState.open) {
+            setReviewModalElevated(false);
+            return;
+          }
+          setReviewModalState(s => ({ ...s, open: false }));
+          setReviewModalElevated(false);
+          setReviewLockInfo(null);
+        }}
+        draftFeeIdx={reviewModalState.draftFeeIdx}
+        workflow={reviewModalState.workflow}
+        analysisItems={reviewModalState.analysisItems}
+        narrativeItems={reviewModalState.narrativeItems}
+        email={email}
+        isBillingSuperUser={billingSuperUser}
+        isBillingTeam={isBillingTeam}
+        onMarkReviewed={handleMarkReviewed}
+        activityFeed={activityFeed}
+        onPostComment={handlePostComment}
+        feedLoading={feedLoading}
+        onEditDraft={handleEditDraftFromModal}
+        draftVersions={draftVersions}
+        dataLoading={reviewDataLoading}
+        clientCode={reviewModalState.rowData?.clientCode || ''}
+        clientName={reviewModalState.rowData?.clientName || ''}
+        elevated={reviewModalElevated}
+        lockInfo={reviewLockInfo}
+        onRevertToVersion={handleRevertToVersion}
+      />
+
       <ToastContainer position="top-right" autoClose={4000} />
       </main>
     </div>

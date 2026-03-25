@@ -101,7 +101,8 @@ export default function ExistingDraftsEditTray({
       onSave,
       debttrandate,
       wipindexes,
-      onWipAdded
+      onWipAdded,
+      onReview,
 }) {
   // ---------- local editable state ----------
   const [analysisRows_Orig, setanalysisRows_Orig] = useState([]);
@@ -1044,7 +1045,18 @@ await Promise.all(processes);
         >
           <header className="edtray__head">
             <div>
-              <div className="edtray__title">Edit Draft</div>
+              <div className="edtray__title">
+                Edit Draft
+                {onReview && (
+                  <button
+                    type="button"
+                    className="edtray__review-btn"
+                    onClick={onReview}
+                  >
+                    Review
+                  </button>
+                )}
+              </div>
               <div className="edtray__meta">
                 {billedClient} &middot; Draft #{draftIdx}
               </div>

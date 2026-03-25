@@ -1,4 +1,6 @@
 // api/lockUnlockDraft/index.js
+const { sql, query: sqlQuery } = require('../shared/db');
+const { getEmail } = require('../shared/auth');
 
 module.exports = async function (context, req) {
   try {
@@ -27,6 +29,49 @@ module.exports = async function (context, req) {
         body: `Invalid debtTranIndex: ${draftIdxRaw}`
       };
       return;
+    }
+
+    // ── Lock-after-signoff guard (non-blocking) ──
+    if (isLock) {
+      try {
+        const requesterEmail = getEmail(req) || user.toLowerCase();
+        const guardResult = await sqlQuery(
+          `SELECT wi.instance_id, wi.current_stage_id, bc.lock_after_signoff,
+                  wi.billing_reviewer, wi.manager_reviewer,
+                  wi.partner_reviewer, wi.originator_reviewer,
+                  wi.br_completed_at, wi.mr_completed_at,
+                  wi.pr_completed_at, wi.or_completed_at
+           FROM billing.workflow_instances wi
+           JOIN billing.billing_cycles bc ON wi.cycle_id = bc.cycle_id
+           WHERE wi.draft_fee_idx = @feeIdx AND bc.is_active = 1`,
+          { feeIdx: { type: sql.Int, value: draftIdx } }
+        );
+
+        if (guardResult.recordset.length) {
+          const wi = guardResult.recordset[0];
+          if (wi.lock_after_signoff) {
+            // Check if this user already completed their stage sign-off
+            const stageMap = {
+              billing_reviewer:    'br_completed_at',
+              manager_reviewer:    'mr_completed_at',
+              partner_reviewer:    'pr_completed_at',
+              originator_reviewer: 'or_completed_at',
+            };
+            for (const [col, tsCol] of Object.entries(stageMap)) {
+              if ((wi[col] || '').toLowerCase() === requesterEmail && wi[tsCol]) {
+                context.res = {
+                  status: 403,
+                  body: 'Draft is locked — you have already signed off on your review stage.',
+                };
+                return;
+              }
+            }
+          }
+        }
+      } catch (sqlErr) {
+        // SQL unavailable — do not block the PE lock call
+        context.log.warn('lockUnlockDraft: lock-after-signoff guard failed (non-blocking):', sqlErr.message);
+      }
     }
 
     let peRes;

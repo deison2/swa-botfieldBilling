@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@azure/identity": "^4.11.1",
+    "@azure/msal-node": "^3.8.10",
     "@azure/storage-blob": "^12.27.0",
     "mssql": "^11.0.1",
     "openai": "^6.8.1",

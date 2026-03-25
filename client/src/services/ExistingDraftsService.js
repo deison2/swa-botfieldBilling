@@ -704,3 +704,140 @@ export async function createDraft(payload) {
   }
   return safeJson(res);
 }
+
+// ── Reviewal Workflow ───────────────────────────────────────────
+// Fetches workflow instance + action history for a draft
+export async function getWorkflowReviewData(draftFeeIdx) {
+  const res = await fetch(`/api/workflowInstances?draftFeeIdx=${draftFeeIdx}`, {
+    method: 'GET',
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`getWorkflowReviewData failed: ${res.status} ${msg}`);
+  }
+
+  return safeJson(res);
+}
+
+// Ensures a workflow instance exists for a draft, creating one if needed.
+// Accepts optional PE row data to seed reviewer emails.
+export async function ensureWorkflowInstance(draftFeeIdx, rowData) {
+  const res = await fetch('/api/workflowEnsure', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      draftFeeIdx,
+      contIndex: rowData?.CONTINDEX || 0,
+      clientCode: rowData?.CLIENTCODE || rowData?.CLIENTS?.[0]?.code || '',
+      clientName: rowData?.CLIENTNAME || rowData?.CLIENTS?.[0]?.name || '',
+      clientOffice: rowData?.CLIENTOFFICE || '',
+      wipAmount: rowData?.WIP || 0,
+      billedAmount: rowData?.BILLED || 0,
+      writeOffUp: rowData?.WRITEOFFUP || rowData?.['Write Off(Up)'] || 0,
+      draftHyperlink: rowData?.DRAFTHYPERLINK || null,
+      managerEmail: rowData?.CMEmail || rowData?.ROLES?.[2] || null,
+      partnerEmail: rowData?.CPEmail || rowData?.ROLES?.[1] || null,
+      originatorEmail: rowData?.COEmail || rowData?.ROLES?.[0] || null,
+    }),
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`ensureWorkflowInstance failed: ${res.status} ${msg}`);
+  }
+
+  return safeJson(res);
+}
+
+// Fetches unified activity feed (workflow actions + audit blob summaries) for a draft
+export async function getDraftActivityFeed(draftFeeIdx) {
+  const res = await fetch(`/api/draftActivity/${draftFeeIdx}`, {
+    method: 'GET',
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`getDraftActivityFeed failed: ${res.status} ${msg}`);
+  }
+
+  return safeJson(res);
+}
+
+// Posts a comment to the workflow actions table
+export async function postWorkflowComment(instanceId, comment) {
+  const res = await fetch(`/api/workflowAction/${instanceId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action_type: 'COMMENT', comments: comment }),
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`postWorkflowComment failed: ${res.status} ${msg}`);
+  }
+
+  return safeJson(res);
+}
+
+// Logs that the user viewed the reviewal modal
+export async function logWorkflowViewed(instanceId) {
+  const res = await fetch(`/api/workflowAction/${instanceId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action_type: 'VIEWED', comments: null }),
+  });
+
+  // Non-blocking: don't throw on failure
+  if (!res.ok) {
+    console.warn('logWorkflowViewed failed:', res.status);
+  }
+}
+
+// Marks the current stage as reviewed (advances to next stage)
+export async function markDraftReviewed(instanceId, comments) {
+  const res = await fetch(`/api/workflowAction/${instanceId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action_type: 'APPROVED', comments: comments || null }),
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`markDraftReviewed failed: ${res.status} ${msg}`);
+  }
+
+  return safeJson(res);
+}
+
+// ── Draft Versions (SQL) ──────────────────────────────────────
+
+// Fetches all saved versions for a draft in the active billing cycle
+export async function getDraftVersions(draftFeeIdx) {
+  const res = await fetch(`/api/draftVersions/${draftFeeIdx}`, {
+    method: 'GET',
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`getDraftVersions failed: ${res.status} ${msg}`);
+  }
+
+  return safeJson(res);
+}
+
+// Saves a new version snapshot of analysis + narrative data to SQL
+export async function saveDraftVersion({ draftFeeIdx, versionNumber, analysisData, narrativeData, reason }) {
+  const res = await fetch('/api/draftVersions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ draftFeeIdx, versionNumber, analysisData, narrativeData, reason }),
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`saveDraftVersion failed: ${res.status} ${msg}`);
+  }
+
+  return safeJson(res);
+}

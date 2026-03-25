@@ -3,6 +3,7 @@
 //const sampleDraftNarr = require("../sampleData/sampleDraftNarr.json");
 //const sql = require("mssql");
 const { DefaultAzureCredential } = require("@azure/identity");
+const { sql: mssql, query: sqlQuery } = require('../shared/db');
 
 const baseConfig = {
   server: process.env.AZURE_SQL_SERVER,      // e.g. "myserver.database.windows.net"
@@ -132,10 +133,90 @@ const appendArray2 = attachNarrMatches(appendArray1, await narrBody.json(), "DRA
     return;
   }
 
-  // Proxy the JSON back to the client
-  const json = appendArray2;
-  console.log(json[0]);
+  // Enrich with workflow status from SQL (non-blocking)
+  let json = appendArray2;
+  try {
+    const cycleResult = await sqlQuery(
+      'SELECT cycle_id FROM billing.billing_cycles WHERE is_active = 1'
+    );
+    if (cycleResult.recordset.length) {
+      const activeCycleId = cycleResult.recordset[0].cycle_id;
+      const wiResult = await sqlQuery(
+        `SELECT wi.draft_fee_idx,
+                wi.instance_id, wi.current_stage_id, wi.current_status,
+                wsd.stage_code, wsd.stage_name,
+                wi.billing_reviewer, wi.manager_reviewer,
+                wi.partner_reviewer, wi.originator_reviewer,
+                wi.br_completed_at, wi.mr_completed_at,
+                wi.pr_completed_at, wi.or_completed_at, wi.posted_at
+         FROM billing.workflow_instances wi
+         JOIN billing.workflow_stage_definitions wsd ON wi.current_stage_id = wsd.stage_id
+         WHERE wi.cycle_id = @cycleId`,
+        { cycleId: { type: mssql.Int, value: activeCycleId } }
+      );
 
+      // Fetch unread comment counts per draft per user
+      let unreadMap = new Map();
+      try {
+        const unreadResult = await sqlQuery(
+          `SELECT wi.draft_fee_idx, dv.user_email,
+                  COUNT(wa.action_id) AS unread_count
+           FROM billing.workflow_instances wi
+           JOIN billing.draft_views dv ON dv.draft_fee_idx = wi.draft_fee_idx
+           JOIN billing.workflow_actions wa ON wa.instance_id = wi.instance_id
+                AND wa.action_type = 'COMMENT'
+                AND wa.action_at > dv.last_viewed_at
+           WHERE wi.cycle_id = @cycleId
+           GROUP BY wi.draft_fee_idx, dv.user_email`,
+          { cycleId: { type: mssql.Int, value: activeCycleId } }
+        );
+        for (const row of unreadResult.recordset) {
+          const key = Number(row.draft_fee_idx);
+          if (!unreadMap.has(key)) unreadMap.set(key, {});
+          unreadMap.get(key)[row.user_email.toLowerCase()] = row.unread_count;
+        }
+      } catch (unreadErr) {
+        console.warn('getDraftPopulation: unread count query failed (non-blocking):', unreadErr.message);
+      }
+
+      const wiMap = new Map();
+      for (const row of wiResult.recordset) {
+        wiMap.set(Number(row.draft_fee_idx), row);
+      }
+      console.log('getDraftPopulation: wiMap keys:', [...wiMap.keys()]);
+      console.log('getDraftPopulation: wiMap size:', wiMap.size, 'sample stage_codes:', wiResult.recordset.slice(0, 3).map(r => `${r.draft_fee_idx}=${r.stage_code}`));
+      console.log('getDraftPopulation: sample DRAFTFEEIDX from PE:', json.slice(0, 3).map(d => `${d.DRAFTFEEIDX} (${typeof d.DRAFTFEEIDX})`));
+
+      json = json.map(draft => {
+        const wi = wiMap.get(Number(draft.DRAFTFEEIDX));
+        if (wi) {
+          return {
+            ...draft,
+            workflow: {
+              instance_id: wi.instance_id,
+              stage_code: wi.stage_code,
+              stage_name: wi.stage_name,
+              status: wi.current_status,
+              billing_reviewer: wi.billing_reviewer,
+              manager_reviewer: wi.manager_reviewer,
+              partner_reviewer: wi.partner_reviewer,
+              originator_reviewer: wi.originator_reviewer,
+              br_completed_at: wi.br_completed_at,
+              mr_completed_at: wi.mr_completed_at,
+              pr_completed_at: wi.pr_completed_at,
+              or_completed_at: wi.or_completed_at,
+              posted_at: wi.posted_at,
+            },
+            unread_comments: unreadMap.get(Number(draft.DRAFTFEEIDX)) || {},
+          };
+        }
+        return { ...draft, workflow: null, unread_comments: {} };
+      });
+    }
+  } catch (sqlErr) {
+    // SQL unavailable — return PE data without workflow enrichment
+    console.warn('getDraftPopulation: workflow enrichment failed (non-blocking):', sqlErr.message);
+  }
 
     context.res = {
     status: 200,

@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(xargs grep -l \"createJob\\\\|createDraft\")"
+      "Bash(xargs grep -l \"createJob\\\\|createDraft\")",
+      "Bash(find /c/Users/deison/Projects/swa-botfieldBilling -type f \\\\\\(-name *activity* -o -name *comment* -o -name *feed* -o -name *history* \\\\\\))"
     ]
   }
 }
