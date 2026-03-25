@@ -31,15 +31,25 @@ module.exports = async function (context, req) {
       );
 
       for (const r of result.recordset) {
+        // Detect send-back actions stored as REJECTED with [Sent back] prefix
+        let eventType = r.action_type;
+        let eventMessage = r.comments || null;
+        if (r.action_type === 'REJECTED' && (r.comments || '').startsWith('[Sent back]')) {
+          eventType = 'SEND_BACK';
+          eventMessage = (r.comments || '').replace('[Sent back]', '').trim() || null;
+        } else if (r.action_type === 'APPROVED' && (r.comments || '').startsWith('[Force-approved]')) {
+          eventType = 'FORCE_APPROVED';
+          eventMessage = (r.comments || '').replace('[Force-approved]', '').trim() || null;
+        }
         events.push({
           source: 'workflow',
           id: `wa-${r.action_id}`,
-          type: r.action_type,
+          type: eventType,
           user: r.action_by,
           timestamp: r.action_at,
           stageCode: r.stage_code,
           stageName: r.stage_name,
-          message: r.comments || null,
+          message: eventMessage,
           reassignedTo: r.reassigned_to || null,
         });
       }

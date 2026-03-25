@@ -1,0 +1,157 @@
+/* ── Bulk Reviewal Update Modal ───────────────────────────── */
+.bru-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  z-index: 9500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bru-modal {
+  background: #fff;
+  border-radius: 14px;
+  width: 92vw;
+  max-width: 480px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.2);
+  overflow: hidden;
+}
+
+/* Header */
+.bru-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.bru-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #063941;
+}
+.bru-close {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+.bru-close:hover { color: #374151; }
+
+/* Body */
+.bru-body {
+  padding: 20px;
+}
+.bru-desc {
+  font-size: 0.82rem;
+  color: #374151;
+  line-height: 1.5;
+  margin: 0 0 16px;
+}
+.bru-desc strong {
+  color: #063941;
+}
+.bru-desc--muted {
+  color: #6b7280;
+  font-size: 0.78rem;
+  background: #f9fafb;
+  border-radius: 6px;
+  padding: 8px 12px;
+  border-left: 3px solid #d97706;
+}
+
+/* Stage picker (step 1) */
+.bru-stage-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bru-stage-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border: 1.5px solid #d7dee5;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.12s;
+  text-align: left;
+}
+.bru-stage-option:hover {
+  border-color: #547872;
+  background: #f0f7f6;
+}
+.bru-stage-option__label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #063941;
+  flex: 1;
+}
+.bru-stage-option__count {
+  font-size: 0.75rem;
+  color: #6b7280;
+  white-space: nowrap;
+}
+.bru-stage-option__arrow {
+  font-size: 0.72rem;
+  color: #547872;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+/* Back button (step 2 → step 1) */
+.bru-back {
+  background: none;
+  border: none;
+  color: #547872;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 12px;
+}
+.bru-back:hover { color: #063941; }
+
+/* Footer */
+.bru-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid #e5e7eb;
+  background: #fafbfc;
+}
+.bru-cancel {
+  padding: 7px 18px;
+  border: 1px solid #d7dee5;
+  border-radius: 8px;
+  background: #fff;
+  color: #374151;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.bru-cancel:hover { background: #f3f4f6; }
+.bru-submit {
+  padding: 7px 18px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(to right, #547872, #063941);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+.bru-submit:hover { filter: brightness(1.15); }
+.bru-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: none;
+}

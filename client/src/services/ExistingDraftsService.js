@@ -1,15 +1,7 @@
 import { getAuthToken, setAuthToken } from './runtimeConfig';
 
 export async function getToken() {
-  console.log('calling getToken');
-  const res = await fetch('/api/getToken', {
-    method: "POST"
-  });
-  const token = await res.text();
-  if (!res.ok) { // capture error payload
-    throw new Error(`Load failed: ${res.status} ${token}`);
-  }
-  return token;
+  return getAuthToken();
 }
 
 export async function getKnuulaFees() {
@@ -655,11 +647,8 @@ export async function DraftFeeAddInterimFeeAutoAllocate(payload) {
 
   const res = await fetch('/api/AutoAllocateWIP', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      token,
-      payload
-    })
+    headers: { 'Content-Type': 'application/json', 'X-PE-Token': token },
+    body: JSON.stringify(payload)
   });
 
   if (!res.ok) {
@@ -668,6 +657,24 @@ export async function DraftFeeAddInterimFeeAutoAllocate(payload) {
   }
 
   // May be empty / non-JSON, so use safeJson
+  return safeJson(res);
+}
+
+export async function DraftFeeAddInterimFee(payload) {
+  const token = await getToken();
+  setAuthToken(token);
+
+  const res = await fetch('/api/AddInterimFee', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-PE-Token': token },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`Add interim fee failed: ${res.status} ${msg}`);
+  }
+
   return safeJson(res);
 }
 
@@ -810,6 +817,22 @@ export async function markDraftReviewed(instanceId, comments) {
   return safeJson(res);
 }
 
+// Sends a draft back to the previous reviewal stage
+export async function sendBackDraft(instanceId, comments) {
+  const res = await fetch(`/api/workflowAction/${instanceId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action_type: 'SEND_BACK', comments: comments || null }),
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`sendBackDraft failed: ${res.status} ${msg}`);
+  }
+
+  return safeJson(res);
+}
+
 // ── Draft Versions (SQL) ──────────────────────────────────────
 
 // Fetches all saved versions for a draft in the active billing cycle
@@ -839,5 +862,107 @@ export async function saveDraftVersion({ draftFeeIdx, versionNumber, analysisDat
     throw new Error(`saveDraftVersion failed: ${res.status} ${msg}`);
   }
 
+  return safeJson(res);
+}
+
+// Fetch global reviewal tracker data — syncs PE drafts into workflow DB first
+export async function getWorkflowTrackerData(drafts = []) {
+  const res = await fetch('/api/workflowTracker', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ drafts }),
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`getWorkflowTrackerData failed: ${res.status} ${msg}`);
+  }
+
+  return safeJson(res);
+}
+
+// Bulk advance selected drafts to a target stage
+export async function bulkReviewalUpdate({ draftFeeIdxs, targetStageId, actionType = 'APPROVED', comments = '' }) {
+  const res = await fetch('/api/workflowBulkAction', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      draft_fee_idxs: draftFeeIdxs,
+      target_stage_id: targetStageId,
+      action_type: actionType,
+      comments,
+    }),
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`bulkReviewalUpdate failed: ${res.status} ${msg}`);
+  }
+
+  return safeJson(res);
+}
+
+// Fetch auto-approval relationships
+export async function getAutoApprovals(type) {
+  const url = type ? `/api/partnerAutoApprovals?type=${type}` : '/api/partnerAutoApprovals';
+  const res = await fetch(url, { method: 'GET' });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`getAutoApprovals failed: ${res.status} ${msg}`);
+  }
+
+  return safeJson(res);
+}
+
+// Create an auto-approval relationship
+export async function createAutoApproval({ relationshipType, approverEmail, revieweeEmail }) {
+  const res = await fetch('/api/partnerAutoApprovals', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ relationshipType, approverEmail, revieweeEmail }),
+  });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`createAutoApproval failed: ${res.status} ${msg}`);
+  }
+
+  return safeJson(res);
+}
+
+// Revoke an auto-approval relationship
+export async function revokeAutoApproval(id) {
+  const res = await fetch(`/api/partnerAutoApprovals/${id}`, { method: 'DELETE' });
+
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`revokeAutoApproval failed: ${res.status} ${msg}`);
+  }
+
+  return safeJson(res);
+}
+
+// Fetch unread @mentions for the current user
+export async function getUnreadMentions() {
+  const res = await fetch('/api/mentions', { method: 'GET' });
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`getUnreadMentions failed: ${res.status} ${msg}`);
+  }
+  return safeJson(res);
+}
+
+// Mark all mentions for a specific draft as read
+export async function markMentionsRead(draftFeeIdx) {
+  const res = await fetch('/api/mentions/markRead', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ draft_fee_idx: draftFeeIdx }),
+  });
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`markMentionsRead failed: ${res.status} ${msg}`);
+  }
   return safeJson(res);
 }

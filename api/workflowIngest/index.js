@@ -51,9 +51,14 @@ module.exports = async function (context, req) {
     let created = 0, updated = 0, skipped = 0;
     const defaultBillingReviewer = BILLING_SUPER_USERS[0];
 
+    // Collect all valid draft_fee_idx values from PE response
+    const liveDraftFeeIdxs = new Set();
+
     for (const d of drafts) {
       const draftFeeIdx = Number(d.DRAFTFEEIDX);
       if (!Number.isFinite(draftFeeIdx)) { skipped++; continue; }
+
+      liveDraftFeeIdxs.add(draftFeeIdx);
 
       // MERGE billing.draft_invoices
       const diResult = await query(
@@ -106,10 +111,43 @@ module.exports = async function (context, req) {
       }
     }
 
+    // ── Cleanup: delete orphaned rows that PE no longer returns ──
+    // If a draft isn't in the PE response, it's been billed or deleted.
+    let removed = 0;
+    if (liveDraftFeeIdxs.size > 0) {
+      const idxList = [...liveDraftFeeIdxs].join(',');
+
+      // Delete workflow actions first (FK dependency)
+      await query(
+        `DELETE wa FROM billing.workflow_actions wa
+         JOIN billing.workflow_instances wi ON wa.instance_id = wi.instance_id
+         WHERE wi.cycle_id = @cycleId
+           AND wi.draft_fee_idx NOT IN (${idxList})`,
+        { cycleId: { type: sql.Int, value: cycle_id } }
+      );
+
+      // Delete workflow instances
+      const wiResult = await query(
+        `DELETE FROM billing.workflow_instances
+         WHERE cycle_id = @cycleId
+           AND draft_fee_idx NOT IN (${idxList})`,
+        { cycleId: { type: sql.Int, value: cycle_id } }
+      );
+      removed = wiResult.rowsAffected?.[0] || 0;
+
+      // Delete draft invoices
+      await query(
+        `DELETE FROM billing.draft_invoices
+         WHERE cycle_id = @cycleId
+           AND draft_fee_idx NOT IN (${idxList})`,
+        { cycleId: { type: sql.Int, value: cycle_id } }
+      );
+    }
+
     context.res = {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
-      body: { created, updated, skipped, total: drafts.length },
+      body: { created, updated, skipped, removed, total: drafts.length },
     };
   } catch (err) {
     context.log.error('workflowIngest error:', err);

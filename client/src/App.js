@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route, Outlet, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from './auth/AuthContext';
+import { initToken } from './services/runtimeConfig';
+
 import UnderConstructionPage from './components/UnderConstructionPage';
 
 // Import page components
@@ -21,6 +23,9 @@ import TechFees from "./pages/TechFees";
 //import OfficeStandards      from './pages/WIPBasedBilling/OfficeStandards';
 //import PartnerStandards     from './pages/WIPBasedBilling/PartnerStandards';
 //import ClientStandards      from './pages/WIPBasedBilling/ClientStandards';
+
+// Eagerly fetch PE token at app startup; auto-refreshes every 55 min
+initToken();
 
 /* ───────── layout for nested WIP pages ───────── */
 function WIPBasedBillingLayout() {

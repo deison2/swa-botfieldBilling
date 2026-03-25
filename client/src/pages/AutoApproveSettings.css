@@ -1,0 +1,320 @@
+/* ── Auto-Approve Settings Modal ──────────────────────────── */
+.aas-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  z-index: 9500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.aas-modal {
+  background: #fff;
+  border-radius: 14px;
+  width: 92vw;
+  max-width: 680px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,.2);
+  overflow: visible;
+}
+
+/* ── Header ───────────────────────────────────────────────── */
+.aas-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.aas-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #063941;
+}
+.aas-close {
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+.aas-close:hover { color: #374151; }
+
+/* ── Error banner ─────────────────────────────────────────── */
+.aas-error {
+  padding: 8px 20px;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: 0.78rem;
+  border-bottom: 1px solid #fecaca;
+}
+
+/* ── Body ─────────────────────────────────────────────────── */
+.aas-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  min-height: 0;
+}
+
+.aas-loading {
+  text-align: center;
+  padding: 30px;
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+/* ── Section ──────────────────────────────────────────────── */
+.aas-section {
+  margin-bottom: 20px;
+}
+.aas-section:last-child { margin-bottom: 0; }
+
+.aas-section__header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.aas-section__badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  width: fit-content;
+}
+.aas-section__badge--PR_SKIP {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+.aas-section__badge--OR_SKIP {
+  background: #cffafe;
+  color: #155e75;
+}
+.aas-section__desc {
+  font-size: 0.75rem;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.aas-empty {
+  padding: 12px 0;
+  color: #9ca3af;
+  font-size: 0.78rem;
+  font-style: italic;
+}
+
+/* ── Group (admin grouped by approver) ────────────────────── */
+.aas-group {
+  margin-bottom: 12px;
+}
+.aas-group__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+  padding-left: 2px;
+}
+
+/* ── List of approval items ───────────────────────────────── */
+.aas-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.aas-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #f3f4f6;
+  transition: background 0.1s;
+}
+.aas-item:hover { background: #f3f4f6; }
+
+.aas-item__email {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #1f2937;
+  flex: 1;
+}
+.aas-item__meta {
+  font-size: 0.68rem;
+  color: #9ca3af;
+  white-space: nowrap;
+}
+.aas-item__revoke {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #9ca3af;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.12s;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.aas-item__revoke:hover {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+/* ── Add form ─────────────────────────────────────────────── */
+.aas-add-form {
+  padding: 16px 20px;
+  border-top: 1px solid #e5e7eb;
+  background: #fafbfc;
+  border-radius: 0 0 14px 14px;
+  overflow: visible;
+}
+.aas-add-form__label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+.aas-add-form__row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.aas-add-form__select {
+  padding: 7px 10px;
+  border: 1.5px solid #d7dee5;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  color: #1f2a34;
+  background: #fff;
+  min-width: 200px;
+}
+.aas-add-form__select:focus {
+  outline: none;
+  border-color: #547872;
+  box-shadow: 0 0 0 2px rgba(84,120,114,.15);
+}
+.aas-add-form__input {
+  flex: 1;
+  min-width: 160px;
+  padding: 7px 12px;
+  border: 1.5px solid #d7dee5;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  color: #1f2a34;
+}
+.aas-add-form__input:focus {
+  outline: none;
+  border-color: #547872;
+  box-shadow: 0 0 0 2px rgba(84,120,114,.15);
+}
+.aas-add-form__btn {
+  padding: 7px 18px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(to right, #547872, #063941);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: filter 0.15s;
+}
+.aas-add-form__btn:hover { filter: brightness(1.15); }
+.aas-add-form__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: none;
+}
+.aas-add-form__hint {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.72rem;
+  color: #9ca3af;
+  line-height: 1.4;
+}
+.aas-add-form__hint strong {
+  color: #374151;
+}
+
+/* ── Avatar ──────────────────────────────────────────────────── */
+.aas-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #e5eaea;
+  color: #063941;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.aas-avatar__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+.aas-avatar__init {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Searchable combobox ─────────────────────────────────────── */
+.aas-combo {
+  position: relative;
+  flex: 1;
+  min-width: 160px;
+}
+.aas-combo__list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  max-height: 180px;
+  overflow-y: auto;
+  margin-top: 2px;
+  background: #fff;
+  border: 1.5px solid #d7dee5;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.12);
+}
+.aas-combo__option {
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  color: #1f2a34;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.aas-combo__option:hover {
+  background: #f0fdfa;
+}
+.aas-combo__option--selected {
+  background: #e0f2fe;
+  font-weight: 600;
+}

@@ -2,7 +2,7 @@
  * ExistingDrafts.js  – 2025-07-25
  *************************************************************************/
 
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { ChevronRight } from 'lucide-react';
 import Sidebar          from '../components/Sidebar';
 import TopBar           from '../components/TopBar';
@@ -36,6 +36,7 @@ import {
   addDraftFeeNarrative,
   draftFeeDeleteWipAllocation,
   draftFeeAddClients,
+  DraftFeeAddInterimFee,
   logDraftEdits,
   AbandonDraft as abandonDraft,
   getKnuulaFees,
@@ -51,15 +52,22 @@ import {
 
 import ExistingDraftsEditTray from './ExistingDraftsEditTray';
 import ReviewalWorkflowModal from './ReviewalWorkflowModal';
+import GlobalReviewalTracker from './GlobalReviewalTracker';
+import AutoApproveSettings from './AutoApproveSettings';
+import BulkReviewalUpdateModal from './BulkReviewalUpdateModal';
 import {
   getWorkflowReviewData,
   ensureWorkflowInstance,
   markDraftReviewed,
+  sendBackDraft,
   getDraftActivityFeed,
   postWorkflowComment,
   logWorkflowViewed,
   getDraftVersions,
   saveDraftVersion,
+  getWorkflowTrackerData,
+  bulkReviewalUpdate,
+  markMentionsRead,
 } from '../services/ExistingDraftsService';
 
 // Recurring billing configuration (masterRecurrings.json)
@@ -985,7 +993,7 @@ const [editTrayState, setEditTrayState] = useState({
   });
 
   /* ── Quick Signoff modal state ─────────────────────────────── */
-  const [quickSignoff, setQuickSignoff] = useState({ open: false, draftFeeIdx: null, row: null });
+  const [quickSignoff, setQuickSignoff] = useState({ open: false, draftFeeIdx: null, row: null, confirmed: false });
 
   /* ── Reviewal Workflow Modal state ──────────────────────────── */
   const [reviewModalState, setReviewModalState] = useState({
@@ -1003,6 +1011,27 @@ const [editTrayState, setEditTrayState] = useState({
   const [reviewModalElevated, setReviewModalElevated] = useState(false);
   const [reviewLockInfo, setReviewLockInfo] = useState(null); // { lockedBy } or null
   const preloadRef = useRef(null); // preloaded review modal data from quick signoff
+  const revertingRef = useRef(false); // true while a version revert is in progress
+
+  const handleOpenTracker = async () => {
+    setTrackerOpen(true);
+    setTrackerLoading(true);
+    try {
+      const data = await getWorkflowTrackerData(visibleRawRows);
+      setTrackerData(data);
+    } catch (err) {
+      console.error('Failed to load tracker data:', err);
+    } finally {
+      setTrackerLoading(false);
+    }
+  };
+
+  const handleTrackerReviewDraft = (draftFeeIdx, inst) => {
+    setTrackerOpen(false);
+    // Find the matching row from rawRows to pass full data
+    const row = rawRows.find(r => Number(r.DRAFTFEEIDX) === Number(draftFeeIdx));
+    handleOpenReviewModal(draftFeeIdx, row || { DRAFTFEEIDX: draftFeeIdx, workflow: inst });
+  };
 
   const handleOpenReviewModal = async (draftFeeIdx, row) => {
     // Use workflow data from the row if available (enriched by getDraftPopulation)
@@ -1044,6 +1073,9 @@ const [editTrayState, setEditTrayState] = useState({
       narrativeItems: [],
       rowData: row,
     });
+
+    // Mark @mentions for this draft as read (non-blocking)
+    markMentionsRead(draftFeeIdx).catch(() => {});
 
     // Use preloaded data if available for this draft, otherwise fetch fresh
     setFeedLoading(true);
@@ -1144,8 +1176,40 @@ const [editTrayState, setEditTrayState] = useState({
     }
   };
 
+  const handleSendBack = async (instanceId) => {
+    try {
+      const updated = await sendBackDraft(instanceId);
+      toast.success('Draft sent back to previous reviewal step');
+      updateRowWorkflow(instanceId, updated);
+      // Refresh activity feed
+      const feed = await getDraftActivityFeed(reviewModalState.draftFeeIdx).catch(() => null);
+      if (feed) setActivityFeed(Array.isArray(feed) ? feed : []);
+      // Update modal workflow state so the UI reflects the new stage
+      if (updated) {
+        setReviewModalState(s => ({
+          ...s,
+          workflow: {
+            ...s.workflow,
+            stage_code: updated.stage_code || s.workflow?.stage_code,
+            stage_name: updated.stage_name || s.workflow?.stage_name,
+            status: updated.current_status || s.workflow?.status,
+            current_stage_id: updated.current_stage_id ?? s.workflow?.current_stage_id,
+            br_completed_at: updated.br_completed_at ?? s.workflow?.br_completed_at,
+            mr_completed_at: updated.mr_completed_at ?? s.workflow?.mr_completed_at,
+            pr_completed_at: updated.pr_completed_at ?? s.workflow?.pr_completed_at,
+            or_completed_at: updated.or_completed_at ?? s.workflow?.or_completed_at,
+            posted_at: updated.posted_at ?? s.workflow?.posted_at,
+          },
+        }));
+      }
+    } catch (err) {
+      toast.error(`Send back failed: ${err.message}`);
+    }
+  };
+
   /* ── Revert to prior version handler ─────────────────────────── */
   const handleRevertToVersion = async ({ analysisData, narrativeData, version, stageLabel }) => {
+    revertingRef.current = true;
     const data = reviewModalState.rowData;
     if (!data) throw new Error('No row data available');
 
@@ -1176,7 +1240,7 @@ const [editTrayState, setEditTrayState] = useState({
         // Re-add clients from version data
         const uniqueContIndexes = Array.from(
           new Set((targetAnalysis)
-            .map(item => item?.ContIndex)
+            .map(item => item?.ContIndex ?? item?.CONTINDEX ?? item?.contIndex)
             .filter(v => v !== null && v !== undefined)
             .map(Number)
             .filter(Number.isFinite))
@@ -1186,26 +1250,75 @@ const [editTrayState, setEditTrayState] = useState({
         }
 
         // Re-add each analysis row
-        await Promise.all(
-          targetAnalysis.map(item => {
-            const payload = {
-              AllocIndex: item.AllocIdx ?? item.AllocIndex,
-              BillAmount: item.BillInClientCur ?? item.BillAmount ?? 0,
-              WIPOS: item.WIPInClientCur ?? item.WIP ?? 0,
-              BillType: item.Job_Billing_Type ?? '',
-              BillWoff: item.WoffInClientCur ?? item.BillWoff ?? 0,
-              DebtTranIndex: draftIdx,
-              Job_Allocation_Type: item.Job_Allocation_Type ?? '',
-              Narrative: '',
-              VATCode: '0',
-              WipAnalysis: item.WipAnalysis ?? '',
-              VATAmt: 0,
-              DebtTranDate: debttrandate,
-              CFwd: false,
-            };
-            return saveDraftFeeAnalysisRow(draftIdx, payload);
-          })
-        );
+        // Split into two buckets: rows with WIP (standard save) and rows without WIP (interim fee)
+        const wipRows = [];
+        const interimMap = new Map(); // key: ServPeriod (job), value: aggregated amounts
+
+        for (const item of targetAnalysis) {
+          const wipAmt = Number(item.WIPInClientCur ?? item.WIP ?? item.WIPINCLIENTCUR ?? 0);
+          const billAmt = Number(item.BillInClientCur ?? item.BillAmount ?? item.BILLINCLIENTCUR ?? 0);
+          const wipType = (item.WipType ?? item.WIPTYPE ?? item.WIPType ?? 'TIME').toUpperCase();
+          const contIdx = Number(item.ContIndex ?? item.CONTINDEX ?? item.contIndex ?? 0);
+          const jobIdx = Number(item.ServPeriod ?? item.SERVPERIOD ?? item.WipAnalysis ?? item.WIPANALYSIS ?? 0);
+
+          if (wipAmt === 0) {
+            // Group by job for interim fee call
+            if (!interimMap.has(jobIdx)) {
+              interimMap.set(jobIdx, { contIdx, timeBill: 0, disbBill: 0 });
+            }
+            const agg = interimMap.get(jobIdx);
+            agg.contIdx = contIdx; // use latest contIdx (should be same per job)
+            if (wipType === 'DISB') {
+              agg.disbBill += billAmt;
+            } else {
+              agg.timeBill += billAmt;
+            }
+          } else {
+            wipRows.push(item);
+          }
+        }
+
+        // Interim fee calls (one per job, combining TIME + DISB)
+        const interimPromises = Array.from(interimMap.entries()).map(([jobIdx, agg]) => {
+          const payload = {
+            DraftIdx: Number(draftIdx),
+            Client: agg.contIdx,
+            Job: jobIdx,
+            TimeWIP: 0,
+            TimeBill: agg.timeBill,
+            TimePL: 0,
+            TimeCF: -agg.timeBill,
+            TimeNarr: null,
+            DisbWIP: 0,
+            DisbBill: agg.disbBill,
+            DisbPL: 0,
+            DisbCF: -agg.disbBill,
+            DisbNarr: null,
+          };
+          return DraftFeeAddInterimFee(payload);
+        });
+
+        // Standard save calls (rows with WIP)
+        const wipPromises = wipRows.map(item => {
+          const payload = {
+            AllocIndex: item.AllocIdx ?? item.AllocIndex ?? item.ALLOCIDX,
+            BillAmount: Number(item.BillInClientCur ?? item.BillAmount ?? item.BILLINCLIENTCUR ?? 0),
+            WIPOS: Number(item.WIPInClientCur ?? item.WIP ?? item.WIPINCLIENTCUR ?? 0),
+            BillType: item.Job_Billing_Type ?? item.JOB_BILLING_TYPE ?? '',
+            BillWoff: Number(item.WoffInClientCur ?? item.BillWoff ?? item.WOFFINCLIENTCUR ?? 0),
+            DebtTranIndex: draftIdx,
+            Job_Allocation_Type: item.Job_Allocation_Type ?? item.JOB_ALLOCATION_TYPE ?? '',
+            Narrative: '',
+            VATCode: '0',
+            WipAnalysis: item.WipAnalysis ?? item.WIPANALYSIS ?? '',
+            VATAmt: 0,
+            DebtTranDate: debttrandate,
+            CFwd: false,
+          };
+          return saveDraftFeeAnalysisRow(draftIdx, payload);
+        });
+
+        await Promise.all([...interimPromises, ...wipPromises]);
       })());
     }
 
@@ -1279,6 +1392,7 @@ const [editTrayState, setEditTrayState] = useState({
       console.warn('saveDraftVersion after revert failed (non-blocking):', verErr);
     }
 
+    revertingRef.current = false;
     toast.success(`Draft reverted to ${stageLabel} (v${version.version_number})`);
   };
 
@@ -1301,10 +1415,15 @@ const [editTrayState, setEditTrayState] = useState({
   };
 
   const handleQuickMarkReviewed = async () => {
+    // First click → show final warning; second click → execute
+    if (!quickSignoff.confirmed) {
+      setQuickSignoff(prev => ({ ...prev, confirmed: true }));
+      return;
+    }
     const row = quickSignoff.row;
     const draftFeeIdx = quickSignoff.draftFeeIdx;
     let instanceId = row?.workflow?.instance_id;
-    setQuickSignoff({ open: false, draftFeeIdx: null, row: null });
+    setQuickSignoff({ open: false, draftFeeIdx: null, row: null, confirmed: false });
 
     // If workflow wasn't on the row, ensure one exists (auto-creates if needed)
     if (!instanceId && draftFeeIdx) {
@@ -1519,6 +1638,7 @@ useEffect(() => {
       } else {
         console.error("loadRecurrings failed:", recRes.reason);
       }
+      if (!cancelled) { lastFetchedAtRef.current = Date.now(); setLastRefreshed(new Date()); }
     } finally {
       if (!cancelled) setLoading(false);
     }
@@ -1541,6 +1661,7 @@ useEffect(() => {
     setRealVal1(saved.realVal1 ?? '');
     setRealVal2(saved.realVal2 ?? '');
     setFinalFilter(saved.finalFilter ?? 'all');
+    setReviewStatusFilter(saved.reviewStatusFilter ?? '');
     if (saved.createdByFilter) {
       setCreatedByFilter(new Set(saved.createdByFilter));
     }
@@ -1617,6 +1738,25 @@ useEffect(() => {
   const [showScopeModal, setShowScopeModal] = useState(false);
   const [showCombineModal, setShowCombineModal] = useState(false);
   const [showCreateDraftModal, setShowCreateDraftModal] = useState(false);
+  const [trackerOpen, setTrackerOpen] = useState(false);
+  const [trackerData, setTrackerData] = useState(null);
+  const [trackerLoading, setTrackerLoading] = useState(false);
+  const [autoApproveOpen, setAutoApproveOpen] = useState(false);
+
+  // Unique sorted emails from the current draft population (for AutoApproveSettings picklist)
+  const populationEmails = useMemo(() => {
+    const set = new Set();
+    for (const r of rawRows) {
+      if (r.COEmail) set.add(r.COEmail.toLowerCase().trim());
+      if (r.CPEmail) set.add(r.CPEmail.toLowerCase().trim());
+      if (r.CMEmail) set.add(r.CMEmail.toLowerCase().trim());
+    }
+    return [...set].filter(Boolean).sort();
+  }, [rawRows]);
+  const [bulkReviewalOpen, setBulkReviewalOpen] = useState(false);
+  const [bulkReviewalSubmitting, setBulkReviewalSubmitting] = useState(false);
+  const [bulkReviewalActionableDrafts, setBulkReviewalActionableDrafts] = useState([]); // [{id, stageCode, stageId}]
+  const [bulkReviewalNotActionableCount, setBulkReviewalNotActionableCount] = useState(0);
   /* <<< modal-state END <<< */
 
   /* >>> select-all logic (REPLACED) >>> */
@@ -1648,6 +1788,64 @@ useEffect(() => {
 
     return rowsForUser;
   }, [ready, rawRows, isSuperUser, email]);
+
+  /* ── Reviewal badge counts (derived from loaded data, no API call) ── */
+  const reviewalBadge = useMemo(() => {
+    let actionable = 0;
+    let waiting = 0;
+    const e = (email || '').toLowerCase();
+    const seen = new Set();
+    // Map reviewer column → completion timestamp for checking if user already reviewed
+    const reviewerToCompleted = {
+      manager_reviewer: 'mr_completed_at',
+      partner_reviewer: 'pr_completed_at',
+      originator_reviewer: 'or_completed_at',
+    };
+    for (const r of visibleRawRows) {
+      const idx = r.DRAFTFEEIDX;
+      if (seen.has(idx)) continue;
+      seen.add(idx);
+      const w = r.workflow;
+      if (!w) continue;
+      const stage = w.stage_code || 'BR';
+      if (w.status === 'COMPLETED' || w.posted_at) continue;
+
+      // Is the current user the reviewer for the CURRENT stage?
+      let isReviewer = false;
+      if (billingSuperUser) {
+        isReviewer = true;
+      } else if (stage === 'BR') {
+        isReviewer = isBillingTeam || false;
+      } else if (stage === 'POST') {
+        isReviewer = false;
+      } else {
+        const stageMap = { MR: 'manager_reviewer', PR: 'partner_reviewer', OR: 'originator_reviewer' };
+        const col = stageMap[stage];
+        isReviewer = col && (w[col] || '').toLowerCase() === e;
+      }
+
+      // Check if the user already completed their review on this draft
+      let alreadyReviewed = false;
+      if (isBillingTeam && w.br_completed_at) {
+        alreadyReviewed = true;
+      }
+      for (const [revCol, tsCol] of Object.entries(reviewerToCompleted)) {
+        if ((w[revCol] || '').toLowerCase() === e && w[tsCol]) {
+          alreadyReviewed = true;
+          break;
+        }
+      }
+
+      if (alreadyReviewed) {
+        // Already completed — don't count as actionable or waiting
+      } else if (isReviewer) {
+        actionable++;
+      } else if (w.status !== 'ON_HOLD') {
+        waiting++;
+      }
+    }
+    return { actionable, waiting };
+  }, [visibleRawRows, email, billingSuperUser, isBillingTeam]);
 
   /* ── GROUP by DRAFTFEEIDX (roll-up) ─────────────────────────── */
   const rows = useMemo(() => {
@@ -1695,6 +1893,9 @@ useEffect(() => {
     headerCbRef.current.indeterminate = sel > 0 && sel < total;
   }, [selectedIds, rows]);          // runs on every change
   /* <<< keep header checkbox in sync END <<< */
+
+  const [lastRefreshed, setLastRefreshed] = useState(null);
+  const lastFetchedAtRef = useRef(0); // epoch ms — used to throttle focus-refresh
 
   /* Bill Through (value comes from blob on load; super users can change it) */
   const [billThrough, setBillThrough] = useState(endOfPrevMonth());
@@ -1744,7 +1945,10 @@ useEffect(() => {
   const [finalFilter, setFinalFilter] = useState('all');
   // Multi-select: empty Set = "All Creators"
   const [createdByFilter, setCreatedByFilter] = useState(() => new Set());
+  const [reviewStatusFilter, setReviewStatusFilter] = useState('');
   const [showCreatedFilter, setShowCreatedFilter] = useState(false);
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const filterPanelRef = useRef(null);
 
   
 useEffect(() => {
@@ -1757,6 +1961,7 @@ useEffect(() => {
     realVal1,
     realVal2,
     finalFilter,
+    reviewStatusFilter,
     createdByFilter: Array.from(createdByFilter || []),
   };
   saveFiltersToStorage(filters);
@@ -1769,6 +1974,7 @@ useEffect(() => {
   realVal1,
   realVal2,
   finalFilter,
+  reviewStatusFilter,
   createdByFilter,
 ]);
 
@@ -1793,6 +1999,22 @@ useEffect(() => {
     return () => window.removeEventListener('keydown', onKey);
   }, [showCreatedFilter]);
 
+  // Close filter panel on Escape or click outside
+  useEffect(() => {
+    if (!showFilterPanel) return;
+    const onKey = (e) => { if (e.key === 'Escape') setShowFilterPanel(false); };
+    const onClick = (e) => {
+      if (filterPanelRef.current && !filterPanelRef.current.contains(e.target)) {
+        setShowFilterPanel(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    document.addEventListener('mousedown', onClick);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.removeEventListener('mousedown', onClick);
+    };
+  }, [showFilterPanel]);
 
   const onChangeRealOp = (e) => {
     const op = e.target.value;
@@ -1812,8 +2034,37 @@ useEffect(() => {
     managerFilter         ||
     realOp                ||
     finalFilter !== 'all' ||
-    createdByFilter.size > 0; 
+    reviewStatusFilter    ||
+    createdByFilter.size > 0;
   /* <<< hasChanges END <<< */
+
+  // Active filter chips for the filter panel summary
+  const activeFilterChips = useMemo(() => {
+    const chips = [];
+    if (originatorFilter) chips.push({ key: 'originator', label: `Originator: ${originatorFilter}`, clear: () => setOriginatorFilter('') });
+    if (partnerFilter) chips.push({ key: 'partner', label: `Partner: ${partnerFilter}`, clear: () => setPartnerFilter('') });
+    if (managerFilter) chips.push({ key: 'manager', label: `Manager: ${managerFilter}`, clear: () => setManagerFilter('') });
+    if (realOp) {
+      let desc = '';
+      const ops = { lt: '<', lte: '≤', eq: '=', gte: '≥', gt: '>' };
+      if (realOp === 'btw') desc = `Real.: ${realVal1 || '?'}% – ${realVal2 || '?'}%`;
+      else desc = `Real.: ${ops[realOp] || ''} ${realVal1 || '?'}%`;
+      chips.push({ key: 'real', label: desc, clear: () => { setRealOp(''); setRealVal1(''); setRealVal2(''); } });
+    }
+    if (finalFilter === 'true') chips.push({ key: 'final', label: 'Jobs Nearing End', clear: () => setFinalFilter('all') });
+    if (finalFilter === 'recurring') chips.push({ key: 'final', label: 'Recurring Billing', clear: () => setFinalFilter('all') });
+    if (reviewStatusFilter) {
+      const statusLabels = { BR: 'Billing Review', MR: 'Manager Review', PR: 'Partner Review', OR: 'Originator Review', POSTED: 'Posted' };
+      chips.push({ key: 'reviewStatus', label: `Review: ${statusLabels[reviewStatusFilter] || reviewStatusFilter}`, clear: () => setReviewStatusFilter('') });
+    }
+    if (createdByFilter.size > 0) {
+      const names = Array.from(createdByFilter);
+      const label = names.length <= 2 ? `Created by: ${names.join(', ')}` : `Created by: ${names.length} selected`;
+      chips.push({ key: 'created', label, clear: clearCreators });
+    }
+    return chips;
+  }, [originatorFilter, partnerFilter, managerFilter, realOp, realVal1, realVal2, finalFilter, reviewStatusFilter, createdByFilter]);
+
   /* >>> pagination-state (NEW) >>> */
   const [currentPage, setCurrentPage]       = useState(1);   // 1-based index
   const [rowsPerPage, setRowsPerPage]       = useState(10);
@@ -1960,9 +2211,13 @@ useEffect(() => {
           if (stage === 'BR') return BILLING_TEAM_VISIBLE;
           if (stage === 'POST') return BILLING_TEAM_VISIBLE;
           const map = { MR: 'manager_reviewer', PR: 'partner_reviewer', OR: 'originator_reviewer' };
+          const fallback = { MR: 'CMEmail', PR: 'CPEmail', OR: 'COEmail' };
           const col = map[stage];
           const val = col && w ? (w[col] || '').toLowerCase().trim() : '';
-          return val ? [val] : [];
+          if (val) return [val];
+          // Fall back to PE email fields on the row
+          const fbVal = fallback[stage] ? (r[fallback[stage]] || '').toLowerCase().trim() : '';
+          return fbVal ? [fbVal] : [];
         })();
 
         return (
@@ -1970,7 +2225,7 @@ useEffect(() => {
             <span className="rv-status-label">{label}</span>
             <div className="rv-status-avatars">
               {reviewerEmails.map(e => (
-                <ReviewerAvatar key={e} email={e} size={30} />
+                <ReviewerAvatar key={e} email={e} size={36} />
               ))}
             </div>
           </div>
@@ -3072,6 +3327,13 @@ const closeCreated = () => {
 
 
 
+  const byReviewStatus = (r) => {
+    if (!reviewStatusFilter) return true;
+    const stage = r.workflow?.stage_code || 'BR';
+    if (reviewStatusFilter === 'POSTED') return r.workflow?.status === 'COMPLETED' || !!r.workflow?.posted_at || stage === 'POST';
+    return stage === reviewStatusFilter;
+  };
+
   const byCreatedBy = (r) => {
     if (!createdByFilter || createdByFilter.size === 0) return true;
     const wanted = new Set([...createdByFilter].map((s) => String(s).toLowerCase()));
@@ -3093,7 +3355,8 @@ const closeCreated = () => {
     .filter(byReal)
     .filter(byFinal)
     .filter(byCreatedBy)
-    .filter(byRecurringClient);
+    .filter(byRecurringClient)
+    .filter(byReviewStatus);
 
   console.log(`UI-FILTER ▶ ${rows.length} → ${out.length}`);
   return out;
@@ -3108,6 +3371,7 @@ const closeCreated = () => {
   realVal1,
   realVal2,
   finalFilter,
+  reviewStatusFilter,
   createdByFilter,
   removeBTFilter,
   recurringContIndexes
@@ -3199,13 +3463,34 @@ const closeCreated = () => {
   }, [filteredRows]);
 
 
+  // Is the current user the assigned reviewer for this draft?
+  const isRowActionable = useCallback((r) => {
+    const w = r.workflow;
+    if (!w || !email) return false;
+    const e = email.toLowerCase();
+    const stage = w.stage_code || 'BR';
+    if (stage === 'BR') return isBillingTeam || billingSuperUser;
+    if (stage === 'POST') return billingSuperUser;
+    const map = { MR: 'manager_reviewer', PR: 'partner_reviewer', OR: 'originator_reviewer' };
+    const col = map[stage];
+    if (!col) return false;
+    return billingSuperUser || (w[col] || '').toLowerCase() === e;
+  }, [email, isBillingTeam, billingSuperUser]);
+
   // When editing a draft, focus the table on that single draft row
+  // Sort actionable drafts (Review button) to the top, then preserve existing order
   const tableRows = useMemo(() => {
-    if (!editingDraftIdx) return filteredRows;
-    return (filteredRows || []).filter(
-      r => Number(r.DRAFTFEEIDX) === Number(editingDraftIdx)
-    );
-  }, [filteredRows, editingDraftIdx]);
+    if (editingDraftIdx) {
+      return (filteredRows || []).filter(
+        r => Number(r.DRAFTFEEIDX) === Number(editingDraftIdx)
+      );
+    }
+    return [...(filteredRows || [])].sort((a, b) => {
+      const aAct = isRowActionable(a) ? 0 : 1;
+      const bAct = isRowActionable(b) ? 0 : 1;
+      return aAct - bAct;
+    });
+  }, [filteredRows, editingDraftIdx, isRowActionable]);
 
 
   /* >>> pageRows (NEW) >>> */
@@ -3228,6 +3513,7 @@ const closeCreated = () => {
         const dRes = await GetDrafts(iso);
 
         setRawRows(Array.isArray(dRes) ? dRes : []);
+        lastFetchedAtRef.current = Date.now(); setLastRefreshed(new Date());
       } catch (err) {
         console.error('Reload drafts failed:', err);
       } finally {
@@ -3244,17 +3530,13 @@ const closeCreated = () => {
       if (!isVisible || !isActive) return; // skip if tab hidden or user idle
       const iso = toIsoYmd(billThrough);
 
-      GetDrafts(iso)
-        .then(dRes => setRawRows(Array.isArray(dRes) ? dRes : []))
-        .catch(err => console.warn('Silent draft poll failed:', err));
-
-      GetGranularJobData(iso)
-        .then(data => setGranularData(Array.isArray(data) ? data : []))
-        .catch(err => console.warn('Silent granular job poll failed:', err));
-
-      GetGranularWIPData()
-        .then(data => setGranularWip(Array.isArray(data) ? data : []))
-        .catch(err => console.warn('Silent granular WIP poll failed:', err));
+      Promise.all([
+        GetDrafts(iso).then(dRes => setRawRows(Array.isArray(dRes) ? dRes : [])),
+        GetGranularJobData(iso).then(data => setGranularData(Array.isArray(data) ? data : [])),
+        GetGranularWIPData().then(data => setGranularWip(Array.isArray(data) ? data : [])),
+      ])
+        .then(() => { lastFetchedAtRef.current = Date.now(); setLastRefreshed(new Date()); })
+        .catch(err => console.warn('Silent poll failed:', err));
     }, DATA_POLL_MS);
 
     return () => clearInterval(interval);
@@ -3306,19 +3588,25 @@ const closeCreated = () => {
   }, [isVisible, isActive, reviewModalState.open, reviewModalState.draftFeeIdx]);
 
   // Immediate refresh when tab regains focus (after being hidden)
+  const FOCUS_REFRESH_MIN_MS = 5 * 60 * 1000; // 5 minutes
   useEffect(() => {
     const onFocus = () => {
+      // Skip heavy refresh while a version revert is in progress
+      // (window.confirm steals/returns focus, triggering this unnecessarily)
+      if (revertingRef.current) return;
+
+      // Only refresh if at least 5 minutes have passed since last fetch
+      if (Date.now() - lastFetchedAtRef.current < FOCUS_REFRESH_MIN_MS) return;
+
       // Silent data refresh
       const iso = toIsoYmd(billThrough);
-      GetDrafts(iso)
-        .then(dRes => setRawRows(Array.isArray(dRes) ? dRes : []))
-        .catch(err => console.warn('Focus draft refresh failed:', err));
-      GetGranularJobData(iso)
-        .then(data => setGranularData(Array.isArray(data) ? data : []))
-        .catch(err => console.warn('Focus granular job refresh failed:', err));
-      GetGranularWIPData()
-        .then(data => setGranularWip(Array.isArray(data) ? data : []))
-        .catch(err => console.warn('Focus granular WIP refresh failed:', err));
+      Promise.all([
+        GetDrafts(iso).then(dRes => setRawRows(Array.isArray(dRes) ? dRes : [])),
+        GetGranularJobData(iso).then(data => setGranularData(Array.isArray(data) ? data : [])),
+        GetGranularWIPData().then(data => setGranularWip(Array.isArray(data) ? data : [])),
+      ])
+        .then(() => { lastFetchedAtRef.current = Date.now(); setLastRefreshed(new Date()); })
+        .catch(err => console.warn('Focus refresh failed:', err));
 
       // If review modal is open, refresh its data too
       if (reviewModalState.open && reviewModalState.draftFeeIdx) {
@@ -3347,6 +3635,7 @@ const closeCreated = () => {
     setRealVal1('');
     setRealVal2('');
     setFinalFilter('all');
+    setReviewStatusFilter('');
     clearCreators();
   };
 
@@ -3360,6 +3649,37 @@ const closeCreated = () => {
       console.error('CombineDrafts failed:', err);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleBulkReviewalSubmit(targetStageId, eligibleIds) {
+    try {
+      setBulkReviewalSubmitting(true);
+      const result = await bulkReviewalUpdate({
+        draftFeeIdxs: eligibleIds,
+        targetStageId,
+        actionType: 'APPROVED',
+      });
+      setBulkReviewalOpen(false);
+      setSelectedIds(new Set());
+      const succCount = result.succeeded?.length || 0;
+      const failCount = result.failed?.length || 0;
+      if (succCount) toast.success(`${succCount} draft${succCount !== 1 ? 's' : ''} advanced successfully`);
+      if (failCount) toast.warn(`${failCount} draft${failCount !== 1 ? 's' : ''} could not be advanced`);
+
+      // Refresh draft data so workflow statuses are immediately reflected
+      const iso = toIsoYmd(billThrough);
+      GetDrafts(iso)
+        .then(dRes => {
+          setRawRows(Array.isArray(dRes) ? dRes : []);
+          lastFetchedAtRef.current = Date.now(); setLastRefreshed(new Date());
+        })
+        .catch(err => console.warn('Post-bulk refresh failed:', err));
+    } catch (err) {
+      console.error('Bulk reviewal update failed:', err);
+      toast.error('Bulk reviewal update failed');
+    } finally {
+      setBulkReviewalSubmitting(false);
     }
   }
 
@@ -3888,7 +4208,10 @@ console.log('PDF header:', header);
       {/* show loader overlay when loading */}
       {loading && <Loader />}
       <Sidebar />
-      <TopBar />
+      <TopBar onOpenDraftReview={(feeIdx) => {
+        const row = rawRows.find(r => Number(r.DRAFTFEEIDX) === Number(feeIdx));
+        if (row) handleReviewClick(feeIdx, row, true);
+      }} />
 
       <main
         className={`main-content existing-drafts ${
@@ -3911,220 +4234,132 @@ console.log('PDF header:', header);
           </button>
         )}
 
-        <select
-          className="role-select originator"
-          value={originatorFilter}
-          onChange={e => setOriginatorFilter(e.target.value)}
-        >
-          <option value="">All Originators</option>
-          {originatorOptions.map(o => (
-            <option key={o} value={o}>{o}</option>
-          ))}
-        </select>
-
-        <select
-          className="role-select partner"
-          value={partnerFilter}
-          onChange={e => setPartnerFilter(e.target.value)}
-        >
-          <option value="">All Partners</option>
-          {partnerOptions.map(p => (
-            <option key={p} value={p}>{p}</option>
-          ))}
-        </select>
-
-        <select
-          className="role-select manager"
-          value={managerFilter}
-          onChange={e => setManagerFilter(e.target.value)}
-        >
-          <option value="">All Managers</option>
-          {managerOptions.map(m => (
-            <option key={m} value={m}>{m}</option>
-          ))}
-        </select>
-
-        {/* Realization % (styled as a pill group) */}
-        <div className="real-filter">
-          <select
-            className="pill-select"
-            value={realOp}
-            onChange={onChangeRealOp}
-          >
-            <option value="">Real. % Filter</option>
-            <option value="lt">Less&nbsp;Than</option>
-            <option value="lte">≤</option>
-            <option value="eq">Equals</option>
-            <option value="gte">≥</option>
-            <option value="gt">Greater&nbsp;Than</option>
-            <option value="btw">Between</option>
-          </select>
-
-          {realOp && (
-            <>
-              <input
-                type="number"
-                className="pill-input pct"
-                placeholder={realOp === 'btw' ? 'min %' : '%'}
-                value={realVal1}
-                onChange={e => setRealVal1(e.target.value)}
-                min="0"
-                max="100"
-                step="1"
-                inputMode="numeric"
-              />
-
-              {realOp === 'btw' && (
-                <input
-                  type="number"
-                  className="pill-input pct"
-                  placeholder="max %"
-                  value={realVal2}
-                  onChange={e => setRealVal2(e.target.value)}
-                  min="0"
-                  max="100"
-                  step="1"
-                  inputMode="numeric"
-                />
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Jobs in Finalization */}
-        <div className="finalization-filter">
-          <label className="sr-only" htmlFor="finalFilter">
-            Jobs in Finalization
-          </label>
-          <select
-            id="finalFilter"
-            className="pill-select"
-            value={finalFilter}
-            onChange={e => setFinalFilter(e.target.value)}
-            title="Jobs in Finalization"
-          >
-            <option value="all">All Drafts</option>
-            <option value="true">Drafts w/ Jobs Nearing End</option>
-            <option value="recurring">Drafts for Recurring Billing Clients</option>
-          </select>
-
-        </div>
-
-        {/* Created-by icon filter */}
-        <div
-          className="created-filter-wrap"
-          title="Click to filter drafts by create user"
-        >
+        {/* ── Filter Panel (funnel button + popover) ── */}
+        <div className="fp-wrap" ref={filterPanelRef}>
           <button
             type="button"
-            className={`user-trigger bare ${createdByFilter.size ? 'is-active' : ''}`}
-            aria-haspopup="dialog"
-            aria-expanded={showCreatedFilter}
-            onClick={() => setShowCreatedFilter(v => !v)}
+            className={`fp-trigger ${activeFilterChips.length ? 'fp-trigger--active' : ''}`}
+            onClick={() => setShowFilterPanel(v => !v)}
+            title="Filters"
           >
-            <svg
-              className="user-icon"
-              viewBox="0 0 24 24"
-              width="22"
-              height="22"
-              aria-hidden="true"
-            >
-              <g opacity="var(--user-icon-opacity, 0.9)">
-                <circle cx="12" cy="8" r="4" fill="currentColor" />
-                <path
-                  d="M4 20c0-3.314 3.134-6 8-6s8 2.686 8 6H4z"
-                  fill="currentColor"
-                />
-              </g>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
             </svg>
+            Filters
+            {activeFilterChips.length > 0 && (
+              <span className="fp-badge">{activeFilterChips.length}</span>
+            )}
           </button>
 
-          {showCreatedFilter && (
-            <div
-              className="note-popover created-filter"
-              role="dialog"
-              aria-label="Filter by creator"
-            >
-              <div
-                className="note-head"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 8,
-                }}
-              >
-                <span>Filter: Created By</span>
+          {showFilterPanel && (
+            <div className="fp-panel" role="dialog" aria-label="Filter panel">
+              <div className="fp-panel__header">
+                <span className="fp-panel__title">Filters</span>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <button
-                    type="button"
-                    className="created-filter-close"
-                    title="Clear all creators"
-                    onClick={clearCreators}
-                  >
-                    Clear
-                  </button>
-                  <button
-                    type="button"
-                    className="created-filter-close"
-                    title="Close"
-                    onClick={() => setShowCreatedFilter(false)}
-                  >
-                    ×
-                  </button>
+                  <button type="button" className="fp-panel__clear" onClick={clearFilters}>Clear All</button>
+                  <button type="button" className="fp-panel__close" onClick={() => setShowFilterPanel(false)}>×</button>
                 </div>
               </div>
 
-              <div
-                className="note-body"
-                role="listbox"
-                aria-multiselectable="true"
-                aria-label="Creators"
-              >
-                <div className="created-filter-list">
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={createdByFilter.size === 0}
-                    className={`created-opt ${
-                      createdByFilter.size === 0 ? 'is-selected' : ''
-                    }`}
-                    onClick={clearCreators}
-                    title="Show drafts from all creators"
-                  >
-                    All Creators
-                  </button>
+              <div className="fp-panel__body">
+                {/* Row 1: Originator / Partner / Manager */}
+                <div className="fp-field">
+                  <label className="fp-label">Originator</label>
+                  <select className="fp-select fp-select--originator" value={originatorFilter} onChange={e => setOriginatorFilter(e.target.value)}>
+                    <option value="">All</option>
+                    {originatorOptions.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
 
-                  {createdByOptions.map(name => {
-                    const selected = createdByFilter.has(name);
-                    return (
+                <div className="fp-field">
+                  <label className="fp-label">Partner</label>
+                  <select className="fp-select fp-select--partner" value={partnerFilter} onChange={e => setPartnerFilter(e.target.value)}>
+                    <option value="">All</option>
+                    {partnerOptions.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </div>
+
+                <div className="fp-field">
+                  <label className="fp-label">Manager</label>
+                  <select className="fp-select fp-select--manager" value={managerFilter} onChange={e => setManagerFilter(e.target.value)}>
+                    <option value="">All</option>
+                    {managerOptions.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+
+                {/* Row 2: Realization % */}
+                <div className="fp-field fp-field--wide">
+                  <label className="fp-label">Realization %</label>
+                  <div className="fp-row">
+                    <select className="fp-select" value={realOp} onChange={onChangeRealOp}>
+                      <option value="">None</option>
+                      <option value="lt">Less Than</option>
+                      <option value="lte">≤</option>
+                      <option value="eq">Equals</option>
+                      <option value="gte">≥</option>
+                      <option value="gt">Greater Than</option>
+                      <option value="btw">Between</option>
+                    </select>
+                    {realOp && (
+                      <input type="number" className="fp-input fp-input--pct" placeholder={realOp === 'btw' ? 'min %' : '%'} value={realVal1} onChange={e => setRealVal1(e.target.value)} min="0" max="100" step="1" />
+                    )}
+                    {realOp === 'btw' && (
+                      <input type="number" className="fp-input fp-input--pct" placeholder="max %" value={realVal2} onChange={e => setRealVal2(e.target.value)} min="0" max="100" step="1" />
+                    )}
+                  </div>
+                </div>
+
+                {/* Row 3: Draft Type */}
+                <div className="fp-field">
+                  <label className="fp-label">Draft Type</label>
+                  <select className="fp-select" value={finalFilter} onChange={e => setFinalFilter(e.target.value)}>
+                    <option value="all">All Drafts</option>
+                    <option value="true">Jobs Nearing End</option>
+                    <option value="recurring">Recurring Billing</option>
+                  </select>
+                </div>
+
+                {/* Row 4: Review Status */}
+                <div className="fp-field">
+                  <label className="fp-label">Review Status</label>
+                  <select className="fp-select" value={reviewStatusFilter} onChange={e => setReviewStatusFilter(e.target.value)}>
+                    <option value="">All</option>
+                    <option value="BR">Billing Review</option>
+                    <option value="MR">Manager Review</option>
+                    <option value="PR">Partner Review</option>
+                    <option value="OR">Originator Review</option>
+                    <option value="POSTED">Posted</option>
+                  </select>
+                </div>
+
+                {/* Row 5: Created By */}
+                <div className="fp-field">
+                  <label className="fp-label">Created By</label>
+                  <div className="fp-created-list">
+                    <button
+                      type="button"
+                      className={`fp-created-opt ${createdByFilter.size === 0 ? 'fp-created-opt--sel' : ''}`}
+                      onClick={clearCreators}
+                    >
+                      All
+                    </button>
+                    {createdByOptions.map(name => (
                       <button
                         key={name}
                         type="button"
-                        role="option"
-                        aria-selected={selected}
-                        className={`created-opt ${selected ? 'is-selected' : ''}`}
+                        className={`fp-created-opt ${createdByFilter.has(name) ? 'fp-created-opt--sel' : ''}`}
                         onClick={() => toggleCreator(name)}
                         title={name}
                       >
                         {name}
                       </button>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
           )}
         </div>
-
-        {/* RESET (filters + selections) */}
-        <button
-          className={`reset-btn ${hasChanges ? 'active' : ''}`}
-          disabled={!hasChanges}
-          onClick={resetFiltersAndSelections}
-        >
-          Reset
-        </button>
 
         {/* GENERATE with tiny “X” when active */}
         <span className="generate-wrap">
@@ -4168,8 +4403,92 @@ console.log('PDF header:', header);
           )}
         </span>
 
-        {/* Bill Through */}
-        <div className="billthrough ml-auto">
+        {/* BULK REVIEWAL UPDATE */}
+        <span className="generate-wrap">
+          <button
+            className={`generate-btn ${selectedIds.size >= 1 ? 'active' : ''}`}
+            disabled={selectedIds.size < 1}
+            onClick={() => {
+              const actionable = [];
+              let notActionable = 0;
+              const e = (email || '').toLowerCase();
+              for (const id of selectedIds) {
+                const r = rawRows.find(row => Number(row.DRAFTFEEIDX) === Number(id));
+                const w = r?.workflow;
+                const stageCode = w?.stage_code || 'BR';
+                const stageId = w?.current_stage_id || 1;
+                let assigned = false;
+                if (billingSuperUser) {
+                  assigned = true;
+                } else if (stageCode === 'BR') {
+                  assigned = isBillingTeam || false;
+                } else if (stageCode === 'POST') {
+                  assigned = false;
+                } else {
+                  const map = { MR: 'manager_reviewer', PR: 'partner_reviewer', OR: 'originator_reviewer' };
+                  const col = map[stageCode];
+                  assigned = col && (w?.[col] || '').toLowerCase() === e;
+                }
+                if (assigned) {
+                  actionable.push({ id, stageCode, stageId });
+                } else {
+                  notActionable++;
+                }
+              }
+              setBulkReviewalActionableDrafts(actionable);
+              setBulkReviewalNotActionableCount(notActionable);
+              setBulkReviewalOpen(true);
+            }}
+          >
+            Bulk Reviewal Update ({selectedIds.size || 0})
+          </button>
+
+          {selectedIds.size >= 1 && (
+            <button
+              className="clear-sel-btn"
+              aria-label="Clear selections"
+              onClick={clearAll}
+            >
+              ×
+            </button>
+          )}
+        </span>
+
+        {/* Bill Through + Last Refreshed (pushed right) */}
+        <div className="bt-lr-group">
+          <button
+            type="button"
+            className="grt-open-btn"
+            onClick={handleOpenTracker}
+            title="Draft Reviewal Tracker"
+          >
+            <div className="grt-open-btn__badges">
+              <span className="grt-badge grt-badge--waiting">
+                <span className="grt-badge__count">{reviewalBadge.waiting}</span>
+                <span className="grt-badge__label">Waiting</span>
+              </span>
+              <span className="grt-badge grt-badge--actionable">
+                <span className="grt-badge__count">{reviewalBadge.actionable}</span>
+                <span className="grt-badge__label">Actionable</span>
+              </span>
+            </div>
+            Draft Reviewal Tracker
+          </button>
+
+          <div className="lr-card" title={lastRefreshed ? lastRefreshed.toLocaleString() : 'Not yet loaded'}>
+            <span className="lr-label">Draft data last refreshed<br /><span className="lr-sub">(Updates every 5 min)</span></span>
+            <span className="lr-time">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lr-icon">
+                <polyline points="23 4 23 10 17 10" />
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+              </svg>
+              {lastRefreshed
+                ? lastRefreshed.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })
+                : '—'}
+            </span>
+          </div>
+
+          <div className="billthrough">
           <span className="bt-label">Bill Through:</span>
           <button
             type="button"
@@ -4312,8 +4631,29 @@ console.log('PDF header:', header);
             </div>
           )}
         </div>
+        </div>{/* end bt-lr-group */}
       </div>
     </div>
+
+    {/* ROW 1b: active filter chips + reset */}
+    {hasChanges && (
+      <div className="ed-filters-sub">
+        <button
+          className="reset-btn active"
+          onClick={resetFiltersAndSelections}
+        >
+          Reset
+        </button>
+        <div className="fp-chips">
+          {activeFilterChips.map(c => (
+            <span key={c.key} className="fp-chip">
+              {c.label}
+              <button type="button" className="fp-chip__x" onClick={c.clear} title="Remove filter">×</button>
+            </span>
+          ))}
+        </div>
+      </div>
+    )}
 
     {/* ROW 2: search + KPI strip */}
     <div className="ed-secondary-row">
@@ -4412,6 +4752,15 @@ console.log('PDF header:', header);
           ids={Array.from(selectedIds)}
           onSubmit={handleCombineDrafts}
           onClose={() => setShowCombineModal(false)}
+        />
+
+        <BulkReviewalUpdateModal
+          open={bulkReviewalOpen}
+          onClose={() => setBulkReviewalOpen(false)}
+          actionableDrafts={bulkReviewalActionableDrafts}
+          notActionableCount={bulkReviewalNotActionableCount}
+          onSubmit={handleBulkReviewalSubmit}
+          submitting={bulkReviewalSubmitting}
         />
 
         {isSuperUser && <CreateDraftModal onClose={() => setShowCreateDraftModal(false)} />}
@@ -4731,16 +5080,36 @@ console.log('PDF header:', header);
       {quickSignoff.open && (
         <div className="qs-backdrop" onClick={() => setQuickSignoff({ open: false, draftFeeIdx: null, row: null })}>
           <div className="qs-modal" onClick={e => e.stopPropagation()}>
-            <h3 className="qs-title">Quick Sign-Off</h3>
-            <p className="qs-subtitle">Draft #{quickSignoff.draftFeeIdx}</p>
-            <div className="qs-actions">
-              <button className="qs-btn qs-btn--review" onClick={handleQuickMarkReviewed}>
-                Mark Reviewed
-              </button>
-              <button className="qs-btn qs-btn--history" onClick={handleQuickReviewHistory}>
-                Review Draft History
-              </button>
-            </div>
+            <h3 className="qs-title">Draft Reviewal</h3>
+            <p className="qs-subtitle">({quickSignoff.row?.CLIENTCODE}) - {quickSignoff.row?.CLIENTNAME}</p>
+            {!quickSignoff.confirmed ? (
+              <>
+                <p className="qs-confirm-msg">Review the draft history, comments, and edit if needed — or quickly mark it as confirmed and reviewed.</p>
+                <div className="qs-actions">
+                  <button className="qs-btn qs-btn--review" onClick={handleQuickMarkReviewed}>
+                    Confirm &amp; Mark Reviewed
+                  </button>
+                  <button className="qs-btn qs-btn--history" onClick={handleQuickReviewHistory}>
+                    Review Draft History
+                  </button>
+                  <button className="qs-btn qs-btn--cancel" onClick={() => setQuickSignoff({ open: false, draftFeeIdx: null, row: null, confirmed: false })}>
+                    Cancel
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="qs-final-warning">Once you sign off, you will no longer be able to edit this draft unless it is sent back to you by the next reviewer.</p>
+                <div className="qs-actions">
+                  <button className="qs-btn qs-btn--review" onClick={handleQuickMarkReviewed}>
+                    Yes, Sign Off
+                  </button>
+                  <button className="qs-btn qs-btn--cancel" onClick={() => setQuickSignoff(prev => ({ ...prev, confirmed: false }))}>
+                    Go Back
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -4765,6 +5134,7 @@ console.log('PDF header:', header);
         isBillingSuperUser={billingSuperUser}
         isBillingTeam={isBillingTeam}
         onMarkReviewed={handleMarkReviewed}
+        onSendBack={handleSendBack}
         activityFeed={activityFeed}
         onPostComment={handlePostComment}
         feedLoading={feedLoading}
@@ -4776,6 +5146,21 @@ console.log('PDF header:', header);
         elevated={reviewModalElevated}
         lockInfo={reviewLockInfo}
         onRevertToVersion={handleRevertToVersion}
+      />
+
+      <GlobalReviewalTracker
+        open={trackerOpen}
+        onClose={() => setTrackerOpen(false)}
+        data={trackerData}
+        loading={trackerLoading}
+        onReviewDraft={handleTrackerReviewDraft}
+        onOpenSettings={() => { setTrackerOpen(false); setAutoApproveOpen(true); }}
+      />
+
+      <AutoApproveSettings
+        open={autoApproveOpen}
+        onClose={() => setAutoApproveOpen(false)}
+        availableEmails={populationEmails}
       />
 
       <ToastContainer position="top-right" autoClose={4000} />

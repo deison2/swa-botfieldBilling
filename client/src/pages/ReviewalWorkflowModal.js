@@ -118,6 +118,7 @@ export default function ReviewalWorkflowModal({
   isBillingSuperUser,
   isBillingTeam,
   onMarkReviewed,    // callback(instanceId) — parent handles the API call
+  onSendBack,        // callback(instanceId) — sends draft back to previous stage
   activityFeed,      // array of event objects from getDraftActivityFeed
   onPostComment,     // callback(comment) — parent posts to API and refreshes feed
   feedLoading,       // boolean — is the feed loading?
@@ -137,7 +138,34 @@ export default function ReviewalWorkflowModal({
   const [commentText, setCommentText] = useState('');
   const [postingComment, setPostingComment] = useState(false);
   const [reverting, setReverting] = useState(false);
+  const [sendingBack, setSendingBack] = useState(false);
   const feedEndRef = useRef(null);
+  const textareaRef = useRef(null);
+
+  /* ── @mention autocomplete state ─────────────────────────────── */
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const [mentionFilter, setMentionFilter] = useState('');
+  const [mentionIdx, setMentionIdx] = useState(0);
+  const [mentionStart, setMentionStart] = useState(-1); // cursor pos of the '@'
+
+  // Build the list of mentionable people from the workflow
+  const mentionOptions = useMemo(() => {
+    const set = new Set();
+    if (workflow) {
+      if (workflow.billing_reviewer) set.add(workflow.billing_reviewer.toLowerCase());
+      if (workflow.manager_reviewer) set.add(workflow.manager_reviewer.toLowerCase());
+      if (workflow.partner_reviewer) set.add(workflow.partner_reviewer.toLowerCase());
+      if (workflow.originator_reviewer) set.add(workflow.originator_reviewer.toLowerCase());
+    }
+    // Always include billing alias
+    set.add('chenriksen@bmss.com');
+    set.add('lambrose@bmss.com');
+    // Remove self
+    if (email) set.delete(email.toLowerCase());
+    const people = [...set].filter(Boolean).sort().map(e => ({ value: e, label: e }));
+    // Add @billing shortcut at top
+    return [{ value: '@billing', label: '@billing (Billing Team)' }, ...people];
+  }, [workflow, email]);
 
   /* Reset all local state whenever the modal opens */
   useEffect(() => {
@@ -146,6 +174,8 @@ export default function ReviewalWorkflowModal({
       setCommentText('');
       setPostingComment(false);
       setReverting(false);
+      setSendingBack(false);
+      setMentionOpen(false);
     }
   }, [open]);
 
@@ -229,6 +259,9 @@ export default function ReviewalWorkflowModal({
   /* Can the current user mark the current stage as reviewed? */
   const canReview = canMarkReviewed(currentStageCode, email, isBillingSuperUser, workflow, isBillingTeam);
 
+  /* Can the current user send this draft back? Must have review permission and not be at BR (first stage) */
+  const canSendBackDraft = canReview && currentStageCode !== 'BR' && currentStageCode !== 'API';
+
   if (!open) return null;
 
   /* ── Handlers ─────────────────────────────────────────────── */
@@ -242,6 +275,19 @@ export default function ReviewalWorkflowModal({
   const handleMarkReviewed = () => {
     if (workflow?.instance_id && onMarkReviewed) {
       onMarkReviewed(workflow.instance_id);
+    }
+  };
+
+  const handleSendBack = async () => {
+    if (!workflow?.instance_id || !onSendBack || sendingBack) return;
+    const prevStage = STAGES[currentStageIdx - 1];
+    if (!prevStage) return;
+    if (!window.confirm(`Send this draft back to "${prevStage.label}"?`)) return;
+    setSendingBack(true);
+    try {
+      await onSendBack(workflow.instance_id);
+    } finally {
+      setSendingBack(false);
     }
   };
 
@@ -407,6 +453,16 @@ export default function ReviewalWorkflowModal({
               <button className="rwm-btn rwm-btn--close" onClick={handleClose}>
                 Close
               </button>
+              {canSendBackDraft && (
+                <button
+                  className="rwm-btn rwm-btn--send-back"
+                  title="Send draft back to previous review stage"
+                  onClick={handleSendBack}
+                  disabled={sendingBack}
+                >
+                  {sendingBack ? 'Sending Back...' : 'Send Back'}
+                </button>
+              )}
               {canReview && (
                 <button
                   className="rwm-btn rwm-btn--review"
@@ -477,22 +533,113 @@ export default function ReviewalWorkflowModal({
             <div ref={feedEndRef} />
           </div>
 
-          {/* Comment input */}
-          <div className="rwm-comment-input">
+          {/* Comment input with @mention autocomplete */}
+          <div className="rwm-comment-input" style={{ position: 'relative' }}>
             <textarea
+              ref={textareaRef}
               className="rwm-comment-textarea"
-              placeholder="Add a comment..."
+              placeholder="Add a comment... (type @ to mention someone)"
               value={commentText}
-              onChange={e => setCommentText(e.target.value)}
+              onChange={e => {
+                const val = e.target.value;
+                const cursor = e.target.selectionStart;
+                setCommentText(val);
+
+                // Detect @mention trigger
+                const textBefore = val.slice(0, cursor);
+                const atIdx = textBefore.lastIndexOf('@');
+                if (atIdx >= 0 && (atIdx === 0 || /\s/.test(textBefore[atIdx - 1]))) {
+                  const fragment = textBefore.slice(atIdx + 1);
+                  if (!/\s/.test(fragment)) {
+                    setMentionOpen(true);
+                    setMentionFilter(fragment.toLowerCase());
+                    setMentionStart(atIdx);
+                    setMentionIdx(0);
+                    return;
+                  }
+                }
+                setMentionOpen(false);
+              }}
               rows={2}
               disabled={postingComment}
               onKeyDown={e => {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                if (mentionOpen) {
+                  const filtered = mentionOptions.filter(o =>
+                    o.value.toLowerCase().includes(mentionFilter) || o.label.toLowerCase().includes(mentionFilter)
+                  );
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setMentionIdx(i => Math.min(i + 1, filtered.length - 1));
+                    return;
+                  }
+                  if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setMentionIdx(i => Math.max(i - 1, 0));
+                    return;
+                  }
+                  if (e.key === 'Enter' || e.key === 'Tab') {
+                    if (filtered.length > 0) {
+                      e.preventDefault();
+                      const selected = filtered[mentionIdx] || filtered[0];
+                      const insertVal = selected.value === '@billing' ? '@billing' : `@${selected.value}`;
+                      const before = commentText.slice(0, mentionStart);
+                      const after = commentText.slice(textareaRef.current?.selectionStart || mentionStart);
+                      setCommentText(before + insertVal + ' ' + after);
+                      setMentionOpen(false);
+                      // Move cursor after the inserted mention
+                      setTimeout(() => {
+                        const pos = before.length + insertVal.length + 1;
+                        textareaRef.current?.setSelectionRange(pos, pos);
+                        textareaRef.current?.focus();
+                      }, 0);
+                      return;
+                    }
+                  }
+                  if (e.key === 'Escape') {
+                    setMentionOpen(false);
+                    return;
+                  }
+                }
+                if (e.key === 'Enter' && !e.shiftKey && !mentionOpen) {
                   e.preventDefault();
                   handlePostComment();
                 }
               }}
             />
+
+            {/* @mention dropdown */}
+            {mentionOpen && (() => {
+              const filtered = mentionOptions.filter(o =>
+                o.value.toLowerCase().includes(mentionFilter) || o.label.toLowerCase().includes(mentionFilter)
+              );
+              if (!filtered.length) return null;
+              return (
+                <div className="rwm-mention-dropdown">
+                  {filtered.map((o, i) => (
+                    <div
+                      key={o.value}
+                      className={`rwm-mention-option ${i === mentionIdx ? 'rwm-mention-option--active' : ''}`}
+                      onMouseDown={e => {
+                        e.preventDefault();
+                        const insertVal = o.value === '@billing' ? '@billing' : `@${o.value}`;
+                        const before = commentText.slice(0, mentionStart);
+                        const after = commentText.slice(textareaRef.current?.selectionStart || mentionStart);
+                        setCommentText(before + insertVal + ' ' + after);
+                        setMentionOpen(false);
+                        setTimeout(() => {
+                          const pos = before.length + insertVal.length + 1;
+                          textareaRef.current?.setSelectionRange(pos, pos);
+                          textareaRef.current?.focus();
+                        }, 0);
+                      }}
+                    >
+                      {o.label}
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
             <button
               className="rwm-comment-send"
               disabled={!commentText.trim() || postingComment}
@@ -639,14 +786,34 @@ function EventAvatar({ email }) {
 function formatEventMessage(evt) {
   if (!evt) return '';
   switch (evt.type) {
-    case 'COMMENT':
-      return evt.message || 'Left a comment';
-    case 'APPROVED':
-      return `Approved at ${evt.stageName || evt.stageCode || 'unknown'} stage`;
-    case 'FORCE_APPROVED':
-      return `Force-approved at ${evt.stageName || evt.stageCode || 'unknown'} stage`;
+    case 'COMMENT': {
+      const msg = evt.message || 'Left a comment';
+      // Highlight @mentions in the message
+      const parts = msg.split(/(@(?:billing|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}))/g);
+      if (parts.length <= 1) return msg;
+      return parts.map((part, i) =>
+        /^@/.test(part)
+          ? <span key={i} className="rwm-mention-highlight">{part}</span>
+          : part
+      );
+    }
+    case 'APPROVED': {
+      const aIdx = STAGES.findIndex(s => s.code === evt.stageCode);
+      const nextLabel = aIdx >= 0 && aIdx < STAGES.length - 1 ? STAGES[aIdx + 1].label : 'Completed';
+      return `Approved — advanced to ${nextLabel}`;
+    }
+    case 'FORCE_APPROVED': {
+      const fIdx = STAGES.findIndex(s => s.code === evt.stageCode);
+      const fNextLabel = fIdx >= 0 && fIdx < STAGES.length - 1 ? STAGES[fIdx + 1].label : 'Completed';
+      return `Force-approved — advanced to ${fNextLabel}`;
+    }
     case 'REJECTED':
       return `Rejected at ${evt.stageName || evt.stageCode || 'unknown'} stage${evt.message ? ': ' + evt.message : ''}`;
+    case 'SEND_BACK': {
+      const idx = STAGES.findIndex(s => s.code === evt.stageCode);
+      const prevLabel = idx > 0 ? STAGES[idx - 1].label : 'previous';
+      return `Sent back to ${prevLabel} stage${evt.message ? ': ' + evt.message : ''}`;
+    }
     case 'REASSIGNED':
       return `Reassigned to ${evt.reassignedTo || 'unknown'}${evt.message ? ' — ' + evt.message : ''}`;
     case 'ON_HOLD':

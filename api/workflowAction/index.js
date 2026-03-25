@@ -2,7 +2,31 @@
 const { sql, query } = require('../shared/db');
 const { getEmail, isSuperUser, isBillingSuperUser, isBillingTeam } = require('../shared/auth');
 
-const VALID_ACTIONS = ['APPROVED', 'REJECTED', 'COMMENT', 'REASSIGNED', 'ON_HOLD', 'RELEASED', 'FORCE_APPROVED', 'VIEWED'];
+const VALID_ACTIONS = ['APPROVED', 'REJECTED', 'COMMENT', 'REASSIGNED', 'ON_HOLD', 'RELEASED', 'FORCE_APPROVED', 'VIEWED', 'SEND_BACK'];
+
+// @billing expands to these emails
+const BILLING_ALIAS = ['chenriksen@bmss.com', 'lambrose@bmss.com'];
+
+/**
+ * Parse @mentions from comment text.
+ * Supports @user@domain.com and @billing (alias).
+ * Returns array of unique lowercase emails.
+ */
+function parseMentions(text) {
+  if (!text) return [];
+  const emails = new Set();
+  // Match @billing alias
+  if (/@billing\b/i.test(text)) {
+    BILLING_ALIAS.forEach(e => emails.add(e));
+  }
+  // Match @user@domain.com patterns
+  const emailPattern = /@([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
+  let m;
+  while ((m = emailPattern.exec(text)) !== null) {
+    emails.add(m[1].toLowerCase());
+  }
+  return [...emails];
+}
 
 // Map stage_id → completion timestamp column
 const STAGE_COMPLETE_COL = { 1: 'br_completed_at', 2: 'mr_completed_at', 3: 'pr_completed_at', 4: 'or_completed_at', 5: 'posted_at' };
@@ -49,7 +73,8 @@ module.exports = async function (context, req) {
     const inst = instResult.recordset[0];
 
     // Auth: must be assigned reviewer for current stage (or super user)
-    if (!isSuperUser(email)) {
+    // COMMENT is exempt — anyone can comment on a draft at any point
+    if (action_type !== 'COMMENT' && !isSuperUser(email)) {
       // BR (stage 1) and POST (stage 5) are handled by billing team
       if (inst.current_stage_id === 1 || inst.current_stage_id === 5) {
         if (!isBillingTeam(email) && !isBillingSuperUser(email)) {
@@ -104,15 +129,21 @@ module.exports = async function (context, req) {
       return;
     }
 
-    // Map FORCE_APPROVED → APPROVED with a note in comments
-    const dbActionType = action_type === 'FORCE_APPROVED' ? 'APPROVED' : action_type;
-    const dbComments = action_type === 'FORCE_APPROVED'
-      ? `[Force-approved] ${comments || ''}`.trim()
-      : (comments || null);
+    // Map non-standard action types to DB-safe values
+    let dbActionType = action_type;
+    let dbComments = comments || null;
+    if (action_type === 'FORCE_APPROVED') {
+      dbActionType = 'APPROVED';
+      dbComments = `[Force-approved] ${comments || ''}`.trim();
+    } else if (action_type === 'SEND_BACK') {
+      dbActionType = 'REJECTED';
+      dbComments = `[Sent back] ${comments || ''}`.trim();
+    }
 
-    // Record the action
-    await query(
+    // Record the action and capture the action_id
+    const insertResult = await query(
       `INSERT INTO billing.workflow_actions (instance_id, cycle_id, stage_id, action_type, action_by, comments, reassigned_to)
+       OUTPUT INSERTED.action_id
        VALUES (@instId, @cycleId, @stageId, @action, @by, @comments, @reassign)`,
       {
         instId: { type: sql.Int, value: instanceId },
@@ -124,6 +155,28 @@ module.exports = async function (context, req) {
         reassign: reassigned_to || null,
       }
     );
+    const actionId = insertResult.recordset?.[0]?.action_id;
+
+    // Parse @mentions and insert into comment_mentions (non-blocking)
+    if (actionId && (action_type === 'COMMENT' || dbComments)) {
+      try {
+        const mentions = parseMentions(dbComments);
+        // Don't mention yourself
+        const filtered = mentions.filter(e => e !== email);
+        if (filtered.length > 0) {
+          const esc = v => `N'${v.replace(/'/g, "''")}'`;
+          const values = filtered.map(e =>
+            `(${actionId}, ${inst.draft_fee_idx}, ${esc(e)}, ${esc(email)})`
+          ).join(',\n');
+          await query(
+            `INSERT INTO billing.comment_mentions (action_id, draft_fee_idx, mentioned_email, mentioned_by)
+             VALUES ${values}`
+          );
+        }
+      } catch (mentionErr) {
+        context.log.warn('Failed to record mentions (non-blocking):', mentionErr.message);
+      }
+    }
 
     // Process action effects
     if (action_type === 'APPROVED' || action_type === 'FORCE_APPROVED') {
@@ -147,6 +200,8 @@ module.exports = async function (context, req) {
           { id: { type: sql.Int, value: instanceId }, to: reassigned_to.toLowerCase().trim() }
         );
       }
+    } else if (action_type === 'SEND_BACK') {
+      await sendBackStage(instanceId, inst);
     } else if (action_type === 'ON_HOLD') {
       await query(
         `UPDATE billing.workflow_instances SET current_status = 'ON_HOLD', updated_at = GETUTCDATE()
@@ -182,42 +237,171 @@ module.exports = async function (context, req) {
   }
 };
 
+// Stage code labels for readable auto-advance comments
+const STAGE_LABELS = { 1: 'Billing Team Review', 2: 'Manager Review', 3: 'Partner Review', 4: 'Originator Review', 5: 'Post' };
+
 async function advanceStage(instanceId, inst, approverEmail) {
-  const currentStageId = inst.current_stage_id;
-  const completionCol = STAGE_COMPLETE_COL[currentStageId];
+  let currentStageId = inst.current_stage_id;
+  let currentOrder = inst.stage_order;
 
-  // Mark current stage completed
-  if (completionCol) {
-    await query(
-      `UPDATE billing.workflow_instances SET ${completionCol} = GETUTCDATE(), updated_at = GETUTCDATE()
-       WHERE instance_id = @id`,
-      { id: { type: sql.Int, value: instanceId } }
+  // Re-read the instance to get the latest reviewer columns
+  const freshResult = await query(
+    `SELECT * FROM billing.workflow_instances WHERE instance_id = @id`,
+    { id: { type: sql.Int, value: instanceId } }
+  );
+  const liveInst = freshResult.recordset[0] || inst;
+
+  // Loop: advance stages, auto-skipping where appropriate
+  while (true) {
+    // Mark current stage completed
+    const completionCol = STAGE_COMPLETE_COL[currentStageId];
+    if (completionCol) {
+      await query(
+        `UPDATE billing.workflow_instances SET ${completionCol} = GETUTCDATE(), updated_at = GETUTCDATE()
+         WHERE instance_id = @id`,
+        { id: { type: sql.Int, value: instanceId } }
+      );
+    }
+
+    // Find next stage
+    const nextStage = await query(
+      `SELECT TOP 1 stage_id, stage_code, stage_order FROM billing.workflow_stage_definitions
+       WHERE stage_order > @order ORDER BY stage_order ASC`,
+      { order: { type: sql.TinyInt, value: currentOrder } }
     );
-  }
 
-  // Find next stage
-  const nextStage = await query(
-    `SELECT TOP 1 stage_id, stage_order FROM billing.workflow_stage_definitions
-     WHERE stage_order > @order ORDER BY stage_order ASC`,
+    if (!nextStage.recordset.length) {
+      // No more stages — mark as COMPLETED
+      await query(
+        `UPDATE billing.workflow_instances SET current_status = 'COMPLETED', updated_at = GETUTCDATE()
+         WHERE instance_id = @id`,
+        { id: { type: sql.Int, value: instanceId } }
+      );
+      return;
+    }
+
+    const next = nextStage.recordset[0];
+    const nextStageId = next.stage_id;
+
+    // Advance to next stage
+    await query(
+      `UPDATE billing.workflow_instances SET current_stage_id = @nextStage, current_status = 'PENDING', updated_at = GETUTCDATE()
+       WHERE instance_id = @id`,
+      { id: { type: sql.Int, value: instanceId }, nextStage: { type: sql.TinyInt, value: nextStageId } }
+    );
+
+    // Check if we should auto-skip this next stage
+    // Only applies to individual-reviewer stages (MR=2, PR=3, OR=4), not group stages (BR=1, POST=5)
+    if (nextStageId < 2 || nextStageId > 4) break;
+
+    const nextReviewerCol = STAGE_REVIEWER_COL[nextStageId];
+    const nextReviewer = (liveInst[nextReviewerCol] || '').toLowerCase().trim();
+
+    // Check 1: Same reviewer as the person who initiated the approval chain
+    if (nextReviewer && nextReviewer === approverEmail) {
+      const prevLabel = STAGE_LABELS[currentStageId] || `Stage ${currentStageId}`;
+      const skipLabel = STAGE_LABELS[nextStageId] || `Stage ${nextStageId}`;
+      const comment = `${skipLabel} auto-advanced (same reviewer as ${prevLabel})`;
+
+      await query(
+        `INSERT INTO billing.workflow_actions (instance_id, cycle_id, stage_id, action_type, action_by, comments)
+         VALUES (@instId, @cycleId, @stageId, 'APPROVED', @by, @comments)`,
+        {
+          instId: { type: sql.Int, value: instanceId },
+          cycleId: { type: sql.Int, value: liveInst.cycle_id },
+          stageId: { type: sql.TinyInt, value: nextStageId },
+          by: approverEmail,
+          comments: comment,
+        }
+      );
+
+      // Continue the loop to advance past this stage
+      currentStageId = nextStageId;
+      currentOrder = next.stage_order;
+      continue;
+    }
+
+    // Check 2: Auto-approval relationships
+    // PR_SKIP (stage 3): Partner pre-approved a Manager → skip Partner Review
+    // OR_SKIP (stage 4): Originator pre-approved a Partner → skip Originator Review
+    const autoSkipConfig = {
+      3: { type: 'PR_SKIP', approverCol: 'partner_reviewer', revieweeCol: 'manager_reviewer', skipLabel: 'Partner Review' },
+      4: { type: 'OR_SKIP', approverCol: 'originator_reviewer', revieweeCol: 'partner_reviewer', skipLabel: 'Originator Review' },
+    };
+
+    const skipCfg = autoSkipConfig[nextStageId];
+    if (skipCfg) {
+      const approverAddr = (liveInst[skipCfg.approverCol] || '').toLowerCase().trim();
+      const revieweeAddr = (liveInst[skipCfg.revieweeCol] || '').toLowerCase().trim();
+
+      if (approverAddr && revieweeAddr) {
+        const autoApproval = await query(
+          `SELECT TOP 1 id FROM billing.reviewer_auto_approvals
+           WHERE relationship_type = @type AND approver_email = @approver AND reviewee_email = @reviewee AND revoked_at IS NULL`,
+          {
+            type: skipCfg.type,
+            approver: { type: sql.VarChar, value: approverAddr },
+            reviewee: { type: sql.VarChar, value: revieweeAddr },
+          }
+        );
+
+        if (autoApproval.recordset.length) {
+          const comment = `${skipCfg.skipLabel} auto-approved (${approverAddr} has pre-approved ${revieweeAddr}'s reviews)`;
+
+          await query(
+            `INSERT INTO billing.workflow_actions (instance_id, cycle_id, stage_id, action_type, action_by, comments)
+             VALUES (@instId, @cycleId, @stageId, 'APPROVED', @by, @comments)`,
+            {
+              instId: { type: sql.Int, value: instanceId },
+              cycleId: { type: sql.Int, value: liveInst.cycle_id },
+              stageId: { type: sql.TinyInt, value: nextStageId },
+              by: approverAddr,
+              comments: comment,
+            }
+          );
+
+          // Continue the loop to advance past this stage
+          currentStageId = nextStageId;
+          currentOrder = next.stage_order;
+          continue;
+        }
+      }
+    }
+
+    // No auto-skip condition met — stop here
+    break;
+  }
+}
+
+async function sendBackStage(instanceId, inst) {
+  // Find the previous stage
+  const prevStage = await query(
+    `SELECT TOP 1 stage_id, stage_code, stage_order FROM billing.workflow_stage_definitions
+     WHERE stage_order < @order ORDER BY stage_order DESC`,
     { order: { type: sql.TinyInt, value: inst.stage_order } }
   );
 
-  if (!nextStage.recordset.length) {
-    // No more stages — mark as COMPLETED
-    await query(
-      `UPDATE billing.workflow_instances SET current_status = 'COMPLETED', updated_at = GETUTCDATE()
-       WHERE instance_id = @id`,
-      { id: { type: sql.Int, value: instanceId } }
-    );
+  if (!prevStage.recordset.length) {
+    // Already at the first stage — nothing to send back to
     return;
   }
 
-  const nextStageId = nextStage.recordset[0].stage_id;
+  const prev = prevStage.recordset[0];
 
-  // Advance to next stage (always exactly one step)
+  // Clear the completion timestamp of the previous stage (it's being re-opened)
+  const prevCompletionCol = STAGE_COMPLETE_COL[prev.stage_id];
+  if (prevCompletionCol) {
+    await query(
+      `UPDATE billing.workflow_instances SET ${prevCompletionCol} = NULL, updated_at = GETUTCDATE()
+       WHERE instance_id = @id`,
+      { id: { type: sql.Int, value: instanceId } }
+    );
+  }
+
+  // Move the instance back to the previous stage
   await query(
-    `UPDATE billing.workflow_instances SET current_stage_id = @nextStage, current_status = 'PENDING', updated_at = GETUTCDATE()
+    `UPDATE billing.workflow_instances SET current_stage_id = @prevStage, current_status = 'PENDING', updated_at = GETUTCDATE()
      WHERE instance_id = @id`,
-    { id: { type: sql.Int, value: instanceId }, nextStage: { type: sql.TinyInt, value: nextStageId } }
+    { id: { type: sql.Int, value: instanceId }, prevStage: { type: sql.TinyInt, value: prev.stage_id } }
   );
 }

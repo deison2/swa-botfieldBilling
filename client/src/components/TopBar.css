@@ -202,6 +202,41 @@
     transform: scale(1.25);
   }
 }
+/* ── Notification bell ─────────────────────────────────────── */
+.topbar-bell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 50%;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.topbar-bell:hover { background: rgba(255,255,255,0.1); }
+.topbar-bell__badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 1;
+  border: 2px solid #063941;
+}
+
 .cheat-sheet-btn{
   border: 1px solid rgba(255,255,255,0.25);
   padding: 8px 12px;

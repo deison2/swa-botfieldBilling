@@ -1,6 +1,6 @@
 module.exports = async function (context, req) {
-  const token = req.body.token;
-  const payload = req.body.payload;
+  const token = req.headers['x-pe-token'] || req.body?.token;
+  const payload = req.body?.payload || req.body;
   console.log('Adding and auto-allocating WIP with payload:');
   console.log(payload);
 
@@ -16,13 +16,15 @@ module.exports = async function (context, req) {
                 }
                 );
 
-                const result = await apiRes.json();
+                const _text = await apiRes.text();
+                let result;
+                try { result = _text ? JSON.parse(_text) : null; } catch { result = _text; }
                 console.log(result);
 
                 if (!apiRes.ok) {
                     context.res = {
                     status: apiRes.status,
-                    body:   `Error getting draft analysis data: ${apiRes.status} ${result}`
+                    body:   `Error getting draft analysis data: ${apiRes.status} ${result || ''}`
                     };
                     return;
                 }

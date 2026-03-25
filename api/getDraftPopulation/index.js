@@ -111,7 +111,7 @@ function toRolesArray(arr) {
 
   return arr.map(({ COEmail, CPEmail, CMEmail, ...rest }) => {
     const ROLES = dedupePreserveOrder([COEmail, CPEmail, CMEmail]);
-    return { ...rest, ROLES };
+    return { ...rest, ROLES, COEmail: COEmail || null, CPEmail: CPEmail || null, CMEmail: CMEmail || null };
   });
 }
 
@@ -155,28 +155,24 @@ const appendArray2 = attachNarrMatches(appendArray1, await narrBody.json(), "DRA
         { cycleId: { type: mssql.Int, value: activeCycleId } }
       );
 
-      // Fetch unread comment counts per draft per user
+      // Fetch unread @mention counts per draft per user (from comment_mentions)
       let unreadMap = new Map();
       try {
         const unreadResult = await sqlQuery(
-          `SELECT wi.draft_fee_idx, dv.user_email,
-                  COUNT(wa.action_id) AS unread_count
-           FROM billing.workflow_instances wi
-           JOIN billing.draft_views dv ON dv.draft_fee_idx = wi.draft_fee_idx
-           JOIN billing.workflow_actions wa ON wa.instance_id = wi.instance_id
-                AND wa.action_type = 'COMMENT'
-                AND wa.action_at > dv.last_viewed_at
-           WHERE wi.cycle_id = @cycleId
-           GROUP BY wi.draft_fee_idx, dv.user_email`,
-          { cycleId: { type: mssql.Int, value: activeCycleId } }
+          `SELECT draft_fee_idx, mentioned_email,
+                  COUNT(mention_id) AS unread_count
+           FROM billing.comment_mentions
+           WHERE is_read = 0
+           GROUP BY draft_fee_idx, mentioned_email`,
+          {}
         );
         for (const row of unreadResult.recordset) {
           const key = Number(row.draft_fee_idx);
           if (!unreadMap.has(key)) unreadMap.set(key, {});
-          unreadMap.get(key)[row.user_email.toLowerCase()] = row.unread_count;
+          unreadMap.get(key)[row.mentioned_email.toLowerCase()] = row.unread_count;
         }
       } catch (unreadErr) {
-        console.warn('getDraftPopulation: unread count query failed (non-blocking):', unreadErr.message);
+        console.warn('getDraftPopulation: unread mention count query failed (non-blocking):', unreadErr.message);
       }
 
       const wiMap = new Map();
@@ -198,9 +194,10 @@ const appendArray2 = attachNarrMatches(appendArray1, await narrBody.json(), "DRA
               stage_name: wi.stage_name,
               status: wi.current_status,
               billing_reviewer: wi.billing_reviewer,
-              manager_reviewer: wi.manager_reviewer,
-              partner_reviewer: wi.partner_reviewer,
-              originator_reviewer: wi.originator_reviewer,
+              current_stage_id: wi.current_stage_id,
+              manager_reviewer: wi.manager_reviewer || (draft.CMEmail || '').toLowerCase().trim() || null,
+              partner_reviewer: wi.partner_reviewer || (draft.CPEmail || '').toLowerCase().trim() || null,
+              originator_reviewer: wi.originator_reviewer || (draft.COEmail || '').toLowerCase().trim() || null,
               br_completed_at: wi.br_completed_at,
               mr_completed_at: wi.mr_completed_at,
               pr_completed_at: wi.pr_completed_at,

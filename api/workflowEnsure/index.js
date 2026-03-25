@@ -66,14 +66,11 @@ module.exports = async function (context, req) {
     );
     const cycleId = cycle.recordset[0].cycle_id;
 
-    // 3) Ensure draft_invoices row exists
+    // 3) Ensure draft_invoices row exists (race-safe: ignore duplicate key)
     await query(
-      `MERGE billing.draft_invoices AS tgt
-       USING (SELECT @cycleId AS cycle_id, @feeIdx AS draft_fee_idx) AS src
-         ON tgt.cycle_id = src.cycle_id AND tgt.draft_fee_idx = src.draft_fee_idx
-       WHEN NOT MATCHED THEN
-         INSERT (cycle_id, draft_fee_idx, cont_index, client_code, client_name, client_office, wip_amount, billed_amount, write_off_up, draft_hyperlink)
-         VALUES (@cycleId, @feeIdx, @contIndex, @code, @name, @office, @wip, @billed, @woff, @link);`,
+      `IF NOT EXISTS (SELECT 1 FROM billing.draft_invoices WHERE cycle_id = @cycleId AND draft_fee_idx = @feeIdx)
+       INSERT INTO billing.draft_invoices (cycle_id, draft_fee_idx, cont_index, client_code, client_name, client_office, wip_amount, billed_amount, write_off_up, draft_hyperlink)
+       VALUES (@cycleId, @feeIdx, @contIndex, @code, @name, @office, @wip, @billed, @woff, @link);`,
       {
         cycleId: { type: sql.Int, value: cycleId },
         feeIdx: { type: sql.Int, value: feeIdx },
@@ -86,7 +83,9 @@ module.exports = async function (context, req) {
         woff: { type: sql.Decimal(18, 2), value: Number(writeOffUp) || 0 },
         link: draftHyperlink || null,
       }
-    );
+    ).catch(() => {
+      // Swallow duplicate key — row already exists, which is fine
+    });
 
     // 4) Create workflow_instance
     const defaultBillingReviewer = BILLING_SUPER_USERS[0] || email || null;

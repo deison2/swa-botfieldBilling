@@ -160,13 +160,15 @@ module.exports = async function (context, req) {
                     }
                     );
 
-            const result = await apiRes.json();
+            const _text = await apiRes.text();
+            let result;
+            try { result = _text ? JSON.parse(_text) : null; } catch { result = _text; }
             console.log(result);
 
             if (!apiRes.ok) {
                 context.res = {
                     status: apiRes.status,
-                    body:   `Error saving edits to draft: ${apiRes.status} ${result}`
+                    body:   `Error saving edits to draft: ${apiRes.status} ${result || ''}`
                 };
             return;
             }
@@ -332,13 +334,15 @@ module.exports = async function (context, req) {
                     }
                     );
 
-            const result = await apiRes.json();
+            const _text = await apiRes.text();
+            let result;
+            try { result = _text ? JSON.parse(_text) : null; } catch { result = _text; }
             console.log(result);
 
             if (!apiRes.ok) {
                 context.res = {
                     status: apiRes.status,
-                    body:   `Error saving edits to draft: ${apiRes.status} ${result}`
+                    body:   `Error saving edits to draft: ${apiRes.status} ${result || ''}`
                 };
             return;
             }
@@ -609,13 +613,15 @@ module.exports = async function (context, req) {
                     }
                     );
 
-            const result = await apiRes.json();
+            const _text = await apiRes.text();
+            let result;
+            try { result = _text ? JSON.parse(_text) : null; } catch { result = _text; }
             console.log(result);
 
             if (!apiRes.ok) {
                 context.res = {
                     status: apiRes.status,
-                    body:   `Error saving edits to draft: ${apiRes.status} ${result}`
+                    body:   `Error saving edits to draft: ${apiRes.status} ${result || ''}`
                 };
             return;
             }
