@@ -8,10 +8,6 @@ import { setAuthToken, getAuthToken } from './services/runtimeConfig';
 
 import { AuthProvider } from './auth/AuthContext';   // ← NEW import
 
-console.log(
-  'Available env vars:',
-  Object.entries(process.env)
-);
 
 async function bootstrap() {
   try {

@@ -11,34 +11,8 @@ import { attachGlobalErrorLogging } from '../debugGlobal';
 import { probeManifest } from '../debugNetwork';
 import { logAuthMe } from './logAuth';
 
-const BILLING_SUPER_USERS = [
-  'deison@bmss.com',
-  'chenriksen@bmss.com',
-];
-
-const SUPER_USERS = [
-  'hstaggs@bmss.com',
-  'tcrawford@bmss.com',
-  'deison@bmss.com',
-  'chenriksen@bmss.com',
-  'lambrose@bmss.com',
-  'bbrown@bmss.com',
-  'ahouston@bmss.com',
-  'ccassidy@bmss.com',
-  'kfluker@bmss.com',
-  'ahunt@bmss.com',
-  'tzablan@bmss.com',
-  'dbrown@bmss.com',
-  'cbrien@bmss.com',
-  'eriles@bmss.com',
-  'micahmurphy@bmss.com',
-  'kphillips@bmss.com',
-  'svonhagel@bmss.com',
-  'jbechert@bmss.com',
-  'mmurphy@bmss.com',
-  'jkeohane@bmss.com',
-  'jfair@bmss.com'
-];
+// Super user lists are now server-side only (env vars SUPER_USERS / BILLING_SUPER_USERS).
+// The client calls GET /api/my-roles to learn its own flags without seeing the full lists.
 
 /* ---------- context + helper hook ---------- */
 
@@ -87,7 +61,7 @@ export function AuthProvider({ children }) {
         console.debug('body       ', json);
         return json;
       })
-      .then(({ clientPrincipal }) => {
+      .then(async ({ clientPrincipal }) => {
         const email          = clientPrincipal?.userDetails?.toLowerCase() || '';
 
         // Block non-BMSS domain users (only when a real non-BMSS email is present)
@@ -100,9 +74,6 @@ export function AuthProvider({ children }) {
           return;
         }
 
-        const isSuper        = SUPER_USERS.includes(email);
-        const isBillingSuper = BILLING_SUPER_USERS.includes(email);
-
         if (DEBUG) {
           console.debug('principal  ', {
             email,
@@ -113,6 +84,20 @@ export function AuthProvider({ children }) {
           if (!email) {
             console.warn('[AUTH] Empty email from /.auth/me - likely anonymous session.');
           }
+        }
+
+        // Fetch role flags from server (lists never leave the backend)
+        let isSuper = false;
+        let isBillingSuper = false;
+        try {
+          const rolesResp = await fetch('/api/my-roles', { credentials: 'include', cache: 'no-store' });
+          if (rolesResp.ok) {
+            const roles = await rolesResp.json();
+            isSuper = !!roles.isSuperUser;
+            isBillingSuper = !!roles.billingSuperUser;
+          }
+        } catch (e) {
+          console.warn('[AUTH] Failed to fetch roles:', e);
         }
 
         setState({
