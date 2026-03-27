@@ -126,7 +126,8 @@ module.exports = async function (context, req) {
 
     log('Saved draft edit audit', { blobName });
 
-    // Also write a COMMENT action to billing.workflow_actions (non-blocking)
+    // Enrich the blob with stage info so draftActivity can read it later
+    // (the detailed DRAFT_CHANGE event is built by the draftActivity endpoint from this blob)
     try {
       const wiResult = await sqlQuery(
         `SELECT wi.instance_id, wi.cycle_id, wi.current_stage_id,
@@ -140,33 +141,16 @@ module.exports = async function (context, req) {
 
       if (wiResult.recordset.length) {
         const wi = wiResult.recordset[0];
-
-        // Update the blob with stage info so draftActivity can read it later
-        try {
-          doc.stageCode = wi.stage_code || null;
-          doc.stageName = wi.stage_name || null;
-          const updatedText = JSON.stringify(doc, null, 2);
-          await blob.upload(updatedText, Buffer.byteLength(updatedText), {
-            blobHTTPHeaders: { blobContentType: 'application/json; charset=utf-8' },
-          });
-        } catch (_) { /* best-effort */ }
-
-        await sqlQuery(
-          `INSERT INTO billing.workflow_actions (instance_id, cycle_id, stage_id, action_type, action_by, comments)
-           VALUES (@instId, @cycleId, @stageId, 'COMMENT', @by, @comments)`,
-          {
-            instId: { type: mssql.Int, value: wi.instance_id },
-            cycleId: { type: mssql.Int, value: wi.cycle_id },
-            stageId: { type: mssql.TinyInt, value: wi.current_stage_id },
-            by: user || 'unknown',
-            comments: `Draft edit audit: ${reason || 'edit'}`,
-          }
-        );
-        log('Wrote billing.workflow_actions COMMENT for instance', wi.instance_id);
+        doc.stageCode = wi.stage_code || null;
+        doc.stageName = wi.stage_name || null;
+        const updatedText = JSON.stringify(doc, null, 2);
+        await blob.upload(updatedText, Buffer.byteLength(updatedText), {
+          blobHTTPHeaders: { blobContentType: 'application/json; charset=utf-8' },
+        });
+        log('Enriched audit blob with stage info for instance', wi.instance_id);
       }
     } catch (sqlErr) {
-      // Non-blocking: blob audit already succeeded
-      log('WARN: billing.workflow_actions write failed (non-blocking):', sqlErr.message);
+      log('WARN: stage enrichment failed (non-blocking):', sqlErr.message);
     }
 
     context.res = {

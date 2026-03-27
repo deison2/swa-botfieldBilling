@@ -175,6 +175,24 @@ const appendArray2 = attachNarrMatches(appendArray1, await narrBody.json(), "DRA
         console.warn('getDraftPopulation: unread mention count query failed (non-blocking):', unreadErr.message);
       }
 
+      // Fetch pending assignments per draft
+      let assignmentMap = new Map();
+      try {
+        const asgResult = await sqlQuery(
+          `SELECT draft_fee_idx, assigned_to
+           FROM billing.draft_assignments
+           WHERE status = 'PENDING'`,
+          {}
+        );
+        for (const row of asgResult.recordset) {
+          const key = Number(row.draft_fee_idx);
+          if (!assignmentMap.has(key)) assignmentMap.set(key, []);
+          assignmentMap.get(key).push(row.assigned_to.toLowerCase());
+        }
+      } catch (asgErr) {
+        console.warn('getDraftPopulation: assignment query failed (non-blocking):', asgErr.message);
+      }
+
       const wiMap = new Map();
       for (const row of wiResult.recordset) {
         wiMap.set(Number(row.draft_fee_idx), row);
@@ -205,9 +223,10 @@ const appendArray2 = attachNarrMatches(appendArray1, await narrBody.json(), "DRA
               posted_at: wi.posted_at,
             },
             unread_comments: unreadMap.get(Number(draft.DRAFTFEEIDX)) || {},
+            pending_assignments: assignmentMap.get(Number(draft.DRAFTFEEIDX)) || [],
           };
         }
-        return { ...draft, workflow: null, unread_comments: {} };
+        return { ...draft, workflow: null, unread_comments: {}, pending_assignments: [] };
       });
     }
   } catch (sqlErr) {

@@ -150,6 +150,7 @@ export default function GlobalReviewalTracker({
   loading,
   onReviewDraft, // callback(draftFeeIdx, instance) — opens ReviewalWorkflowModal
   onOpenSettings, // callback — opens AutoApproveSettings modal
+  behind,      // true when review modal is open on top — lowers z-index
 }) {
   const { email: currentUserEmail } = useAuth();
   const [activeTab, setActiveTab] = useState('my-reviews');
@@ -278,7 +279,7 @@ export default function GlobalReviewalTracker({
   };
 
   return (
-    <div className="grt-backdrop" onClick={onClose}>
+    <div className={`grt-backdrop${behind ? ' grt-backdrop--behind' : ''}`} onClick={onClose}>
       <div className="grt-modal" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="grt-header">

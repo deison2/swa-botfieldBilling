@@ -127,36 +127,82 @@ module.exports = async function (context, req) {
             };
             const fmt = v => v.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 
+            // ── Analysis changes ──
+            const analysisParts = [];
             for (const [key, after] of afterMap) {
               const before = beforeMap.get(key);
               const afterAmt = Number(after.BillInClientCur ?? after.BillAmount ?? 0);
               if (before) {
                 const beforeAmt = Number(before.BillInClientCur ?? before.BillAmount ?? 0);
                 if (beforeAmt !== afterAmt) {
-                  changeParts.push(`${fmtJob(after)} bill amount changed from ${fmt(beforeAmt)} → ${fmt(afterAmt)}`);
+                  analysisParts.push(`${fmtJob(after)}\nBill amount: ${fmt(beforeAmt)} → ${fmt(afterAmt)}`);
                 }
               } else {
-                changeParts.push(`${fmtJob(after)} added (${fmt(afterAmt)})`);
+                analysisParts.push(`${fmtJob(after)} added (${fmt(afterAmt)})`);
               }
             }
             for (const [key, before] of beforeMap) {
               if (!afterMap.has(key)) {
-                changeParts.push(`${fmtJob(before)} removed`);
+                analysisParts.push(`${fmtJob(before)} removed`);
               }
             }
 
-            // ── Narrative changes (detailed) ──
+            // ── Narrative changes ──
+            const narrativeParts = [];
             const narrChanges = Array.isArray(doc.narratives) ? doc.narratives : [];
             const truncate = (s, max = 60) => s && s.length > max ? s.slice(0, max) + '...' : s;
 
+            const fmtAmt = (v) => {
+              const num = Number(v || 0);
+              return num.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+            };
+
             for (const n of narrChanges) {
               if (n.type === 'added') {
-                changeParts.push(`Narrative added: "${truncate(n.narrativeAfter)}"`);
+                const label = truncate(n.narrativeAfter) || '(new narrative)';
+                const wipLabel = n.wipTypeAfter ? ` (${n.wipTypeAfter})` : '';
+                const details = [];
+                if (Number(n.amountAfter || 0) !== 0) details.push(`Amount: ${fmtAmt(n.amountAfter)}`);
+                if (n.servIndexAfter) details.push(`Service: ${n.servIndexAfter}`);
+                narrativeParts.push(`Narrative added: "${label}"${wipLabel}` + (details.length ? `\n${details.join('\n')}` : ''));
+
               } else if (n.type === 'modified') {
-                changeParts.push(`Narrative changed: "${truncate(n.narrativeBefore)}" → "${truncate(n.narrativeAfter)}"`);
+                if (Array.isArray(n.changes) && n.changes.length) {
+                  const currentText = truncate(n.currentText) || '(unnamed)';
+                  const wipLabel = n.currentWipType ? ` (${n.currentWipType})` : '';
+                  const bullets = [];
+                  for (const c of n.changes) {
+                    if (c.field === 'text') bullets.push(`Text: "${truncate(c.before)}" → "${truncate(c.after)}"`);
+                    else if (c.field === 'amount') bullets.push(`Amount: ${fmtAmt(c.before)} → ${fmtAmt(c.after)}`);
+                    else if (c.field === 'wipType') bullets.push(`Type: ${c.before || '(empty)'} → ${c.after || '(empty)'}`);
+                    else if (c.field === 'servIndex') bullets.push(`Service: ${c.before || '(empty)'} → ${c.after || '(empty)'}`);
+                  }
+                  narrativeParts.push(`"${currentText}"${wipLabel}\n${bullets.join('\n')}`);
+                } else {
+                  // Legacy format (old blobs without changes array)
+                  const hasTextChange = (n.narrativeBefore || '') !== (n.narrativeAfter || '');
+                  const hasAmtChange = n.amountBefore != null && n.amountAfter != null && Number(n.amountBefore) !== Number(n.amountAfter);
+                  if (hasTextChange) narrativeParts.push(`Narrative changed: "${truncate(n.narrativeBefore)}" → "${truncate(n.narrativeAfter)}"`);
+                  if (hasAmtChange) narrativeParts.push(`Narrative amount changed: ${fmtAmt(n.amountBefore)} → ${fmtAmt(n.amountAfter)}`);
+                }
+
               } else if (n.type === 'removed') {
-                changeParts.push(`Narrative removed: "${truncate(n.narrativeBefore)}"`);
+                const label = truncate(n.narrativeBefore) || '(narrative)';
+                const details = [];
+                if (Number(n.amountBefore || 0) !== 0) details.push(`Amount was: ${fmtAmt(n.amountBefore)}`);
+                narrativeParts.push(`Narrative removed: "${label}"` + (details.length ? `\n${details.join('\n')}` : ''));
               }
+            }
+
+            // Combine with section headers when both types have changes
+            const hasBoth = analysisParts.length > 0 && narrativeParts.length > 0;
+            if (analysisParts.length) {
+              if (hasBoth) changeParts.push('ANALYSIS CHANGES');
+              changeParts.push(...analysisParts);
+            }
+            if (narrativeParts.length) {
+              if (hasBoth) changeParts.push('NARRATIVE CHANGES');
+              changeParts.push(...narrativeParts);
             }
 
             // If no narratives array with text (old blobs), fall back to comparing before/after narrative rows

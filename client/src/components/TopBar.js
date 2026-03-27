@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
 import './TopBar.css';
 import UserAvatar from './UserAvatar';
 import { useAuth } from '../auth/AuthContext';
@@ -6,7 +6,7 @@ import { useLocation } from 'react-router-dom';
 import NotificationCenter from '../pages/NotificationCenter';
 import { getUnreadMentions, markMentionsRead } from '../services/ExistingDraftsService';
 
-export default function TopBar({ onOpenDraftReview }) {
+function TopBar({ onOpenDraftReview }, ref) {
   const { ready } = useAuth();
   const location = useLocation();
   const [showHelp, setShowHelp] = useState(false);
@@ -37,6 +37,9 @@ export default function TopBar({ onOpenDraftReview }) {
     const interval = setInterval(refreshCount, 60000);
     return () => clearInterval(interval);
   }, [refreshCount]);
+
+  // Expose refreshCount so parent can trigger immediate badge update
+  useImperativeHandle(ref, () => ({ refreshCount }), [refreshCount]);
 
   return (
     <header className="topbar">
@@ -85,3 +88,5 @@ export default function TopBar({ onOpenDraftReview }) {
     </header>
   );
 }
+
+export default forwardRef(TopBar);

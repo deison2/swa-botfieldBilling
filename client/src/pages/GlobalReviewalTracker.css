@@ -9,6 +9,15 @@
   justify-content: center;
 }
 
+/* When review modal is open on top, sit behind it */
+.grt-backdrop--behind {
+  z-index: 800;
+  pointer-events: none;
+}
+.grt-backdrop--behind .grt-modal {
+  pointer-events: auto;
+}
+
 .grt-modal {
   background: #fff;
   border-radius: 14px;

@@ -817,6 +817,34 @@ export async function markDraftReviewed(instanceId, comments) {
   return safeJson(res);
 }
 
+// Assign another user to review a draft (advisory, non-blocking)
+export async function assignDraftReview(instanceId, assignedTo, comments) {
+  const res = await fetch('/api/workflowAssign', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ instanceId, assignedTo, comments: comments || null }),
+  });
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`assignDraftReview failed: ${res.status} ${msg}`);
+  }
+  return safeJson(res);
+}
+
+// Respond to an assignment (REVIEWED or DECLINED)
+export async function respondToAssignment(assignmentId, status, comments) {
+  const res = await fetch(`/api/workflowAssign/${assignmentId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status, comments: comments || null }),
+  });
+  if (!res.ok) {
+    const msg = await res.text().catch(() => '');
+    throw new Error(`respondToAssignment failed: ${res.status} ${msg}`);
+  }
+  return safeJson(res);
+}
+
 // Sends a draft back to the previous reviewal stage
 export async function sendBackDraft(instanceId, comments) {
   const res = await fetch(`/api/workflowAction/${instanceId}`, {

@@ -2,7 +2,7 @@
 const { sql, query } = require('../shared/db');
 const { getEmail, isSuperUser, isBillingSuperUser, isBillingTeam } = require('../shared/auth');
 
-const VALID_ACTIONS = ['APPROVED', 'REJECTED', 'COMMENT', 'REASSIGNED', 'ON_HOLD', 'RELEASED', 'FORCE_APPROVED', 'VIEWED', 'SEND_BACK'];
+const VALID_ACTIONS = ['APPROVED', 'REJECTED', 'COMMENT', 'REASSIGNED', 'ON_HOLD', 'RELEASED', 'FORCE_APPROVED', 'VIEWED', 'SEND_BACK', 'ASSIGNED'];
 
 // @billing expands to these emails
 const BILLING_ALIAS = ['chenriksen@bmss.com', 'lambrose@bmss.com'];

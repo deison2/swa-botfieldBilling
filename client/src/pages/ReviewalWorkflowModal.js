@@ -130,6 +130,7 @@ export default function ReviewalWorkflowModal({
   elevated,          // boolean — render at higher z-index (above edit tray)
   lockInfo,          // { lockedBy } or null — draft locked by another user
   onRevertToVersion, // callback(versionData) — reverts the draft to a prior version snapshot
+  onAssignReviewer,  // callback(instanceId, assignedTo, comments) — assigns another user to review
 }) {
   /* ── Selected point on the progress graph ───────────────────── */
   const [selectedPoint, setSelectedPoint] = useState(null);
@@ -141,6 +142,12 @@ export default function ReviewalWorkflowModal({
   const [sendingBack, setSendingBack] = useState(false);
   const feedEndRef = useRef(null);
   const textareaRef = useRef(null);
+
+  /* ── Assign reviewer state ──────────────────────────────────── */
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignEmail, setAssignEmail] = useState('');
+  const [assignComment, setAssignComment] = useState('');
+  const [assigning, setAssigning] = useState(false);
 
   /* ── @mention autocomplete state ─────────────────────────────── */
   const [mentionOpen, setMentionOpen] = useState(false);
@@ -176,8 +183,23 @@ export default function ReviewalWorkflowModal({
       setReverting(false);
       setSendingBack(false);
       setMentionOpen(false);
+      setAssignOpen(false);
+      setAssignEmail('');
+      setAssignComment('');
+      setAssigning(false);
     }
   }, [open]);
+
+  /* Auto-scroll feed to bottom when activity changes */
+  const feedListRef = useRef(null);
+  useEffect(() => {
+    if (open && activityFeed?.length) {
+      setTimeout(() => {
+        const el = feedListRef.current;
+        if (el) el.scrollTop = el.scrollHeight;
+      }, 150);
+    }
+  }, [open, activityFeed]);
 
   /* Determine current stage from workflow data */
   const currentStageCode = useMemo(() => {
@@ -188,25 +210,34 @@ export default function ReviewalWorkflowModal({
 
   const currentStageIdx = stageIndex(currentStageCode);
 
-  /* Build stage metadata (who/when) from workflow object */
+  /* Build stage metadata (who/when) from workflow object + activity feed.
+     Use the APPROVED/FORCE_APPROVED event to find who actually completed each stage,
+     falling back to the assigned reviewer if no event exists. */
   const stageInfo = useMemo(() => {
+    // Index approval events by stage code (last one wins if multiple)
+    const approvalByStage = {};
+    for (const evt of (activityFeed || [])) {
+      if (evt.type === 'APPROVED' || evt.type === 'FORCE_APPROVED') {
+        approvalByStage[evt.stageCode] = evt;
+      }
+    }
+
     const info = {};
     for (const s of STAGES) {
       const tsField = STAGE_TS[s.code];
       const ts = workflow?.[tsField] || null;
-      const reviewerField = STAGE_REVIEWER[s.code];
-      const reviewer = workflow?.[reviewerField] || null;
+      const approval = approvalByStage[s.code];
+      const reviewer = approval?.user || workflow?.[STAGE_REVIEWER[s.code]] || null;
       info[s.code] = { completedAt: ts, reviewer };
     }
     // API Creation uses ingested_at
     if (workflow?.ingested_at) {
       info.API = { completedAt: workflow.ingested_at, reviewer: 'System' };
     } else {
-      // Default — creation is always "done"
       info.API = { completedAt: workflow?.created_at || null, reviewer: 'System' };
     }
     return info;
-  }, [workflow]);
+  }, [workflow, activityFeed]);
 
   /* Whether we're showing a comparison (past point selected) */
   const showingComparison = selectedPoint && isPast(selectedPoint, currentStageCode);
@@ -259,8 +290,17 @@ export default function ReviewalWorkflowModal({
   /* Can the current user mark the current stage as reviewed? */
   const canReview = canMarkReviewed(currentStageCode, email, isBillingSuperUser, workflow, isBillingTeam);
 
-  /* Can the current user send this draft back? Must have review permission and not be at BR (first stage) */
-  const canSendBackDraft = canReview && currentStageCode !== 'BR' && currentStageCode !== 'API';
+  /* Can the current user send this draft back?
+     - Must have review permission
+     - Can't send back from BR or API (no prior stage)
+     - Managers (MR) can't send back to billing (BR) */
+  const canSendBackDraft = canReview
+    && currentStageCode !== 'BR'
+    && currentStageCode !== 'API'
+    && currentStageCode !== 'MR';
+
+  /* Can the current user assign another reviewer? Only MR/PR reviewers or billing super users */
+  const canAssign = canReview && (currentStageCode === 'MR' || currentStageCode === 'PR');
 
   if (!open) return null;
 
@@ -275,6 +315,21 @@ export default function ReviewalWorkflowModal({
   const handleMarkReviewed = () => {
     if (workflow?.instance_id && onMarkReviewed) {
       onMarkReviewed(workflow.instance_id);
+    }
+  };
+
+  const handleAssign = async () => {
+    if (!assignEmail.trim() || !workflow?.instance_id || !onAssignReviewer || assigning) return;
+    setAssigning(true);
+    try {
+      await onAssignReviewer(workflow.instance_id, assignEmail.trim(), assignComment.trim() || null);
+      setAssignOpen(false);
+      setAssignEmail('');
+      setAssignComment('');
+    } catch (err) {
+      console.error('Failed to assign reviewer:', err);
+    } finally {
+      setAssigning(false);
     }
   };
 
@@ -298,7 +353,7 @@ export default function ReviewalWorkflowModal({
       await onPostComment(commentText.trim());
       setCommentText('');
       // Scroll feed to bottom after posting
-      setTimeout(() => feedEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+      setTimeout(() => { const el = feedListRef.current; if (el) el.scrollTop = el.scrollHeight; }, 100);
     } catch (err) {
       console.error('Failed to post comment:', err);
     } finally {
@@ -348,8 +403,9 @@ export default function ReviewalWorkflowModal({
             <h2 className="rwm-title">Reviewal Workflow</h2>
             <span className="rwm-subtitle">
               {clientCode && clientName
-                ? `${clientCode} - ${clientName}`
-                : `Draft #${draftFeeIdx}`}
+                ? `${clientCode} - ${clientName} · `
+                : ''}
+              Click a completed stage to view its data and optionally revert
             </span>
             {lockInfo?.lockedBy && (
               <span className="rwm-lock-banner">
@@ -463,6 +519,54 @@ export default function ReviewalWorkflowModal({
                   {sendingBack ? 'Sending Back...' : 'Send Back'}
                 </button>
               )}
+              {canAssign && onAssignReviewer && (
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                  <button
+                    className="rwm-btn rwm-btn--assign"
+                    title="Assign another user to review this draft"
+                    onClick={() => setAssignOpen(prev => !prev)}
+                  >
+                    Assign Reviewer
+                  </button>
+                  {assignOpen && (
+                    <div className="rwm-assign-popover">
+                      <div className="rwm-assign-title">Assign a reviewer</div>
+                      <input
+                        type="email"
+                        className="rwm-assign-input"
+                        placeholder="user@bmss.com"
+                        value={assignEmail}
+                        onChange={e => setAssignEmail(e.target.value)}
+                        autoFocus
+                      />
+                      <input
+                        type="text"
+                        className="rwm-assign-input"
+                        placeholder="Note (optional)"
+                        value={assignComment}
+                        onChange={e => setAssignComment(e.target.value)}
+                      />
+                      <div className="rwm-assign-actions">
+                        <button
+                          className="rwm-btn rwm-btn--review"
+                          style={{ padding: '5px 14px', fontSize: '0.78rem' }}
+                          onClick={handleAssign}
+                          disabled={!assignEmail.trim() || assigning}
+                        >
+                          {assigning ? 'Assigning...' : 'Assign'}
+                        </button>
+                        <button
+                          className="rwm-btn rwm-btn--close"
+                          style={{ padding: '5px 14px', fontSize: '0.78rem' }}
+                          onClick={() => setAssignOpen(false)}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               {canReview && (
                 <button
                   className="rwm-btn rwm-btn--review"
@@ -497,9 +601,9 @@ export default function ReviewalWorkflowModal({
         <div className="rwm-feed">
           <h4 className="rwm-feed-title">Activity</h4>
 
-          <div className="rwm-feed-list">
-            {feedLoading && (
-              <div className="rwm-feed-loading">Loading activity...</div>
+          <div className="rwm-feed-list" ref={feedListRef}>
+            {feedLoading === true && (
+              <div className="rwm-feed-loading"><div className="rwm-spinner" /> Loading activity...</div>
             )}
 
             {!feedLoading && (!activityFeed || activityFeed.length === 0) && (
@@ -530,6 +634,9 @@ export default function ReviewalWorkflowModal({
                 </div>
               );
             })}
+            {feedLoading === 'audit' && (
+              <div className="rwm-feed-loading rwm-feed-loading--audit"><div className="rwm-spinner" /> Creating draft edit comments...</div>
+            )}
             <div ref={feedEndRef} />
           </div>
 
@@ -831,11 +938,17 @@ function formatEventMessage(evt) {
           <strong>{reason}</strong>
           {notes ? ` — ${notes}` : ''}
           {changes ? (
-            <span className="rwm-evt-changes">
-              {changes.split('\n').map((line, i) => (
-                <span key={i}>{i > 0 && <br />}{line}</span>
-              ))}
-            </span>
+            <div className="rwm-evt-changes">
+              {changes.split('\n').filter(Boolean).map((line, i) => {
+                if (/^[A-Z ]+$/.test(line.trim())) {
+                  return <div key={i} className="rwm-evt-section">{line}</div>;
+                }
+                if (/^(Text|Amount|Type|Service|Bill amount|Amount was):/.test(line.trim())) {
+                  return <div key={i} className="rwm-evt-detail">{line}</div>;
+                }
+                return <div key={i} className="rwm-evt-item">{line}</div>;
+              })}
+            </div>
           ) : ''}
         </span>
       );

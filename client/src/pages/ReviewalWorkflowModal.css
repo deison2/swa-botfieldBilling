@@ -19,10 +19,11 @@
   z-index: 1300;
 }
 
-/* ── Layout wrapper (modal centered, feed floats to its right) ── */
+/* ── Layout wrapper (modal off-center left, feed floats to its right) ── */
 .rwm-layout {
   position: relative;
   max-height: 88vh;
+  margin-right: 17%;
 }
 
 /* ── Modal shell ──────────────────────────────────────────────── */
@@ -138,7 +139,19 @@
 }
 
 .rwm-point--active .rwm-dot {
+  background: #059669;
   box-shadow: 0 0 0 2px #059669, 0 0 0 6px rgba(5, 150, 105, 0.25);
+  animation: rwm-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes rwm-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px #059669, 0 0 0 6px rgba(5, 150, 105, 0.25); }
+  50%      { box-shadow: 0 0 0 2px #059669, 0 0 0 10px rgba(5, 150, 105, 0.08); }
+}
+
+.rwm-point--active .rwm-point-label {
+  color: #059669;
+  font-weight: 700;
 }
 
 .rwm-point--clickable {
@@ -416,6 +429,62 @@
   cursor: not-allowed;
 }
 
+/* ── Assign Reviewer ──────────────────────────────────────────── */
+.rwm-btn--assign {
+  background: #fff;
+  color: #4F46E5;
+  border: 1.5px solid #4F46E5;
+}
+
+.rwm-btn--assign:hover {
+  background: #4F46E5;
+  color: #fff;
+}
+
+.rwm-assign-popover {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  width: 280px;
+  background: #fff;
+  border: 1.5px solid #d0e0dd;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  padding: 12px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rwm-assign-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #063941;
+}
+
+.rwm-assign-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid #d0e0dd;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-family: inherit;
+  color: #33434b;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.rwm-assign-input:focus {
+  border-color: #4F46E5;
+}
+
+.rwm-assign-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
 .rwm-btn--edit {
   background: #fff;
   color: #063941;
@@ -568,6 +637,30 @@
   color: #6b7280;
   font-style: italic;
   line-height: 1.5;
+}
+
+.rwm-evt-section {
+  margin-top: 8px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #5a7a7e;
+  border-bottom: 1px solid #e5eaea;
+  padding-bottom: 2px;
+  font-style: normal;
+}
+
+.rwm-evt-item {
+  margin-top: 5px;
+  font-weight: 600;
+  color: #33434b;
+  font-style: normal;
+}
+
+.rwm-evt-detail {
+  margin-left: 12px;
+  color: #6b7280;
+  font-style: normal;
 }
 
 .rwm-evt-time {

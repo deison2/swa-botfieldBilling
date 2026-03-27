@@ -68,6 +68,7 @@ import {
   getWorkflowTrackerData,
   bulkReviewalUpdate,
   markMentionsRead,
+  assignDraftReview,
 } from '../services/ExistingDraftsService';
 
 // Recurring billing configuration (masterRecurrings.json)
@@ -1012,6 +1013,10 @@ const [editTrayState, setEditTrayState] = useState({
   const [reviewLockInfo, setReviewLockInfo] = useState(null); // { lockedBy } or null
   const preloadRef = useRef(null); // preloaded review modal data from quick signoff
   const revertingRef = useRef(false); // true while a version revert is in progress
+  const reviewModalOpenRef = useRef(false);
+  reviewModalOpenRef.current = reviewModalState.open;
+  const activityFeedRef = useRef([]);
+  activityFeedRef.current = activityFeed;
 
   const handleOpenTracker = async () => {
     setTrackerOpen(true);
@@ -1027,8 +1032,7 @@ const [editTrayState, setEditTrayState] = useState({
   };
 
   const handleTrackerReviewDraft = (draftFeeIdx, inst) => {
-    setTrackerOpen(false);
-    // Find the matching row from rawRows to pass full data
+    // Keep tracker open behind the review modal
     const row = rawRows.find(r => Number(r.DRAFTFEEIDX) === Number(draftFeeIdx));
     handleOpenReviewModal(draftFeeIdx, row || { DRAFTFEEIDX: draftFeeIdx, workflow: inst });
   };
@@ -1075,7 +1079,16 @@ const [editTrayState, setEditTrayState] = useState({
     });
 
     // Mark @mentions for this draft as read (non-blocking)
-    markMentionsRead(draftFeeIdx).catch(() => {});
+    markMentionsRead(draftFeeIdx)
+      .then(() => topBarRef.current?.refreshCount())
+      .catch(() => {});
+
+    // Immediately clear the unread badge on the Review button for this draft
+    setRawRows(prev => prev.map(r => {
+      if (Number(r.DRAFTFEEIDX) !== Number(draftFeeIdx)) return r;
+      if (!r.unread_comments) return r;
+      return { ...r, unread_comments: {} };
+    }));
 
     // Use preloaded data if available for this draft, otherwise fetch fresh
     setFeedLoading(true);
@@ -1204,6 +1217,20 @@ const [editTrayState, setEditTrayState] = useState({
       }
     } catch (err) {
       toast.error(`Send back failed: ${err.message}`);
+    }
+  };
+
+  /* ── Assign reviewer handler ─────────────────────────────────── */
+  const handleAssignReviewer = async (instanceId, assignedTo, comments) => {
+    try {
+      await assignDraftReview(instanceId, assignedTo, comments);
+      toast.success(`Review assigned to ${assignedTo}`);
+      // Refresh activity feed to show the assignment comment
+      const feed = await getDraftActivityFeed(reviewModalState.draftFeeIdx);
+      setActivityFeed(Array.isArray(feed) ? feed : []);
+    } catch (err) {
+      toast.error(`Assignment failed: ${err.message}`);
+      throw err;
     }
   };
 
@@ -1392,7 +1419,28 @@ const [editTrayState, setEditTrayState] = useState({
       console.warn('saveDraftVersion after revert failed (non-blocking):', verErr);
     }
 
+    // 6) Post a comment recording the revert
+    const instId = reviewModalState.workflow?.instance_id;
+    if (instId) {
+      try {
+        await postWorkflowComment(instId, `Reverted draft to ${stageLabel} version (v${version.version_number})`);
+        const feed = await getDraftActivityFeed(reviewModalState.draftFeeIdx);
+        setActivityFeed(Array.isArray(feed) ? feed : []);
+      } catch (err) {
+        console.warn('Revert comment failed (non-blocking):', err);
+      }
+    }
+
+    // 7) Silently refresh the main table data
     revertingRef.current = false;
+    try {
+      const iso = toIsoYmd(billThrough);
+      const dRes = await GetDrafts(iso);
+      setRawRows(Array.isArray(dRes) ? dRes : []);
+    } catch (err) {
+      console.warn('Silent table refresh after revert failed:', err);
+    }
+
     toast.success(`Draft reverted to ${stageLabel} (v${version.version_number})`);
   };
 
@@ -1681,6 +1729,7 @@ useEffect(() => {
 
 
   /* ── RAW DATA  (dev stub) ───────────────────────────────────── */
+  const topBarRef = useRef(null);
   const [rawRows, setRawRows] = useState([]);
   const [granularData, setGranularData] = useState([]);
   const [granularWip, setGranularWip]   = useState([]); // <<< live WIP rows (staff/task-level)
@@ -2240,15 +2289,18 @@ useEffect(() => {
       cell: r => {
         const w = r.workflow;
         const isAssigned = (() => {
-          if (!w || !email) return false;
+          if (!email) return false;
           const e = email.toLowerCase();
-          const stage = w.stage_code || 'BR';
-          if (stage === 'BR') return isBillingTeam || billingSuperUser;
+          // Check if user has a pending assignment for this draft
+          if ((r.pending_assignments || []).includes(e)) return true;
+          const stage = w?.stage_code || 'BR';
+          // Billing team / billing super users only see "Review" at the BR stage (or pre-workflow)
+          if (stage === 'BR' || !w) return isBillingTeam || billingSuperUser;
           if (stage === 'POST') return billingSuperUser;
           const map = { MR: 'manager_reviewer', PR: 'partner_reviewer', OR: 'originator_reviewer' };
           const col = map[stage];
           if (!col) return false;
-          return billingSuperUser || (w[col] || '').toLowerCase() === e;
+          return (w[col] || '').toLowerCase() === e;
         })();
 
         const unreadCount = email ? (r.unread_comments?.[email.toLowerCase()] || 0) : 0;
@@ -3466,15 +3518,17 @@ const closeCreated = () => {
   // Is the current user the assigned reviewer for this draft?
   const isRowActionable = useCallback((r) => {
     const w = r.workflow;
-    if (!w || !email) return false;
+    if (!email) return false;
     const e = email.toLowerCase();
-    const stage = w.stage_code || 'BR';
-    if (stage === 'BR') return isBillingTeam || billingSuperUser;
+    // Check if user has a pending assignment for this draft
+    if ((r.pending_assignments || []).includes(e)) return true;
+    const stage = w?.stage_code || 'BR';
+    if (stage === 'BR' || !w) return isBillingTeam || billingSuperUser;
     if (stage === 'POST') return billingSuperUser;
     const map = { MR: 'manager_reviewer', PR: 'partner_reviewer', OR: 'originator_reviewer' };
     const col = map[stage];
     if (!col) return false;
-    return billingSuperUser || (w[col] || '').toLowerCase() === e;
+    return (w[col] || '').toLowerCase() === e;
   }, [email, isBillingTeam, billingSuperUser]);
 
   // When editing a draft, focus the table on that single draft row
@@ -3987,8 +4041,8 @@ console.log('PDF header:', header);
     if (!showCreateDraftModal) return null;
 
     return (
-      <div className="scope-modal-backdrop" onClick={onClose}>
-        <div className="create-draft-modal" onClick={e => e.stopPropagation()}>
+      <div className="scope-modal-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+        <div className="create-draft-modal">
           <div className="create-draft-header">
             <h3 className="create-draft-title">Create Draft</h3>
             <button className="scope-modal-x" onClick={onClose} aria-label="Close">×</button>
@@ -4099,7 +4153,7 @@ console.log('PDF header:', header);
                         const totUnp   = visibleChildren.reduce((s,r) => s + n(r,'UnpostedWIP','UnpostedWip','WIPUnposted'), 0);
                         const totPost  = visibleChildren.reduce((s,r) => s + n(r,'PostedWIP','PostedWip','WIPPosted'), 0);
                         const totAvail = visibleChildren.reduce((s,r) => s + n(r,'Available','AvailableWIP'), 0);
-                        const totAmt   = visibleChildren.reduce((s,r) => s + (billAmounts[r._rowIdx] ?? n(r,'PostedWIP','PostedWip')), 0);
+                        const totAmt   = visibleChildren.reduce((s,r) => s + (parseFloat(billAmounts[r._rowIdx]) || n(r,'PostedWIP','PostedWip')), 0);
                         const allSel   = visibleChildren.every(r => selectedKeys.has(r._rowIdx));
                         const someSel  = visibleChildren.some(r => selectedKeys.has(r._rowIdx));
                         return (
@@ -4208,7 +4262,7 @@ console.log('PDF header:', header);
       {/* show loader overlay when loading */}
       {loading && <Loader />}
       <Sidebar />
-      <TopBar onOpenDraftReview={(feeIdx) => {
+      <TopBar ref={topBarRef} onOpenDraftReview={(feeIdx) => {
         const row = rawRows.find(r => Number(r.DRAFTFEEIDX) === Number(feeIdx));
         if (row) handleReviewClick(feeIdx, row, true);
       }} />
@@ -4936,38 +4990,49 @@ console.log('PDF header:', header);
 
           const narrativeChanges = [];
 
+          const getField = (row, ...keys) => {
+            for (const k of keys) if (row?.[k] != null) return row[k];
+            return '';
+          };
+
           // changed or added narratives
           for (const [idx, afterRow] of afterByIdx.entries()) {
             const beforeRow = beforeByIdx.get(idx);
 
-            const beforeText = normNarrText(
-              beforeRow?.FeeNarrative ??
-              beforeRow?.FEENARRATIVE ??
-              beforeRow?.Narrative
-            );
-            const afterText = normNarrText(
-              afterRow?.FeeNarrative ??
-              afterRow?.FEENARRATIVE ??
-              afterRow?.Narrative
-            );
+            const beforeText = normNarrText(getField(beforeRow, 'FeeNarrative', 'FEENARRATIVE', 'Narrative'));
+            const afterText  = normNarrText(getField(afterRow, 'FeeNarrative', 'FEENARRATIVE', 'Narrative'));
+            const beforeAmt  = Number(getField(beforeRow, 'Amount', 'AMOUNT') || 0);
+            const afterAmt   = Number(getField(afterRow, 'Amount', 'AMOUNT') || 0);
+            const beforeServ = String(getField(beforeRow, 'ServIndex', 'SERVINDEX') || '');
+            const afterServ  = String(getField(afterRow, 'ServIndex', 'SERVINDEX') || '');
+            const beforeWip  = String(getField(beforeRow, 'WIPType', 'WIPTYPE', 'WipType') || '');
+            const afterWip   = String(getField(afterRow, 'WIPType', 'WIPTYPE', 'WipType') || '');
 
             if (!beforeRow) {
-              // brand-new narrative line
-              if (afterText) {
-                narrativeChanges.push({
-                  type: "added",
-                  narrativeBefore: "",
-                  narrativeAfter: afterText,
-                });
-              }
+              narrativeChanges.push({
+                type: 'added',
+                debtNarrIndex: idx,
+                narrativeAfter: afterText,
+                amountAfter: afterAmt,
+                servIndexAfter: afterServ,
+                wipTypeAfter: afterWip,
+              });
               continue;
             }
 
-            if (beforeText !== afterText) {
+            const changes = [];
+            if (beforeText !== afterText) changes.push({ field: 'text', before: beforeText, after: afterText });
+            if (beforeAmt !== afterAmt) changes.push({ field: 'amount', before: beforeAmt, after: afterAmt });
+            if (beforeServ !== afterServ) changes.push({ field: 'servIndex', before: beforeServ, after: afterServ });
+            if (beforeWip !== afterWip) changes.push({ field: 'wipType', before: beforeWip, after: afterWip });
+
+            if (changes.length > 0) {
               narrativeChanges.push({
-                type: "modified",
-                narrativeBefore: beforeText,
-                narrativeAfter: afterText,
+                type: 'modified',
+                debtNarrIndex: idx,
+                currentText: afterText,
+                currentWipType: afterWip,
+                changes,
               });
             }
           }
@@ -4976,16 +5041,14 @@ console.log('PDF header:', header);
           for (const [idx, beforeRow] of beforeByIdx.entries()) {
             if (afterByIdx.has(idx)) continue;
 
-            const beforeText = normNarrText(
-              beforeRow?.FeeNarrative ??
-              beforeRow?.FEENARRATIVE ??
-              beforeRow?.Narrative
-            );
-            if (beforeText) {
+            const beforeText = normNarrText(getField(beforeRow, 'FeeNarrative', 'FEENARRATIVE', 'Narrative'));
+            const beforeAmt  = Number(getField(beforeRow, 'Amount', 'AMOUNT') || 0);
+            if (beforeText || beforeAmt) {
               narrativeChanges.push({
-                type: "removed",
+                type: 'removed',
+                debtNarrIndex: idx,
                 narrativeBefore: beforeText,
-                narrativeAfter: "",
+                amountBefore: beforeAmt,
               });
             }
           }
@@ -5026,6 +5089,23 @@ console.log('PDF header:', header);
           } catch (verErr) {
             console.warn('saveDraftVersion failed (non-blocking):', verErr);
           }
+
+          // 7) Refresh activity feed after a short delay to let audit blob propagate
+          setFeedLoading('audit');
+          const maxAttempts = 3;
+          const feedBefore = (activityFeedRef.current || []).length;
+          for (let attempt = 0; attempt < maxAttempts; attempt++) {
+            await new Promise(r => setTimeout(r, 1500));
+            try {
+              const feed = await getDraftActivityFeed(draftIdx);
+              const feedArr = Array.isArray(feed) ? feed : [];
+              if (feedArr.length > feedBefore || attempt === maxAttempts - 1) {
+                setActivityFeed(feedArr);
+                break;
+              }
+            } catch { break; }
+          }
+          setFeedLoading(false);
         }}
         onWipAdded={() => refreshEditTrayData(editTrayState.draftIdx)}
       />
@@ -5125,6 +5205,12 @@ console.log('PDF header:', header);
           setReviewModalState(s => ({ ...s, open: false }));
           setReviewModalElevated(false);
           setReviewLockInfo(null);
+          // Refresh tracker data if it's still open behind this modal
+          if (trackerOpen) {
+            getWorkflowTrackerData(visibleRawRows)
+              .then(data => setTrackerData(data))
+              .catch(err => console.warn('Tracker refresh failed:', err));
+          }
         }}
         draftFeeIdx={reviewModalState.draftFeeIdx}
         workflow={reviewModalState.workflow}
@@ -5146,6 +5232,7 @@ console.log('PDF header:', header);
         elevated={reviewModalElevated}
         lockInfo={reviewLockInfo}
         onRevertToVersion={handleRevertToVersion}
+        onAssignReviewer={handleAssignReviewer}
       />
 
       <GlobalReviewalTracker
@@ -5155,6 +5242,7 @@ console.log('PDF header:', header);
         loading={trackerLoading}
         onReviewDraft={handleTrackerReviewDraft}
         onOpenSettings={() => { setTrackerOpen(false); setAutoApproveOpen(true); }}
+        behind={reviewModalState.open}
       />
 
       <AutoApproveSettings
